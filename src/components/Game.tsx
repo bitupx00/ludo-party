@@ -8,7 +8,6 @@ import GameChat from './GameChat.tsx';
 import StickerPicker from './StickerPicker.tsx';
 import CaptureOverlay from './CaptureOverlay.tsx';
 import WinScreen from './WinScreen.tsx';
-import VideoChat from './VideoChat.tsx';
 import type { Color, Piece, Player } from '../game/types.ts';
 import { PLAYER_CONFIG } from '../game/types.ts';
 import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
@@ -115,14 +114,20 @@ export default function Game() {
     return result;
   }, [players, movableIds]);
 
-  // Track unread messages when chat is closed
+  // Track unread CHAT messages when the panel is closed (engine narration
+  // like dice rolls/captures has its own status banner and shouldn't
+  // inflate the chat's unread badge).
+  const chatMessageCount = useMemo(
+    () => messages.filter((m) => m.kind === 'chat').length,
+    [messages],
+  );
   useEffect(() => {
     if (!chatOpen) {
-      setUnreadCount(messages.length);
+      setUnreadCount(chatMessageCount);
     } else {
       setUnreadCount(0);
     }
-  }, [messages.length, chatOpen]);
+  }, [chatMessageCount, chatOpen]);
 
   const handlePieceClick = useCallback((pieceId: string) => {
     if (phase === 'moving') {
@@ -245,22 +250,26 @@ export default function Game() {
 
         {/* Bottom HUD: reactions + dice + chat */}
         <div className="game-hud">
-          {/* Camera / mic controls — fixed, non-invasive (visible when AV is on) */}
-          {avActive && (
+          {/* Camera / mic controls — fixed, non-invasive, available for the
+              whole online game (not just once media is already active) so
+              the first tap is what actually requests the camera/mic. */}
+          {onlineRole !== 'none' && (
             <div className="game-av-controls">
               <button
-                className={`game-av-btn ${camOn ? '' : 'game-av-btn--off'}`}
+                className={`game-av-btn ${avActive && !camOn ? 'game-av-btn--off' : ''} ${avActive ? 'game-av-btn--on' : ''}`}
                 onClick={() => avControls?.toggleCamera()}
                 aria-label="camera"
+                title={avActive ? (camOn ? t('turnCameraOff') : t('turnCameraOn')) : t('enableAv')}
               >
-                {camOn ? '📷' : '🚫'}
+                {!avActive ? '📷' : camOn ? '📷' : '🚫'}
               </button>
               <button
-                className={`game-av-btn ${micOn ? '' : 'game-av-btn--off'}`}
+                className={`game-av-btn ${avActive && !micOn ? 'game-av-btn--off' : ''} ${avActive ? 'game-av-btn--on' : ''}`}
                 onClick={() => avControls?.toggleMic()}
                 aria-label="microphone"
+                title={avActive ? (micOn ? t('turnMicOff') : t('turnMicOn')) : t('enableAv')}
               >
-                {micOn ? '🎤' : '🔇'}
+                {!avActive ? '🎤' : micOn ? '🎤' : '🔇'}
               </button>
             </div>
           )}
@@ -343,9 +352,6 @@ export default function Game() {
 
       {/* Win screen */}
       {winner && <WinScreen winnerColor={winner} />}
-
-      {/* Video chat overlay */}
-      <VideoChat />
 
       <style>{`
         .game-layout {
@@ -435,6 +441,10 @@ export default function Game() {
         .game-av-btn--off {
           background: rgba(240, 64, 92, 0.35);
           border-color: rgba(240, 64, 92, 0.6);
+        }
+        .game-av-btn--on:not(.game-av-btn--off) {
+          background: rgba(38, 193, 101, 0.3);
+          border-color: rgba(38, 193, 101, 0.55);
         }
         .game-mid {
           flex: 1;

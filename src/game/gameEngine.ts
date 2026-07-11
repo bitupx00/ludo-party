@@ -160,6 +160,7 @@ export function executeCapture(
       playerId: state.players[state.currentPlayerIndex].id,
       text: randomPick(CAPTURE_MESSAGES),
       timestamp: Date.now(),
+      kind: 'system',
     },
   ];
 
@@ -236,6 +237,7 @@ export function movePiece(
           playerId: currentPlayer.id,
           text: randomPick(ENTRY_MESSAGES),
           timestamp: Date.now(),
+          kind: 'system',
         },
       ],
     };
@@ -252,6 +254,7 @@ export function movePiece(
           playerId: currentPlayer.id,
           text: randomPick(HOME_MESSAGES),
           timestamp: Date.now(),
+          kind: 'system',
         },
       ],
     };
@@ -315,6 +318,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
           playerId: state.players[state.currentPlayerIndex].id,
           text: '¡TRES SEISES! 🎲🎲🎲 Turno perdido por tramposo 😤',
           timestamp: Date.now(),
+          kind: 'system',
         },
       ],
     };
@@ -335,6 +339,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
               playerId: state.players[state.currentPlayerIndex].id,
               text: randomPick(SIX_MESSAGES),
               timestamp: Date.now(),
+              kind: 'system',
             },
           ]
         : state.messages,

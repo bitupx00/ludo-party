@@ -185,14 +185,19 @@
   cursor: pointer;
 }
 
+/* The ring is centered at top:80%/left:50% of .piece — the EXACT same
+   anchor point .piece-offset uses (translate(-50%, -80%)) to place the
+   piece on its cell. This guarantees the ring always sits exactly on the
+   cell/piece regardless of the pawn SVG's internal proportions (a
+   bottom%/aspect-ratio approach drifted noticeably off the piece). */
 .piece--movable::before {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: 2%;
-  width: 110%;
-  aspect-ratio: 1.6;
-  transform: translateX(-50%);
+  top: 80%;
+  width: 68%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   border: 3px solid rgba(255, 214, 90, 0.95);
   box-shadow: 0 0 12px rgba(255, 214, 90, 0.7);

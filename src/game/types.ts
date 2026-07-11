@@ -47,6 +47,11 @@ export interface GameMessage {
   text: string;
   sticker?: string;
   timestamp: number;
+  /** 'chat' = user-authored (typed text, quick phrase, reaction/sticker) —
+   *  shown in the chat panel. 'system' = engine narration (dice rolls,
+   *  captures, turn events) — has its own dedicated UI elsewhere and is
+   *  hidden from the chat panel. Defaults to 'system' when omitted. */
+  kind?: 'chat' | 'system';
 }
 
 export interface CaptureEffect {

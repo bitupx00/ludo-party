@@ -22,6 +22,11 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
 
+  // Only user-authored content belongs in the chat panel — dice rolls,
+  // captures, entries, etc. are engine narration with their own dedicated
+  // UI (status banner, capture overlay) and would just be noise here.
+  const chatMessages = messages.filter((m) => m.kind === 'chat');
+
   const handleSend = () => {
     const text = draft.trim();
     if (!text) return;
@@ -39,18 +44,15 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
     if (scrollRef.current && isOpen) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isOpen]);
+  }, [chatMessages, isOpen]);
 
-  // Classify messages: system messages have playerId 'system'
+  // Classify messages for bubble styling (only 'chat'-kind messages reach
+  // this component: typed text, quick phrases, and reactions/stickers).
   const getMsgType = (msg: GameMessage): string => {
     if (msg.playerId === 'system') return 'system';
     const player = playerMap.get(msg.playerId);
     if (!player) return 'system';
-    // Classify as sticker if it has a sticker field
     if (msg.sticker) return 'sticker';
-    // Check for capture keywords
-    if (msg.text.includes('BOOM') || msg.text.includes('CAPTURADO') || msg.text.includes('Eliminado')) return 'capture';
-    if (msg.text.includes('GANASTE') || msg.text.includes('CAMPEÓN') || msg.text.includes('VICTORIA')) return 'win';
     return 'message';
   };
 
@@ -73,7 +75,10 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
 
             <div className="chat-messages" ref={scrollRef}>
               <AnimatePresence initial={false}>
-                {messages.map(msg => {
+                {chatMessages.length === 0 && (
+                  <p className="chat-empty">{t('chatEmpty')}</p>
+                )}
+                {chatMessages.map(msg => {
                   const msgType = getMsgType(msg);
                   const player = playerMap.get(msg.playerId);
                   const playerColor = player?.color ?? 'red';
@@ -270,6 +275,14 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
           opacity: 0.4;
           text-align: right;
           margin-top: 2px;
+        }
+        .chat-empty {
+          text-align: center;
+          color: var(--color-text-muted);
+          font-size: 0.85rem;
+          font-weight: 700;
+          margin: auto;
+          padding: var(--gap-lg);
         }
         .chat-input-row {
           display: flex;

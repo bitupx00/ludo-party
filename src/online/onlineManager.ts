@@ -1,10 +1,14 @@
-import Peer, { type DataConnection, type PeerOptions } from 'peerjs';
+import Peer, { type DataConnection, type MediaConnection, type PeerOptions } from 'peerjs';
 import { useGameStore, SNAPSHOT_KEYS, type GameSnapshot } from '../store/gameStore';
 
 /**
  * Online multiplayer over PeerJS (WebRTC data channels), host-authoritative:
  * the host runs the game engine (and the bots); guests send their inputs and
  * mirror the host's state snapshots. No game server needed.
+ *
+ * This module ALSO owns the room's single PeerJS connection graph, which the
+ * AV layer (src/online/avManager.ts) reuses for camera/mic mesh calls —
+ * camera/mic must never spin up a second, disconnected PeerJS room.
  */
 
 /* ─── Protocol ────────────────────────────────────────────────────── */
@@ -19,9 +23,16 @@ type GuestMessage =
   | { t: 'join'; name: string }
   | ({ t: 'action' } & GuestAction);
 
+/** peerId ↔ playerId pairing for every participant, used to set up AV mesh calls. */
+export interface RosterEntry {
+  peerId: string;
+  playerId: string;
+}
+
 type HostMessage =
   | { t: 'welcome'; playerId: string }
   | { t: 'full'; snap: GameSnapshot }
+  | { t: 'peers'; list: RosterEntry[] }
   | { t: 'error'; code: 'room-full' | 'in-game' }
   | { t: 'bye' };
 
@@ -59,6 +70,34 @@ const guestConns = new Map<string, { conn: DataConnection; playerId: string | nu
 let unsubscribeStore: (() => void) | null = null;
 let lastBroadcast = '';
 let leftVoluntarily = false;
+let myPlayerId: string | null = null;
+
+/** AV layer hooks (src/online/avManager.ts subscribes here). */
+interface AvSubscriber {
+  onRoster: (roster: RosterEntry[]) => void;
+  onCall: (peerId: string, call: MediaConnection) => void;
+}
+let avSubscriber: AvSubscriber | null = null;
+
+export function setAvSubscriber(sub: AvSubscriber | null) {
+  avSubscriber = sub;
+}
+
+/** This device's own PeerJS id (stable for the life of the room). */
+export function getMyPeerId(): string | null {
+  return peer ? peer.id : null;
+}
+
+/** Place a media call to another participant in the room (mesh AV). */
+export function callPeer(peerId: string, stream: MediaStream): MediaConnection | null {
+  return peer ? peer.call(peerId, stream) : null;
+}
+
+/** Tell onlineManager which player THIS device controls, for roster broadcasts. */
+export function setMyPlayerId(id: string) {
+  myPlayerId = id;
+  if (guestConns.size > 0) broadcastRoster();
+}
 
 function destroySession() {
   if (unsubscribeStore) { unsubscribeStore(); unsubscribeStore = null; }
@@ -69,6 +108,7 @@ function destroySession() {
   if (hostConn) { try { hostConn.close(); } catch { /* noop */ } hostConn = null; }
   if (peer) { try { peer.destroy(); } catch { /* noop */ } peer = null; }
   lastBroadcast = '';
+  myPlayerId = null;
 }
 
 /* ─── Snapshots ────────────────────────────────────────────────────── */
@@ -90,6 +130,28 @@ function broadcastState() {
   for (const { conn } of guestConns.values()) {
     if (conn.open) {
       try { conn.send(msg); } catch { /* peer gone; close event will clean up */ }
+    }
+  }
+}
+
+/** Host: the current peerId↔playerId roster (self + every seated guest). */
+function currentRoster(): RosterEntry[] {
+  const list: RosterEntry[] = [];
+  if (myPlayerId && peer) list.push({ peerId: peer.id, playerId: myPlayerId });
+  for (const [peerId, entry] of guestConns) {
+    if (entry.playerId) list.push({ peerId, playerId: entry.playerId });
+  }
+  return list;
+}
+
+/** Host: push the roster to every guest and to this device's own AV layer. */
+function broadcastRoster() {
+  const roster = currentRoster();
+  avSubscriber?.onRoster(roster);
+  const msg: HostMessage = { t: 'peers', list: roster };
+  for (const { conn } of guestConns.values()) {
+    if (conn.open) {
+      try { conn.send(msg); } catch { /* noop */ }
     }
   }
 }
@@ -140,6 +202,7 @@ export function hostRoom(code: string): Promise<void> {
           entry.playerId = playerId;
           conn.send({ t: 'welcome', playerId } satisfies HostMessage);
           conn.send({ t: 'full', snap: currentSnapshot() } satisfies HostMessage);
+          broadcastRoster();
           return;
         }
 
@@ -154,11 +217,17 @@ export function hostRoom(code: string): Promise<void> {
         if (entry?.playerId) {
           useGameStore.getState().handleGuestLeft(entry.playerId);
         }
+        broadcastRoster();
       });
 
       conn.on('error', () => {
         // Treated like a close; the close handler does the cleanup
       });
+    });
+
+    // Incoming camera/mic calls (mesh AV) — answered by the AV layer.
+    p.on('call', (call) => {
+      avSubscriber?.onCall(call.peer, call);
     });
 
     p.on('error', (err) => {
@@ -212,10 +281,15 @@ export function joinRoom(code: string, name: string): Promise<void> {
           clearTimeout(timeout);
           if (!settled) { settled = true; resolve(); }
           useGameStore.setState({ localPlayerId: msg.playerId, onlineRole: 'guest', roomCode: code, onlineError: null });
+          setMyPlayerId(msg.playerId);
           return;
         }
         if (msg.t === 'full') {
           store._applySnapshot(msg.snap);
+          return;
+        }
+        if (msg.t === 'peers') {
+          avSubscriber?.onRoster(msg.list);
           return;
         }
         if (msg.t === 'error') {
@@ -238,6 +312,11 @@ export function joinRoom(code: string, name: string): Promise<void> {
         useGameStore.getState().handleHostLeft();
         destroySession();
       });
+    });
+
+    // Incoming camera/mic calls (mesh AV) — answered by the AV layer.
+    p.on('call', (call) => {
+      avSubscriber?.onCall(call.peer, call);
     });
 
     p.on('error', (err) => {

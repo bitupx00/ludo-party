@@ -15,7 +15,7 @@ interface PieceProps {
   onClick: (pieceId: string) => void;
 }
 
-const STEP_DURATION = 0.17; // seconds per cell
+export const STEP_DURATION = 0.17; // seconds per cell
 
 export default function Piece({ piece, xs, ys, offset, onClick }: PieceProps) {
   const isFinished = piece.position >= 56;

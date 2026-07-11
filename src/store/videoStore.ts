@@ -14,7 +14,7 @@ interface VideoStore {
   micOn: boolean;
   /** Who is currently speaking (voice activity), by color. */
   speaking: Partial<Record<Color, boolean>>;
-  /** Camera/mic toggle callbacks published by the VideoChat session. */
+  /** Camera/mic toggle callbacks published by the online AV session. */
   controls: { toggleCamera: () => void; toggleMic: () => void } | null;
 
   setLocal: (color: Color | null, stream: MediaStream | null) => void;

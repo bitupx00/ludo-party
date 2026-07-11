@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import type { Piece as PieceType, Player, Color } from '../game/types.ts';
 import { HOME_STRETCH_ENTRY, PLAYER_CONFIG } from '../game/types.ts';
@@ -11,7 +11,7 @@ import {
   arrowFor,
   centerSideColors,
 } from '../game/boardRotation.ts';
-import Piece from './Piece.tsx';
+import Piece, { STEP_DURATION } from './Piece.tsx';
 import './Board.css';
 
 interface BoardProps {
@@ -63,6 +63,20 @@ function nextLogical(pos: number, color: Color): number {
   return (pos + 1) % 52;
 }
 
+/** Number of cell-hops walking a color's route from `from` to `to` (0 if unreachable within 8 hops). */
+function stepsBetween(from: number, to: number, color: Color): number {
+  let p = from;
+  for (let steps = 1; steps <= 8; steps++) {
+    p = nextLogical(p, color);
+    if (p === to) return steps;
+  }
+  return 0;
+}
+
+/** Extra buffer (ms) after the capturer's travel duration before the
+ *  captured piece is released to fly back to its base. */
+const CAPTURE_RELEASE_BUFFER_MS = 90;
+
 export default function Board({ pieces, currentPlayer, onPieceClick, perspective }: BoardProps) {
   const k = ROTATION_FOR_COLOR[perspective];
   const rot = (x: number, y: number) => rotateCell(x, y, k);
@@ -88,20 +102,93 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
 
   // Previous logical positions (for cell-by-cell travel animation)
   const prevPositions = useRef<Map<string, number>>(new Map());
+
+  // Captured pieces must stay visible at their board square until the
+  // capturing piece's own travel animation lands — otherwise the captured
+  // piece snaps back to base the instant the dice result resolves, well
+  // before the capturer has visibly arrived. Any board(>=0) → base(-1)
+  // transition is always a capture (no other rule sends a piece to base),
+  // so we detect that transition here, freeze the piece at its last board
+  // position for the capturer's travel duration, then release it.
+  const captureHolds = useRef<Map<string, number>>(new Map()); // pieceId -> frozen board position
+  const [, releaseTick] = useReducer((c: number) => c + 1, 0);
+
+  for (const piece of pieces) {
+    if (captureHolds.current.has(piece.id)) continue;
+    const prevPos = prevPositions.current.get(piece.id);
+    if (prevPos === undefined || prevPos < 0 || piece.position !== -1) continue;
+
+    // Genuine capture detected — find the capturing piece's travel time.
+    let moverSteps = 0;
+    for (const other of pieces) {
+      if (other.id === piece.id) continue;
+      const otherPrev = prevPositions.current.get(other.id);
+      if (otherPrev === undefined || otherPrev === other.position) continue;
+      if (otherPrev < 0 || other.position < 0) continue; // base-entry or itself captured: instant, not a "traveler"
+      const steps = stepsBetween(otherPrev, other.position, other._color);
+      if (steps > moverSteps) moverSteps = steps;
+    }
+
+    captureHolds.current.set(piece.id, prevPos);
+    const releaseMs = moverSteps * STEP_DURATION * 1000 + CAPTURE_RELEASE_BUFFER_MS;
+    setTimeout(() => {
+      captureHolds.current.delete(piece.id);
+      // Resync prevPositions to the TRUE (base) position now, in the same
+      // tick as the release. Without this, the next render's detection
+      // loop would still see the stale pre-capture prevPos (since the
+      // sync effect skips held pieces) and immediately re-detect the SAME
+      // capture, re-arming the hold forever in a 90ms loop.
+      prevPositions.current.set(piece.id, piece.position);
+      releaseTick();
+    }, releaseMs);
+  }
+
+  // Effective pieces: captured ones under an active hold render frozen at
+  // their last board square instead of jumping straight to base.
+  const effectivePieces = pieces.map((piece) => {
+    const frozenAt = captureHolds.current.get(piece.id);
+    return frozenAt === undefined ? piece : { ...piece, position: frozenAt };
+  });
+
   useEffect(() => {
     const map = prevPositions.current;
-    for (const p of pieces) map.set(p.id, p.position);
+    for (const p of pieces) {
+      if (captureHolds.current.has(p.id)) continue; // keep the pre-capture position until released
+      map.set(p.id, p.position);
+    }
   });
+
+  // Cache the computed waypoint arrays per piece, keyed by the CURRENT
+  // logical position. Board re-renders for many reasons unrelated to this
+  // piece (reactions, chat, capture-effect timers, and — critically — an
+  // online guest's `players` array being replaced wholesale by every
+  // incoming network snapshot). Without this cache, `prevPositions` is
+  // already synced to the piece's new position within ~10ms of a move
+  // starting (see the effect above), so any LATER incidental re-render
+  // would recompute travelFor and see prev===position, collapsing the
+  // in-flight multi-step keyframe array down to a single-point fallback
+  // and making Framer abandon the cell-by-cell walk partway through.
+  // Returning the SAME cached array reference for the life of a given
+  // position keeps the piece's `animate` prop stable across those renders.
+  const travelCache = useRef<Map<string, { forPosition: number; xs: string[]; ys: string[] }>>(new Map());
 
   /** Build the travel waypoints (percent coords) from prev → current position. */
   const travelFor = (piece: PieceType & { _color: Color }): { xs: string[]; ys: string[] } => {
+    const cached = travelCache.current.get(piece.id);
+    if (cached && cached.forPosition === piece.position) {
+      return cached;
+    }
+
     const target = coordsFor(piece.position, piece._color, piece.id);
     const prev = prevPositions.current.get(piece.id);
+    const direct = { forPosition: piece.position, xs: [`${target.x}%`], ys: [`${target.y}%`] };
+
     if (
       prev === undefined || prev === piece.position ||
       prev < 0 || piece.position < 0 // base exits/captures fly directly
     ) {
-      return { xs: [`${target.x}%`], ys: [`${target.y}%`] };
+      travelCache.current.set(piece.id, direct);
+      return direct;
     }
     // Walk the route from prev to current (a dice move is at most 6 steps)
     const seq: number[] = [];
@@ -110,15 +197,19 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
       p = nextLogical(p, piece._color);
       seq.push(p);
     }
-    if (p !== piece.position || seq.length < 2) {
-      return { xs: [`${target.x}%`], ys: [`${target.y}%`] };
+    if (p !== piece.position || seq.length < 1) {
+      travelCache.current.set(piece.id, direct);
+      return direct;
     }
     const start = coordsFor(prev, piece._color, piece.id);
     const points = [start, ...seq.map((s) => coordsFor(Math.min(s, 56), piece._color, piece.id))];
-    return {
+    const result = {
+      forPosition: piece.position,
       xs: points.map((pt) => `${pt.x}%`),
       ys: points.map((pt) => `${pt.y}%`),
     };
+    travelCache.current.set(piece.id, result);
+    return result;
   };
 
   // ── Static cells ──────────────────────────────────────────────────
@@ -167,9 +258,11 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
   // Center triangles rotate with the board
   const [topC, rightC, bottomC, leftC] = centerSideColors(k);
 
-  // Group pieces by final coordinate for stacking offsets
-  const pieceGroups = new Map<string, typeof pieces>();
-  for (const piece of pieces) {
+  // Group pieces by final coordinate for stacking offsets (uses effective
+  // positions so a held/frozen captured piece still stacks correctly with
+  // whatever else is on its square).
+  const pieceGroups = new Map<string, typeof effectivePieces>();
+  for (const piece of effectivePieces) {
     const c = coordsFor(piece.position, piece._color, piece.id);
     const key = `${c.x.toFixed(2)},${c.y.toFixed(2)}`;
     if (!pieceGroups.has(key)) pieceGroups.set(key, []);
@@ -236,7 +329,7 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
       {/* Pieces overlay */}
       <div className="pieces-overlay">
         <AnimatePresence>
-          {pieces.map((piece) => {
+          {effectivePieces.map((piece) => {
             const c = coordsFor(piece.position, piece._color, piece.id);
             const key = `${c.x.toFixed(2)},${c.y.toFixed(2)}`;
             const group = pieceGroups.get(key) ?? [piece];

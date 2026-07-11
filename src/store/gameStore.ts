@@ -20,7 +20,9 @@ import {
   leaveRoom,
   sendActionToHost,
   generateRoomCode,
+  setMyPlayerId,
 } from '../online/onlineManager';
+import { startAvSession, stopAvSession } from '../online/avManager';
 import { playSfx, vibrate } from '../sound';
 import {
   NO_MOVE_MESSAGES,
@@ -189,6 +191,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   openLobby: (mode: GameMode) => {
     clearTimers();
     leaveRoom();
+    stopAvSession();
     set({
       ...createInitialState(),
       screen: 'lobby',
@@ -206,6 +209,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   goHome: () => {
     clearTimers();
     leaveRoom();
+    stopAvSession();
     set({
       ...createInitialState(),
       screen: 'home',
@@ -239,6 +243,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           onlineConnecting: false,
           onlineError: null,
         });
+        if (hostPlayer) setMyPlayerId(hostPlayer.id);
+        startAvSession();
         return;
       } catch (err) {
         if ((err as Error).message === 'code-taken') continue;
@@ -257,6 +263,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     try {
       await joinRoom(trimmedCode, trimmedName);
       set({ onlineConnecting: false });
+      startAvSession();
     } catch (err) {
       const reason = (err as Error).message;
       const key = reason === 'room-not-found' ? 'errRoomNotFound'
@@ -329,6 +336,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playerId: 'system',
         text: `📴 ${player.name} se desconectó — ahora juega un bot`,
         timestamp: Date.now(),
+        kind: 'system',
       }),
     });
 
@@ -356,6 +364,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   handleHostLeft: () => {
     clearTimers();
+    stopAvSession();
     set({
       ...createInitialState(),
       screen: 'home',
@@ -458,6 +467,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           playerId: 'system',
           text: '¡¡¡EL JUEGO COMIENZA!!! 🎲🔥',
           timestamp: Date.now(),
+          kind: 'system',
         },
       ],
     });
@@ -561,6 +571,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetGame: () => {
     clearTimers();
     leaveRoom();
+    stopAvSession();
     set({
       ...createInitialState(),
       screen: 'home',
@@ -611,6 +622,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           playerId: 'system',
           text: '¡REVANCHA! 🔄🔥',
           timestamp: Date.now(),
+          kind: 'system',
         },
       ],
     });
@@ -656,6 +668,7 @@ function reactionFromPlayer(
       text: emoji,
       sticker: emoji,
       timestamp: Date.now(),
+      kind: 'chat',
     }),
   }));
 }
@@ -674,6 +687,7 @@ function chatFromPlayer(
       playerId: player.id,
       text: trimmed.slice(0, 200),
       timestamp: Date.now(),
+      kind: 'chat',
     }),
   }));
 }
@@ -691,6 +705,7 @@ function cancelThirdSix(
       playerId,
       text: randomPick(THREE_SIX_MESSAGES),
       timestamp: Date.now(),
+      kind: 'system',
     }),
   });
   setTimeout(() => {
@@ -728,6 +743,7 @@ function doRoll(
         playerId: currentPlayer.id,
         text: `🎲 Salió un ${value}`,
         timestamp: Date.now(),
+        kind: 'system',
       }),
     });
 
@@ -748,6 +764,7 @@ function doRoll(
       playerId: currentPlayer.id,
       text: randomPick(NO_MOVE_MESSAGES),
       timestamp: Date.now(),
+      kind: 'system',
     };
 
     set({
@@ -827,6 +844,7 @@ function executeMove(
           playerId: winnerPlayer?.id ?? 'system',
           text: randomPick(WIN_MESSAGES),
           timestamp: Date.now(),
+          kind: 'system',
         }),
     });
     return;
@@ -843,6 +861,7 @@ function executeMove(
         playerId: state.players[currentPlayerIndex].id,
         text: randomPick(captured ? CAPTURE_BONUS_MESSAGES : HOME_BONUS_MESSAGES),
         timestamp: Date.now(),
+        kind: 'system',
       }),
     };
   }
@@ -879,6 +898,7 @@ function scheduleBotTurn(
           playerId: currentPlayer.id,
           text: `🎲 ${currentPlayer.emoji} Salió un ${value}`,
           timestamp: Date.now(),
+          kind: 'system',
         }),
     });
 
@@ -902,6 +922,7 @@ function scheduleBotTurn(
               playerId: currentPlayer.id,
               text: randomPick(NO_MOVE_MESSAGES),
               timestamp: Date.now(),
+              kind: 'system',
             }),
         });
         setTimeout(() => {
@@ -935,6 +956,7 @@ function scheduleBotTurn(
                   text: reaction.text,
                   sticker: reaction.sticker,
                   timestamp: Date.now(),
+                  kind: 'chat',
                 }),
             });
           }
