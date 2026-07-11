@@ -7,8 +7,8 @@ import { useT } from '../i18n.ts';
 /**
  * Lucky-dice shop (Ludo Club style, but with earned points instead of
  * bought money): players earn 1 ⭐ per natural 6 or 1 rolled, and spend
- * them here on a weighted dice — 30% chance the roll IS the chosen
- * number, 70% it lands one of the two numbers below it.
+ * them here on a weighted dice — 50% chance the roll IS the chosen
+ * number, 50% it lands one of the two numbers below it.
  */
 
 interface DiceShopProps {

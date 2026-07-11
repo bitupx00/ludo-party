@@ -11,8 +11,8 @@ export function rollDice(): number {
 
 // ─── Lucky dice (points shop) ────────────────────────────────────────
 // Players earn 1 point for every natural 6 or 1 they roll. Points buy a
-// "lucky dice" of a chosen number: 30% chance the roll IS that number,
-// 70% chance it lands one of the two numbers just below it (min 1).
+// "lucky dice" of a chosen number: 50% chance the roll IS that number,
+// 50% chance it lands one of the two numbers just below it (min 1).
 
 /** Cost in points of each buyable lucky-dice number. The 1 and the 6 cost
  *  more because both grant an extra roll. */
@@ -23,11 +23,11 @@ export function earnsPoint(value: number): boolean {
   return value === 6 || value === 1;
 }
 
-/** Weighted roll for a bought lucky dice of number `n`: 30% exactly `n`,
- *  70% one of the two numbers below it. The 1 has no lower numbers, so its
- *  70% falls on a 2 or a 3 instead. */
+/** Weighted roll for a bought lucky dice of number `n`: 50% exactly `n`,
+ *  50% one of the two numbers below it. The 1 has no lower numbers, so its
+ *  other 50% falls on a 2 or a 3 instead. */
 export function rollLuckyDice(n: number): number {
-  if (Math.random() < 0.3) return n;
+  if (Math.random() < 0.5) return n;
   const lower = [n - 1, n - 2].filter((v) => v >= 1);
   const pool = lower.length > 0 ? lower : [2, 3];
   return pool[Math.floor(Math.random() * pool.length)];

@@ -133,8 +133,8 @@ interface GameStore {
 
   // Gameplay
   roll: () => void;
-  /** Roll using a bought lucky dice (points shop): 30% the chosen number,
-   *  70% a lower one. Cost is validated/deducted host-side. */
+  /** Roll using a bought lucky dice (points shop): 50% the chosen number,
+   *  50% a lower one. Cost is validated/deducted host-side. */
   rollLucky: (n: number) => void;
   selectPiece: (pieceId: string) => void;
 
@@ -825,7 +825,7 @@ function adjustPoints(
 /** Roll the dice for the current (human) player and resolve the aftermath.
  *  `luckyN` = a bought lucky dice number: the cost is validated and
  *  deducted HERE (host-authoritative — guests can't fake points) and the
- *  roll uses the 30%/70% weighted distribution instead of a fair die. */
+ *  roll uses the 50%/50% weighted distribution instead of a fair die. */
 function doRoll(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
   get: () => GameStore,
