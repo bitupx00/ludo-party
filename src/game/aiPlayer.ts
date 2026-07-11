@@ -1,5 +1,5 @@
 import type { Color, GameState, Piece, Player } from './types';
-import { COLORS, COLOR_CONFIG } from './types';
+import { COLORS } from './types';
 import {
   canPieceMove,
   calculateNewPosition,
@@ -87,7 +87,7 @@ export function chooseBotMove(
   const safePiece = movable.find((p) => {
     if (p.position === -1) return false;
     const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
-    return newPos >= 0 && newPos < 52 && COLOR_CONFIG[currentPlayer.color].safeSquares.includes(newPos);
+    return newPos >= 0 && newPos < 52 && [0, 8, 13, 21, 26, 34, 39, 47].includes(newPos);
   });
   if (safePiece) return safePiece.id;
 
@@ -120,8 +120,9 @@ function findCaptureMove(
       if (player.color === currentPlayer.color) continue;
       for (const opponentPiece of player.pieces) {
         if (opponentPiece.position === newPos) {
-          // Verify it's not a safe square
-          if (!COLOR_CONFIG[player.color].safeSquares.includes(newPos)) {
+          // Cannot capture on safe squares
+          const GLOBAL_SAFE = [0, 8, 13, 21, 26, 34, 39, 47];
+          if (!GLOBAL_SAFE.includes(newPos)) {
             return piece;
           }
         }

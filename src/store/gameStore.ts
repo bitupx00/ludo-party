@@ -39,6 +39,7 @@ interface GameStore {
 
   // Lobby
   addPlayer: (name: string) => void;
+  addBotPlayer: () => void;
   removePlayer: (id: string) => void;
   startGame: () => void;
 
@@ -116,6 +117,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
+  addBotPlayer: () => {
+    const { players } = get();
+    if (players.length >= 4) return;
+
+    const usedColors = new Set(players.map((p) => p.color));
+    const nextColor = COLORS.find((c) => !usedColors.has(c));
+    if (!nextColor) return;
+
+    const botNames: Record<string, string> = {
+      red: 'Bot Rojo 🤖',
+      green: 'Bot Verde 🤖',
+      yellow: 'Bot Amarillo 🤖',
+      blue: 'Bot Azul 🤖',
+    };
+
+    const botPlayer = createPlayer(
+      createId(),
+      botNames[nextColor],
+      nextColor,
+      '🤖',
+      true,
+    );
+
+    set({
+      players: [...players, botPlayer],
+    });
+  },
+
   removePlayer: (id: string) => {
     const { players } = get();
     if (get().phase !== 'lobby') return;
@@ -126,9 +155,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { players } = get();
     if (players.length < 2) return;
 
-    // Fill remaining slots with bots
-    const bots = createBotPlayers(players);
-    const allPlayers = [...players, ...bots];
+    // Fill remaining slots with bots ONLY if needed
+    const humanPlayers = players.filter(p => !p.isBot);
+    const existingBots = players.filter(p => p.isBot);
+    const allPlayers = [...humanPlayers, ...existingBots];
+
+    if (allPlayers.length < 4) {
+      const additionalBots = createBotPlayers(allPlayers);
+      allPlayers.push(...additionalBots);
+    }
 
     // Shuffle starting order
     const shuffled = [...allPlayers].sort(() => Math.random() - 0.5);

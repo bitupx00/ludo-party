@@ -50,6 +50,7 @@ export default function Lobby() {
   const [nameInput, setNameInput] = useState('');
   const players = useGameStore(s => s.players);
   const addPlayer = useGameStore(s => s.addPlayer);
+  const addBotPlayer = useGameStore(s => s.addBotPlayer);
   const removePlayer = useGameStore(s => s.removePlayer);
   const startGame = useGameStore(s => s.startGame);
   const [tipIndex, setTipIndex] = useState(0);
@@ -70,18 +71,13 @@ export default function Lobby() {
 
   const canStart = players.length >= 2;
   const canAddBots = players.length < 4;
+  const botSlots = 4 - players.length;
   const diceEmojis = ['🎲', '🎲', '🎲', '🎯', '🎲', '🎲'];
 
-  // addBots is handled by startGame (engine fills bots automatically),
-  // but we still show the button as UX sugar — it just starts the game early
+  // Add bots one by one (each click = 1 bot)
   const handleAddBots = useCallback(() => {
-    // The engine's startGame already fills with bots.
-    // If there are already 2+ players, just start.
-    // If only 1, we can't start yet. Just visual feedback.
-    if (players.length >= 2) {
-      startGame();
-    }
-  }, [players.length, startGame]);
+    addBotPlayer();
+  }, [addBotPlayer]);
 
   return (
     <div className="lobby">
@@ -204,7 +200,7 @@ export default function Lobby() {
               onClick={handleAddBots}
               whileTap={{ scale: 0.95 }}
             >
-              🤖 Añadir bots ({4 - players.length} slots)
+              🤖 Añadir bot ({botSlots} slot{botSlots !== 1 ? 's' : ''})
             </motion.button>
           )}
 

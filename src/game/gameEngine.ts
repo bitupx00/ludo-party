@@ -106,10 +106,10 @@ export function getMovablePieces(state: GameState, diceValue: number): Piece[] {
 /** Check if a piece at the given position can capture an opponent's piece. */
 export function checkCapture(state: GameState, piece: Piece): Piece | null {
   if (piece.position < 0 || piece.position >= 52) return null;
-  // Cannot capture on safe squares
-  if (COLOR_CONFIG[state.players[state.currentPlayerIndex].color].safeSquares.includes(piece.position)) {
-    return null;
-  }
+
+  // Cannot capture on safe squares (global safe squares set)
+  const GLOBAL_SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
+  if (GLOBAL_SAFE_SQUARES.includes(piece.position)) return null;
 
   const currentPlayer = state.players[state.currentPlayerIndex];
 
@@ -194,7 +194,7 @@ export function movePiece(
             ...player,
             pieces: player.pieces.map((p) =>
               p.id === pieceId
-                ? { ...p, position: newPos, isSafe: newPos >= 52 || COLOR_CONFIG[currentPlayer.color].safeSquares.includes(newPos) }
+                ? { ...p, position: newPos, isSafe: newPos >= 52 || [0, 8, 13, 21, 26, 34, 39, 47].includes(newPos) }
                 : p,
             ),
           }
