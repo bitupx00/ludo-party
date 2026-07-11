@@ -1,0 +1,160 @@
+import type { Color, GameState, Piece, Player } from './types';
+import { COLORS, COLOR_CONFIG } from './types';
+import {
+  canPieceMove,
+  calculateNewPosition,
+  createPlayer,
+  createId,
+} from './gameEngine';
+import { randomPick, STICKERS, CAPTURE_MESSAGES } from './stickers';
+
+const BOT_NAMES: Record<Color, string> = {
+  red: 'Bot Rojo 🤖',
+  green: 'Bot Verde 🤖',
+  yellow: 'Bot Amarillo 🤖',
+  blue: 'Bot Azul 🤖',
+};
+
+/** Create bot players to fill missing slots (up to 4 total). */
+export function createBotPlayers(existingPlayers: Player[]): Player[] {
+  const usedColors = new Set(existingPlayers.map((p) => p.color));
+  const availableColors = COLORS.filter((c) => !usedColors.has(c));
+  const bots: Player[] = [];
+
+  for (const color of availableColors) {
+    bots.push(
+      createPlayer(
+        createId(),
+        BOT_NAMES[color],
+        color,
+        '🤖',
+        true,
+      ),
+    );
+  }
+
+  return bots;
+}
+
+/**
+ * AI decision: which piece should the bot move?
+ * Priority:
+ * 1. Capture an opponent's piece
+ * 2. Enter a new piece (if rolled 5 or 6 and pieces in home)
+ * 3. Move the piece closest to home stretch entry (furthest along)
+ * 4. Move a piece that would land on a safe square
+ * 5. Move the first movable piece
+ */
+export function chooseBotMove(
+  state: GameState,
+  diceValue: number,
+): string | null {
+  const currentPlayer = state.players[state.currentPlayerIndex];
+  if (!currentPlayer) return null;
+
+  const movable = currentPlayer.pieces.filter((piece) =>
+    canPieceMove(piece, diceValue, currentPlayer.color),
+  );
+
+  if (movable.length === 0) return null;
+  if (movable.length === 1) return movable[0].id;
+
+  // Priority 1: Capture
+  const capturePiece = findCaptureMove(state, currentPlayer, movable, diceValue);
+  if (capturePiece) return capturePiece.id;
+
+  // Priority 2: Enter new piece
+  const entryPiece = movable.find((p) => p.position === -1);
+  if (entryPiece) return entryPiece.id;
+
+  // Priority 3: Reach home (position 56)
+  const homePiece = movable.find((p) => {
+    if (p.position === -1) return false;
+    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
+    return newPos === 56;
+  });
+  if (homePiece) return homePiece.id;
+
+  // Priority 4: Enter home stretch (position 52-55)
+  const hsPiece = movable.find((p) => {
+    if (p.position === -1) return false;
+    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
+    return newPos >= 52 && newPos <= 55;
+  });
+  if (hsPiece) return hsPiece.id;
+
+  // Priority 5: Land on safe square
+  const safePiece = movable.find((p) => {
+    if (p.position === -1) return false;
+    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
+    return newPos >= 0 && newPos < 52 && COLOR_CONFIG[currentPlayer.color].safeSquares.includes(newPos);
+  });
+  if (safePiece) return safePiece.id;
+
+  // Priority 6: Move the furthest-advanced piece
+  const sortedByProgress = [...movable].sort((a, b) => {
+    // Pieces further along the board (higher position) are prioritized
+    const progressA = a.position === -1 ? -1 : a.position;
+    const progressB = b.position === -1 ? -1 : b.position;
+    return progressB - progressA;
+  });
+
+  return sortedByProgress[0].id;
+}
+
+/** Find a piece that can capture an opponent. */
+function findCaptureMove(
+  state: GameState,
+  currentPlayer: Player,
+  movable: Piece[],
+  diceValue: number,
+): Piece | null {
+  for (const piece of movable) {
+    if (piece.position === -1) continue;
+
+    const newPos = calculateNewPosition(piece.position, diceValue, currentPlayer.color);
+    if (newPos < 0 || newPos >= 52) continue;
+
+    // Check if any opponent is at the new position
+    for (const player of state.players) {
+      if (player.color === currentPlayer.color) continue;
+      for (const opponentPiece of player.pieces) {
+        if (opponentPiece.position === newPos) {
+          // Verify it's not a safe square
+          if (!COLOR_CONFIG[player.color].safeSquares.includes(newPos)) {
+            return piece;
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** Generate a random bot reaction message. */
+export function getBotReaction(): { text: string; sticker?: string } {
+  const roll = Math.random();
+
+  if (roll < 0.3) {
+    const sticker = randomPick(STICKERS);
+    return {
+      text: `${sticker.emoji} ${sticker.label}`,
+      sticker: sticker.emoji,
+    };
+  }
+
+  if (roll < 0.5) {
+    const taunts = [
+      '¡Ven a mi nivel! 😤',
+      'Eso fue fácil 🧠',
+      'Bot master race 🤖',
+      'Calculando... ¡captura ejecutada! 💥',
+      'Mi IA es mejor que tu suerte 🎯',
+      'Error 404: compasión no encontrada 😈',
+      'No es trampa, es inteligencia artificial 🧬',
+    ];
+    return { text: randomPick(taunts) };
+  }
+
+  return { text: randomPick(CAPTURE_MESSAGES) };
+}

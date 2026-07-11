@@ -1,0 +1,80 @@
+/* ===== Capture Overlay Styles ===== */
+
+.capture-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* Lightning flash */
+.capture-lightning {
+  position: absolute;
+  inset: 0;
+  animation: lightning 2s ease-out forwards;
+}
+
+/* Particles */
+.capture-particle {
+  position: absolute;
+  font-size: 2rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.capture-particle--skull-rain {
+  animation: skull-rain 2.5s ease-in forwards;
+}
+
+.capture-particle--fire-burst {
+  animation: fire-burst 2s ease-out forwards;
+}
+
+.capture-particle--star-burst {
+  animation: star-burst 2s ease-out forwards;
+}
+
+/* Capture text */
+.capture-text {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 40px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  border-radius: 24px;
+  border: 2px solid rgba(255, 71, 87, 0.4);
+  text-align: center;
+}
+
+.capture-emojis {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.capture-names {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: white;
+  line-height: 1.4;
+}
+
+.capture-verb {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.capture-sub {
+  font-size: 1.5rem;
+  letter-spacing: 4px;
+}

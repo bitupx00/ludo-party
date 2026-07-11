@@ -1,0 +1,252 @@
+/* ===== Board Styles ===== */
+
+.board-container {
+  position: relative;
+  width: min(90vmin, 570px);
+  height: min(90vmin, 570px);
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  grid-template-rows: repeat(15, 1fr);
+  width: 100%;
+  height: 100%;
+  background: var(--board-bg);
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--board-border);
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    0 0 40px rgba(0, 0, 0, 0.5),
+    inset 0 0 60px rgba(0, 0, 0, 0.3);
+}
+
+/* Home base areas (4 corners) */
+.home-base {
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.home-base--red {
+  background: linear-gradient(135deg, rgba(255, 71, 87, 0.15), rgba(255, 71, 87, 0.08));
+  border-color: rgba(255, 71, 87, 0.25);
+}
+
+.home-base--green {
+  background: linear-gradient(135deg, rgba(46, 213, 115, 0.15), rgba(46, 213, 115, 0.08));
+  border-color: rgba(46, 213, 115, 0.25);
+}
+
+.home-base--yellow {
+  background: linear-gradient(135deg, rgba(255, 165, 2, 0.15), rgba(255, 165, 2, 0.08));
+  border-color: rgba(255, 165, 2, 0.25);
+}
+
+.home-base--blue {
+  background: linear-gradient(135deg, rgba(55, 66, 250, 0.15), rgba(55, 66, 250, 0.08));
+  border-color: rgba(55, 66, 250, 0.25);
+}
+
+.home-base-label {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.4;
+  font-weight: 700;
+}
+
+/* Board squares */
+.board-square {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  position: relative;
+  transition: background var(--transition-fast);
+}
+
+.board-square--default {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.board-square--red {
+  background: rgba(255, 71, 87, 0.2);
+}
+.board-square--green {
+  background: rgba(46, 213, 115, 0.2);
+}
+.board-square--yellow {
+  background: rgba(255, 165, 2, 0.2);
+}
+.board-square--blue {
+  background: rgba(55, 66, 250, 0.2);
+}
+
+/* Safe squares with star marker */
+.board-square--safe::after {
+  content: '⭐';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: min(2.5vmin, 16px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Home stretch squares */
+.board-square--home-stretch-red {
+  background: linear-gradient(180deg, rgba(255, 71, 87, 0.1), rgba(255, 71, 87, 0.3));
+}
+.board-square--home-stretch-green {
+  background: linear-gradient(90deg, rgba(46, 213, 115, 0.1), rgba(46, 213, 115, 0.3));
+}
+.board-square--home-stretch-yellow {
+  background: linear-gradient(180deg, rgba(255, 165, 2, 0.1), rgba(255, 165, 2, 0.3));
+}
+.board-square--home-stretch-blue {
+  background: linear-gradient(90deg, rgba(55, 66, 250, 0.1), rgba(55, 66, 250, 0.3));
+}
+
+/* Center/goal square */
+.board-center {
+  background: linear-gradient(135deg,
+    rgba(255, 71, 87, 0.4),
+    rgba(46, 213, 115, 0.4),
+    rgba(255, 165, 2, 0.4),
+    rgba(55, 66, 250, 0.4)
+  );
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: min(4vmin, 26px);
+  animation: gradient-shift 4s ease infinite;
+}
+
+/* Pieces overlay */
+.pieces-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.pieces-overlay > * {
+  pointer-events: auto;
+}
+
+/* Piece container for positioning */
+.piece-slot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  transition: left 0.3s ease, top 0.3s ease;
+}
+
+/* Piece base */
+.piece {
+  width: var(--piece-size);
+  height: var(--piece-size);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--piece-font);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.piece:active {
+  transform: scale(0.9);
+}
+
+.piece--red {
+  background: linear-gradient(135deg, var(--color-red-light), var(--color-red));
+}
+.piece--green {
+  background: linear-gradient(135deg, var(--color-green-light), var(--color-green));
+}
+.piece--yellow {
+  background: linear-gradient(135deg, var(--color-yellow-light), var(--color-yellow));
+}
+.piece--blue {
+  background: linear-gradient(135deg, var(--color-blue-light), var(--color-blue));
+}
+
+/* Movable piece pulse */
+.piece--movable {
+  animation: pulse-glow 1.2s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.piece--movable::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  animation: pulse-ring 1.2s ease-in-out infinite;
+}
+
+/* Current player highlight */
+.piece--current {
+  box-shadow:
+    0 0 12px var(--glow-color, rgba(255, 255, 255, 0.4)),
+    0 0 24px var(--glow-color, rgba(255, 255, 255, 0.2));
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.piece--red.piece--current { --glow-color: var(--color-red-glow); }
+.piece--green.piece--current { --glow-color: var(--color-green-glow); }
+.piece--yellow.piece--current { --glow-color: var(--color-yellow-glow); }
+.piece--blue.piece--current { --glow-color: var(--color-blue-glow); }
+
+/* Stacked pieces offset */
+.piece--stacked {
+  position: absolute;
+}
+
+.piece--stack-0 { transform: translate(-30%, -30%); }
+.piece--stack-1 { transform: translate(30%, -30%); }
+.piece--stack-2 { transform: translate(-30%, 30%); }
+.piece--stack-3 { transform: translate(30%, 30%); }
+
+/* Finished piece */
+.piece--finished {
+  opacity: 0.5;
+  transform: scale(0.7);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .board-container {
+    width: 92vmin;
+    height: 92vmin;
+  }
+}
+
+@media (min-width: 1024px) {
+  .board-container {
+    width: min(70vmin, 520px);
+    height: min(70vmin, 520px);
+  }
+}
