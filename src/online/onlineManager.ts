@@ -1,5 +1,6 @@
 import Peer, { type DataConnection, type MediaConnection, type PeerOptions } from 'peerjs';
 import { useGameStore, SNAPSHOT_KEYS, type GameSnapshot } from '../store/gameStore';
+import { loadProfile } from '../profile';
 
 /**
  * Online multiplayer over PeerJS (WebRTC data channels), host-authoritative:
@@ -33,7 +34,7 @@ export type GuestAction =
   | { a: 'chat'; text: string };
 
 type GuestMessage =
-  | { t: 'join'; name: string; rejoin?: { playerId: string; token: string } }
+  | { t: 'join'; name: string; points?: number; rejoin?: { playerId: string; token: string } }
   | { t: 'pong' }
   | ({ t: 'action' } & GuestAction);
 
@@ -341,7 +342,7 @@ export function hostRoom(code: string): Promise<void> {
             conn.close();
             return;
           }
-          const playerId = store.addRemotePlayer(msg.name);
+          const playerId = store.addRemotePlayer(msg.name, msg.points);
           if (!playerId) {
             conn.send({ t: 'error', code: 'room-full' } satisfies HostMessage);
             conn.close();
@@ -480,7 +481,9 @@ function joinRoomInternal(code: string, name: string): Promise<void> {
         const rejoin = ticket && ticket.code === code
           ? { playerId: ticket.playerId, token: ticket.token }
           : undefined;
-        conn.send({ t: 'join', name, rejoin } satisfies GuestMessage);
+        // Carry the wallet: fresh seats start with the profile's saved ⭐
+        const points = loadProfile()?.points ?? 0;
+        conn.send({ t: 'join', name, points, rejoin } satisfies GuestMessage);
       });
 
       conn.on('data', (raw) => {

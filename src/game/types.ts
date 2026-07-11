@@ -25,7 +25,7 @@ export interface Player {
 
 export interface Piece {
   id: string;
-  position: number; // -1=home, 0-51=board, 52-56=final stretch
+  position: number; // -1=home, 0-51=board, 52-56=final stretch lane, 57=goal
   isSafe: boolean;
   capturedCount: number;
 }

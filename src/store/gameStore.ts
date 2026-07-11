@@ -5,6 +5,7 @@ import {
   rollDice,
   rollLuckyDice,
   earnsPoint,
+  isBonusRoll,
   LUCKY_DICE_COST,
   getMovablePieces,
   movePiece,
@@ -26,6 +27,7 @@ import {
   setMyPlayerId,
 } from '../online/onlineManager';
 import { startAvSession, stopAvSession } from '../online/avManager';
+import { ensureProfile } from '../profile';
 import { playSfx, vibrate } from '../sound';
 import {
   NO_MOVE_MESSAGES,
@@ -110,7 +112,7 @@ interface GameStore {
   createOnlineRoom: (hostName: string) => Promise<void>;
   joinOnlineRoom: (code: string, name: string) => Promise<void>;
   /** Host: seat a remote guest; returns the new player id (null if full). */
-  addRemotePlayer: (name: string) => string | null;
+  addRemotePlayer: (name: string, points?: number) => string | null;
   /** Host: apply a validated action coming from a guest. */
   applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number }) => void;
   /** Host: a guest disconnected — unseat (lobby) or convert to bot (game). */
@@ -124,7 +126,7 @@ interface GameStore {
   _applySnapshot: (snap: GameSnapshot) => void;
 
   // Lobby
-  addPlayer: (name: string) => void;
+  addPlayer: (name: string, initialPoints?: number) => void;
   addBotPlayer: () => void;
   removePlayer: (id: string) => void;
   startGame: () => void;
@@ -180,8 +182,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { players, currentPlayerIndex, diceValue, phase, consecutiveSixes } = get();
     const dice = diceValue ?? 0;
     if (dice === 0 || phase !== 'moving') return [];
-    // Third consecutive six: play cancelled, nothing may move
-    if (dice === 6 && consecutiveSixes >= 2) return [];
+    // Third consecutive bonus roll (6s/1s): play cancelled, nothing may move
+    if (isBonusRoll(dice) && consecutiveSixes >= 2) return [];
     const player = players[currentPlayerIndex];
     if (!player) return [];
     return player.pieces
@@ -274,6 +276,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const trimmedCode = code.trim().toUpperCase();
     const trimmedName = name.trim();
     if (!trimmedCode || !trimmedName) return;
+    ensureProfile(trimmedName); // guests carry their wallet into the room
     set({ onlineConnecting: true, onlineError: null });
     try {
       await joinRoom(trimmedCode, trimmedName);
@@ -289,10 +292,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  addRemotePlayer: (name: string) => {
+  addRemotePlayer: (name: string, points?: number) => {
     const { players } = get();
     if (players.length >= 4) return null;
-    get().addPlayer(name.trim().slice(0, 16) || 'Jugador');
+    get().addPlayer(name.trim().slice(0, 16) || 'Jugador', points ?? 0);
     const added = get().players[get().players.length - 1];
     if (added) playSfx('join');
     return added?.id ?? null;
@@ -321,7 +324,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       doRoll(set, get, action.lucky);
     } else if (action.a === 'select' && action.pieceId) {
       if (state.phase !== 'moving' || state.diceValue === null) return;
-      if (state.diceValue === 6 && state.consecutiveSixes >= 2) return; // third six: cancelled
+      if (isBonusRoll(state.diceValue) && state.consecutiveSixes >= 2) return; // third bonus roll: cancelled
       const owns = player.pieces.some((p) => p.id === action.pieceId);
       if (!owns) return;
       executeMove(set, get, action.pieceId);
@@ -429,7 +432,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   // ─── Lobby ─────────────────────────────────────────────────────────
-  addPlayer: (name: string) => {
+  addPlayer: (name: string, initialPoints?: number) => {
     const { players, gameMode } = get();
     if (players.length >= 4) return;
 
@@ -445,7 +448,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const availableEmojis = AVATAR_EMOJIS.filter((e) => !usedEmojis.has(e));
     const emoji = availableEmojis[Math.floor(Math.random() * availableEmojis.length)] || '🎲';
 
-    const newPlayer = createPlayer(createId(), name, nextColor, emoji);
+    // Persistent ⭐ wallet: the first human seated on this device is the
+    // device's own player — their profile wallet funds their in-game
+    // points. Remote guests bring their own (initialPoints, from their
+    // join message); extra pass-and-play humans start at 0.
+    const isOwnSeat = initialPoints === undefined && !players.some((p) => !p.isBot);
+    const points = initialPoints !== undefined
+      ? Math.max(0, Math.min(99999, Math.round(initialPoints)))
+      : isOwnSeat
+        ? ensureProfile(name).points
+        : 0;
+
+    const newPlayer = { ...createPlayer(createId(), name, nextColor, emoji), points };
 
     set({
       players: [...players, newPlayer],
@@ -498,10 +512,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Fixed turn order by color (red → green → yellow → blue) so teams alternate.
-    // Everyone starts each match with 0 shop points.
-    const ordered = [...allPlayers]
-      .sort((a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color))
-      .map((p) => ({ ...p, points: 0 }));
+    // Shop points are a persistent wallet — they carry across matches.
+    const ordered = [...allPlayers].sort(
+      (a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color),
+    );
 
     set({
       players: ordered,
@@ -572,7 +586,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectPiece: (pieceId: string) => {
     const { phase, diceValue, players, currentPlayerIndex, onlineRole, localPlayerId, consecutiveSixes } = get();
     if (phase !== 'moving' || diceValue === null) return;
-    if (diceValue === 6 && consecutiveSixes >= 2) return; // third six: cancelled
+    if (isBonusRoll(diceValue) && consecutiveSixes >= 2) return; // third bonus roll: cancelled
 
     const currentPlayer = players[currentPlayerIndex];
     if (!currentPlayer || currentPlayer.isBot) return;
@@ -669,7 +683,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const fresh = players.map((p) => ({
       ...p,
-      points: 0,
       pieces: p.pieces.map((piece) => ({
         ...piece,
         position: -1,
@@ -833,7 +846,7 @@ function doRoll(
   // Every 6 or 1 rolled earns a shop point
   if (earnsPoint(value)) adjustPoints(set, currentPlayer.id, 1);
 
-  const isThirdSix = value === 6 && get().consecutiveSixes >= 2;
+  const isThirdSix = isBonusRoll(value) && get().consecutiveSixes >= 2;
 
   set({
     diceValue: value,
@@ -918,7 +931,7 @@ function executeMove(
       if (before[j].position >= 0 && after[j].position === -1) captured = true;
     }
   }
-  const reachedHome = movedAfter != null && movedAfter.position === 56 && movedBefore.position !== 56;
+  const reachedHome = movedAfter != null && movedAfter.position === 57 && movedBefore.position !== 57;
 
   // Visual + audio effects
   if (captured && movedAfter && movedAfter.position >= 0 && movedAfter.position < 52) {
@@ -954,7 +967,7 @@ function executeMove(
   // Ludo Club rule: capturing or reaching the goal grants an extra roll
   const bonusRoll = captured || reachedHome;
   let advanced = advanceTurn(newState, bonusRoll);
-  if (bonusRoll && diceValue !== 6 && advanced.currentPlayerIndex === currentPlayerIndex) {
+  if (bonusRoll && !isBonusRoll(diceValue) && advanced.currentPlayerIndex === currentPlayerIndex) {
     advanced = {
       ...advanced,
       messages: pushMessage(advanced.messages, {
@@ -989,7 +1002,7 @@ function scheduleBotTurn(
     // Bot rolls (bots also earn shop points — visible fairness, they just never spend them)
     const value = rollDice();
     if (earnsPoint(value)) adjustPoints(set, currentPlayer.id, 1);
-    const isThirdSix = value === 6 && state.consecutiveSixes >= 2;
+    const isThirdSix = isBonusRoll(value) && state.consecutiveSixes >= 2;
 
     set({
       diceValue: value,

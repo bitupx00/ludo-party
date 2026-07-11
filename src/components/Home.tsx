@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore.ts';
 import type { GameMode } from '../game/types.ts';
 import { useT, useLangStore, TIPS } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
+import ProfileCard from './ProfileCard.tsx';
 
 const MODES: Array<{ mode: GameMode; icon: string; titleKey: 'modeSolo' | 'modeLocal' | 'modeTeams' | 'modeOnline'; descKey: 'modeSoloDesc' | 'modeLocalDesc' | 'modeTeamsDesc' | 'modeOnlineDesc'; accent: string }> = [
   { mode: 'online', icon: '🌐', titleKey: 'modeOnline', descKey: 'modeOnlineDesc', accent: '#9333ea' },
@@ -42,6 +43,9 @@ export default function Home() {
 
   return (
     <div className="screen home">
+      {/* Player profile (persistent points + transfer between devices) */}
+      <ProfileCard />
+
       {/* Language toggle */}
       <button className="home-lang" onClick={toggleLang} aria-label="Language">
         {lang === 'es' ? '🇪🇸 ES' : '🇬🇧 EN'}

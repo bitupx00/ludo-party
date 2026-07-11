@@ -87,7 +87,7 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
     if (position === -1) {
       const idx = parseInt(pieceId.slice(-1), 10) % 4;
       g = BASE_SLOTS[color][idx];
-    } else if (position >= 56) {
+    } else if (position >= 57) {
       g = { x: 7, y: 7 };
     } else if (position >= 52) {
       const hs = getHomeStretchGridCoord(color, position - 52);
@@ -202,7 +202,7 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
       return direct;
     }
     const start = coordsFor(prev, piece._color, piece.id);
-    const points = [start, ...seq.map((s) => coordsFor(Math.min(s, 56), piece._color, piece.id))];
+    const points = [start, ...seq.map((s) => coordsFor(Math.min(s, 57), piece._color, piece.id))];
     const result = {
       forPosition: piece.position,
       xs: points.map((pt) => `${pt.x}%`),

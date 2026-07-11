@@ -9,6 +9,8 @@
   justify-content: center;
   background: rgba(0, 0, 0, 0.6);
   pointer-events: none;
+  /* Particles fly up to ±350px — never let them widen the page */
+  overflow: hidden;
 }
 
 /* Lightning flash */

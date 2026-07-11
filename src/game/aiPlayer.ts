@@ -74,11 +74,11 @@ export function chooseBotMove(
   const entryPiece = movable.find((p) => p.position === -1);
   if (entryPiece) return entryPiece.id;
 
-  // Priority 3: Reach home (position 56)
+  // Priority 3: Reach home (the goal square)
   const homePiece = movable.find((p) => {
     if (p.position === -1) return false;
     const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
-    return newPos === 56;
+    return newPos === 57;
   });
   if (homePiece) return homePiece.id;
 

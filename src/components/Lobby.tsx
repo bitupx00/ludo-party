@@ -5,12 +5,14 @@ import type { Color, Player } from '../game/types.ts';
 import { COLORS, PLAYER_CONFIG } from '../game/types.ts';
 import { BOT_NAMES, BOT_EMOJIS } from '../game/aiPlayer.ts';
 import { getStoredTicket } from '../online/onlineManager.ts';
+import { loadProfile } from '../profile.ts';
 import { useT } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
 
 export default function Lobby() {
   const t = useT();
-  const [nameInput, setNameInput] = useState('');
+  // Prefill with the device profile's name (persistent "account")
+  const [nameInput, setNameInput] = useState(() => loadProfile()?.name ?? '');
   // Deep link: /?room=CODE pre-fills the join code
   const [codeInput, setCodeInput] = useState(() => {
     try {

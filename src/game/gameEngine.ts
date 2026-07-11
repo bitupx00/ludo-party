@@ -14,19 +14,23 @@ export function rollDice(): number {
 // "lucky dice" of a chosen number: 30% chance the roll IS that number,
 // 70% chance it lands one of the two numbers just below it (min 1).
 
-/** Cost in points of each buyable lucky-dice number. */
-export const LUCKY_DICE_COST: Record<number, number> = { 2: 3, 3: 3, 4: 3, 5: 3, 6: 4 };
+/** Cost in points of each buyable lucky-dice number. The 1 and the 6 cost
+ *  more because both grant an extra roll. */
+export const LUCKY_DICE_COST: Record<number, number> = { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 4 };
 
 /** True when the rolled value earns the roller a shop point. */
 export function earnsPoint(value: number): boolean {
   return value === 6 || value === 1;
 }
 
-/** Weighted roll for a bought lucky dice of number `n`. */
+/** Weighted roll for a bought lucky dice of number `n`: 30% exactly `n`,
+ *  70% one of the two numbers below it. The 1 has no lower numbers, so its
+ *  70% falls on a 2 or a 3 instead. */
 export function rollLuckyDice(n: number): number {
   if (Math.random() < 0.3) return n;
   const lower = [n - 1, n - 2].filter((v) => v >= 1);
-  return lower.length > 0 ? lower[Math.floor(Math.random() * lower.length)] : n;
+  const pool = lower.length > 0 ? lower : [2, 3];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 /** Check if rolling a 6 three times in a row should forfeit the turn. */
@@ -34,15 +38,26 @@ export function shouldForfeitTurn(consecutiveSixes: number): boolean {
   return consecutiveSixes >= 3;
 }
 
+/** Bonus numbers: a 6 OR a 1 grants an extra roll (a 1 still only moves one
+ *  square). Three bonus rolls IN A ROW — any mix (1,1,6 / 6,6,1 / …) —
+ *  forfeit the turn, so nobody chains extra rolls forever. */
+export function isBonusRoll(value: number): boolean {
+  return value === 6 || value === 1;
+}
+
+/** The goal (center triangle) is its own square: one step past the last
+ *  home-stretch lane cell (56). */
+export const FINISH_POS = 57;
+
 // ─── Piece Movement Logic ────────────────────────────────────────────
 
 /**
  * Calculate the new position of a piece after moving `steps` forward.
  *
  * Returns:
- *  - `>= 52`: home stretch position (52–56, where 56 = finished/home)
+ *  - `>= 52`: home stretch lane (52–56) or the goal itself (57 = finished)
  *  - `0–51`: main board position (wrapped)
- *  - `-2`: cannot move (would overshoot home)
+ *  - `-2`: cannot move (would overshoot the goal)
  *
  * @param currentPos - Current position of the piece (-1=home, 0-51=board, 52+=home stretch)
  * @param steps - Number of steps to move
@@ -58,11 +73,10 @@ export function calculateNewPosition(
     return COLOR_CONFIG[color].entryIndex;
   }
 
-  // Already in home stretch (52-56)
+  // Already in home stretch (52-56); the goal itself is one MORE step (57)
   if (currentPos >= 52) {
     const newPos = currentPos + steps;
-    // Max home stretch position is 56 (home)
-    if (newPos > 56) return -2; // Cannot overshoot
+    if (newPos > FINISH_POS) return -2; // Cannot overshoot the goal
     return newPos;
   }
 
@@ -86,7 +100,7 @@ export function calculateNewPosition(
 
   // steps > distToHS → enters home stretch
   const hsPosition = 52 + (steps - distToHS - 1);
-  if (hsPosition > 56) return -2; // Overshot home
+  if (hsPosition > FINISH_POS) return -2; // Overshot the goal
   return hsPosition;
 }
 
@@ -98,7 +112,7 @@ export function canEnterBoard(piece: Piece, diceValue: number): boolean {
 
 /** Check if a piece can make a valid move with the given dice value. */
 export function canPieceMove(piece: Piece, diceValue: number, color: Color): boolean {
-  if (piece.position === 56) return false; // Already home, can't move
+  if (piece.position >= FINISH_POS) return false; // Already home, can't move
 
   if (piece.position === -1) {
     return canEnterBoard(piece, diceValue);
@@ -263,8 +277,8 @@ export function movePiece(
     };
   }
 
-  // Check if piece reached home (position 56)
-  if (newPos === 56) {
+  // Check if piece reached home (the goal, position 57)
+  if (newPos === FINISH_POS) {
     newState = {
       ...newState,
       messages: [
@@ -302,11 +316,11 @@ export function movePiece(
 
 // ─── Win Detection ───────────────────────────────────────────────────
 
-/** Check if a player has won (all 4 pieces at position 56). */
+/** Check if a player has won (all 4 pieces in the goal). */
 export function checkWin(state: GameState, color: Color): boolean {
   const player = state.players.find((p) => p.color === color);
   if (!player) return false;
-  return player.pieces.every((piece) => piece.position === 56);
+  return player.pieces.every((piece) => piece.position >= FINISH_POS);
 }
 
 // ─── Turn Management ─────────────────────────────────────────────────
@@ -318,11 +332,11 @@ export function checkWin(state: GameState, color: Color): boolean {
  * - Otherwise the next player goes.
  */
 export function advanceTurn(state: GameState, bonusRoll = false): GameState {
-  const rolledSix = state.diceValue === 6;
-  const sixesInRow = rolledSix ? state.consecutiveSixes + 1 : 0;
+  const rolledBonus = isBonusRoll(state.diceValue ?? 0);
+  const bonusInRow = rolledBonus ? state.consecutiveSixes + 1 : 0;
 
-  // Third consecutive six → turn forfeited (even if the move captured something)
-  if (rolledSix && sixesInRow >= 3) {
+  // Third consecutive bonus roll (any mix of 6s and 1s) → turn forfeited
+  if (rolledBonus && bonusInRow >= 3) {
     const nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
     return {
       ...state,
@@ -336,7 +350,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
         {
           id: crypto.randomUUID(),
           playerId: state.players[state.currentPlayerIndex].id,
-          text: '¡TRES SEISES! 🎲🎲🎲 Turno perdido por tramposo 😤',
+          text: '¡TRES TIRADAS EXTRA SEGUIDAS! 🎲🎲🎲 Turno perdido por tramposo 😤',
           timestamp: Date.now(),
           kind: 'system',
         },
@@ -344,14 +358,14 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
     };
   }
 
-  // Extra roll: rolled a 6, captured a piece, or brought a piece home
-  if (rolledSix || bonusRoll) {
+  // Extra roll: rolled a 6 or a 1, captured a piece, or brought a piece home
+  if (rolledBonus || bonusRoll) {
     return {
       ...state,
       phase: 'rolling',
       diceValue: null,
-      consecutiveSixes: sixesInRow,
-      messages: rolledSix
+      consecutiveSixes: bonusInRow,
+      messages: rolledBonus
         ? [
             ...state.messages,
             {

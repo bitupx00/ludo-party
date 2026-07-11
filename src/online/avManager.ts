@@ -204,6 +204,80 @@ function handleSessionReset() {
   if (localStream) callAllRosterPeers();
 }
 
+/* ─── Health monitor: self-healing mesh ─────────────────────────────── */
+// Field failure mode: mid-game every camera goes black and all audio dies
+// at once (ICE failure after a network change, device sleep, etc.) and
+// NEVER comes back — WebRTC often reaches 'failed'/'disconnected' without
+// firing close events, and the old bounded-retry gave up permanently.
+// This loop watches every call's underlying RTCPeerConnection and rebuilds
+// dead links; retry budgets refill periodically so recovery keeps trying.
+
+let healthTimer: ReturnType<typeof setInterval> | null = null;
+const shakyTicks = new Map<string, number>(); // peerId -> consecutive 'disconnected' ticks
+let ticksSinceBudgetRefill = 0;
+
+const HEALTH_INTERVAL_MS = 4000;
+/** 'disconnected' can self-heal in seconds; only rebuild after 2 ticks (~8s). */
+const SHAKY_TICKS_BEFORE_REBUILD = 2;
+/** Refill the per-peer dial budget every ~32s so retries never stop for good. */
+const TICKS_PER_BUDGET_REFILL = 8;
+
+function dropAndRedial(peerId: string) {
+  const call = calls.get(peerId);
+  calls.delete(peerId); // release the slot first so cleanup handlers no-op
+  calledPeers.delete(peerId);
+  shakyTicks.delete(peerId);
+  if (call) { try { call.close(); } catch { /* noop */ } }
+  const color = colorForPeer(peerId);
+  if (color) {
+    useVideoStore.getState().setRemote(color, null);
+    useVideoStore.getState().setSpeaking(color, false);
+    analysers.delete(color);
+  }
+  callAllRosterPeers();
+}
+
+function healthCheck() {
+  ticksSinceBudgetRefill++;
+  if (ticksSinceBudgetRefill >= TICKS_PER_BUDGET_REFILL) {
+    ticksSinceBudgetRefill = 0;
+    callAttempts.clear(); // never give up permanently
+    if (localStream) callAllRosterPeers(); // pick up any peers we'd abandoned
+  }
+
+  // Keep the WebAudio meter alive (mobile browsers suspend it on blur)
+  if (audioCtx && audioCtx.state === 'suspended') {
+    void audioCtx.resume().catch(() => {});
+  }
+
+  for (const [peerId, call] of calls) {
+    const pc = (call as unknown as { peerConnection?: RTCPeerConnection }).peerConnection;
+    if (!pc) continue;
+    const state = pc.connectionState;
+    const ice = pc.iceConnectionState;
+    if (state === 'failed' || state === 'closed' || ice === 'failed' || ice === 'closed') {
+      dropAndRedial(peerId);
+      continue;
+    }
+    if (state === 'disconnected' || ice === 'disconnected') {
+      const ticks = (shakyTicks.get(peerId) ?? 0) + 1;
+      shakyTicks.set(peerId, ticks);
+      if (ticks >= SHAKY_TICKS_BEFORE_REBUILD) dropAndRedial(peerId);
+    } else {
+      shakyTicks.delete(peerId);
+    }
+  }
+}
+
+/** Coming back from background (mobile tab switch/screen off) is a classic
+ *  moment for the mesh to be silently dead — check immediately. */
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    healthCheck();
+    if (localStream) callAllRosterPeers();
+  }
+}
+
 /* ─── Local media ────────────────────────────────────────────────────── */
 
 async function ensureLocalStream(): Promise<MediaStream | null> {
@@ -286,11 +360,17 @@ export function startAvSession() {
     onReset: handleSessionReset,
   });
   document.addEventListener('pointerdown', resumeOnGesture);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  if (healthTimer) clearInterval(healthTimer);
+  healthTimer = setInterval(healthCheck, HEALTH_INTERVAL_MS);
 }
 
 /** Tear down all calls, local media, and AV state when leaving the room. */
 export function stopAvSession() {
   document.removeEventListener('pointerdown', resumeOnGesture);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  if (healthTimer) { clearInterval(healthTimer); healthTimer = null; }
+  shakyTicks.clear();
   setAvSubscriber(null);
   stopSpeaking();
   for (const call of calls.values()) {

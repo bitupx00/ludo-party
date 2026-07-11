@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CaptureEffect } from '../game/types.ts';
+// CRITICAL: without this import the overlay renders UNSTYLED — a plain
+// in-flow div whose ±350px particle bursts blow the page open sideways,
+// visibly shoving the whole board every time a piece reaches the goal
+// or captures.
+import './CaptureOverlay.css';
 
 interface CaptureOverlayProps {
   effects: CaptureEffect[];

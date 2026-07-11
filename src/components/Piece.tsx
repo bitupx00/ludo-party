@@ -18,7 +18,7 @@ interface PieceProps {
 export const STEP_DURATION = 0.17; // seconds per cell
 
 export default function Piece({ piece, xs, ys, offset, onClick }: PieceProps) {
-  const isFinished = piece.position >= 56;
+  const isFinished = piece.position >= 57;
   const canMove = piece._isMovable && !isFinished;
   const [traveling, setTraveling] = useState(false);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);

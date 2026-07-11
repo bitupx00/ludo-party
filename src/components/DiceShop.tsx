@@ -20,7 +20,7 @@ interface DiceShopProps {
   onBuy: (n: number) => void;
 }
 
-const SHOP_NUMBERS = [2, 3, 4, 5, 6];
+const SHOP_NUMBERS = [1, 2, 3, 4, 5, 6];
 
 function ShopDieFace({ value }: { value: number }) {
   const pips = PIP_MAP[value];
@@ -153,8 +153,8 @@ export default function DiceShop({ isOpen, points, canBuy, onClose, onBuy }: Dic
             }
             .dice-shop-grid {
               display: grid;
-              grid-template-columns: repeat(5, 1fr);
-              gap: 8px;
+              grid-template-columns: repeat(6, 1fr);
+              gap: 6px;
             }
             .dice-shop-item {
               display: flex;

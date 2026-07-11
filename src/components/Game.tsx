@@ -159,7 +159,7 @@ export default function Game() {
     const player = playersByColor.get(color);
     if (!player) return <span key={color} />;
     const isCurrent = player.id === currentPlayer?.id;
-    const finished = player.pieces.filter((p) => p.position >= 56).length;
+    const finished = player.pieces.filter((p) => p.position >= 57).length;
     // Turn dice (Ludo Club style): the big HUD dice only shows on the local
     // device's own turn, so opponents' turns get a small dice badge on
     // their avatar instead — undefined means "don't show one at all".
@@ -233,7 +233,7 @@ export default function Game() {
         {/* Status line: extra turn / tap hint */}
         <div className="game-status-slot">
           <AnimatePresence mode="wait">
-            {diceValue === 6 && phase === 'moving' && consecutiveSixes >= 2 ? (
+            {(diceValue === 6 || diceValue === 1) && phase === 'moving' && consecutiveSixes >= 2 ? (
               <motion.div
                 key="cancelled"
                 className="game-status game-status--danger"
@@ -243,7 +243,7 @@ export default function Game() {
               >
                 🚫 {t('thirdSix')}
               </motion.div>
-            ) : diceValue === 6 && phase === 'moving' ? (
+            ) : (diceValue === 6 || diceValue === 1) && phase === 'moving' ? (
               <motion.div
                 key="extra"
                 className="game-status game-status--gold"
@@ -251,7 +251,7 @@ export default function Game() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
               >
-                🔥 {t('extraTurn')} ({t('rolledSix')})
+                🔥 {t('extraTurn')} ({diceValue === 1 ? t('rolledOne') : t('rolledSix')})
               </motion.div>
             ) : phase === 'moving' && myTurn && movableIds.length > 1 ? (
               <motion.div
