@@ -48,14 +48,14 @@
   --glass-border: rgba(255, 255, 255, 0.18);
   --glass-blur: 14px;
 
-  /* Board — warm cream like a premium physical board */
-  --board-bg: #fdf6e9;
-  --board-cell: #fffdf7;
-  --board-line: #e7d9be;
+  /* Board — clean white grid with crisp gray lines (Ludo Club style) */
+  --board-bg: #ffffff;
+  --board-cell: #ffffff;
+  --board-line: #c3cad4;
   --board-border: #ffffff;
 
   /* Sizing */
-  --piece-size: 6.4%;
+  --piece-size: 7%;
 
   /* Spacing */
   --gap-xs: 4px;

@@ -1,13 +1,16 @@
 import { useId } from 'react';
 import type { Color } from '../game/types.ts';
 
-/** Glossy 3D-style board game pawn, rendered as pure SVG. */
+/** Glossy 3D-style board game pawn, rendered as pure SVG.
+ *  Ludo Club proportions: a BIG shiny sphere head, a short plump
+ *  bell body flaring into a fat rounded base, and a crisp darker
+ *  outline around every part. */
 
 const PAWN_PALETTE: Record<Color, { base: string; light: string; dark: string; deep: string }> = {
-  red:    { base: '#f0405c', light: '#ff8fa0', dark: '#c22343', deep: '#8f1730' },
-  green:  { base: '#26c165', light: '#7dedaa', dark: '#178a49', deep: '#0e6234' },
-  yellow: { base: '#f5a415', light: '#ffd873', dark: '#c07c08', deep: '#8f5c06' },
-  blue:   { base: '#3d7bfa', light: '#8fb8ff', dark: '#2453c4', deep: '#183a8f' },
+  red:    { base: '#f0405c', light: '#ff8fa0', dark: '#c22343', deep: '#7e1229' },
+  green:  { base: '#26c165', light: '#7dedaa', dark: '#178a49', deep: '#0b532c' },
+  yellow: { base: '#f5a415', light: '#ffd873', dark: '#c07c08', deep: '#7c4f05' },
+  blue:   { base: '#3d7bfa', light: '#8fb8ff', dark: '#2453c4', deep: '#143077' },
 };
 
 interface PawnSVGProps {
@@ -27,55 +30,59 @@ export default function PawnSVG({ color, className, shadow = true }: PawnSVGProp
   return (
     <svg viewBox="0 0 64 80" className={className} aria-hidden="true">
       <defs>
-        <radialGradient id={headId} cx="36%" cy="28%" r="80%">
+        <radialGradient id={headId} cx="34%" cy="26%" r="85%">
           <stop offset="0%" stopColor={c.light} />
-          <stop offset="55%" stopColor={c.base} />
+          <stop offset="52%" stopColor={c.base} />
           <stop offset="100%" stopColor={c.dark} />
         </radialGradient>
         <linearGradient id={bodyId} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor={c.dark} />
-          <stop offset="28%" stopColor={c.light} />
+          <stop offset="26%" stopColor={c.light} />
           <stop offset="55%" stopColor={c.base} />
           <stop offset="100%" stopColor={c.deep} />
         </linearGradient>
         <linearGradient id={baseId} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor={c.dark} />
-          <stop offset="30%" stopColor={c.light} />
-          <stop offset="60%" stopColor={c.base} />
+          <stop offset="28%" stopColor={c.light} />
+          <stop offset="58%" stopColor={c.base} />
           <stop offset="100%" stopColor={c.deep} />
         </linearGradient>
       </defs>
 
-      {shadow && <ellipse cx="32" cy="73" rx="21" ry="6" fill="rgba(30, 12, 50, 0.3)" />}
+      {shadow && <ellipse cx="32" cy="74" rx="23" ry="5.5" fill="rgba(30, 12, 50, 0.32)" />}
 
-      {/* Base disc */}
-      <ellipse cx="32" cy="68" rx="19" ry="8.5" fill={c.deep} />
-      <path d="M13 62 L13 68 A19 8.5 0 0 0 51 68 L51 62 Z" fill={c.deep} />
-      <ellipse cx="32" cy="62" rx="19" ry="8.5" fill={`url(#${baseId})`} />
+      {/* Fat rounded base (torus) */}
+      <path d="M10.5 62 L10.5 68 A21.5 8.5 0 0 0 53.5 68 L53.5 62 Z" fill={c.deep} />
+      <ellipse cx="32" cy="68" rx="21.5" ry="8.5" fill={c.deep} />
+      <ellipse cx="32" cy="62" rx="21.5" ry="8.5" fill={`url(#${baseId})`} stroke={c.deep} strokeWidth="1.4" />
 
-      {/* Body cone */}
+      {/* Plump bell body: wide flare, short height */}
       <path
-        d="M32 24 C25.5 28 22.5 38 20 58 C24 61.5 40 61.5 44 58 C41.5 38 38.5 28 32 24 Z"
+        d="M32 28 C22 31 17.5 42 15 58 C21.5 63.5 42.5 63.5 49 58 C46.5 42 42 31 32 28 Z"
         fill={`url(#${bodyId})`}
+        stroke={c.deep}
+        strokeWidth="1.4"
+        strokeLinejoin="round"
       />
 
-      {/* Collar ring */}
-      <ellipse cx="32" cy="26.5" rx="8.5" ry="3.6" fill={c.dark} opacity="0.55" />
+      {/* Collar ring under the head */}
+      <ellipse cx="32" cy="31.5" rx="10.5" ry="4" fill={c.dark} opacity="0.5" />
 
-      {/* Head sphere */}
-      <circle cx="32" cy="16" r="12.5" fill={`url(#${headId})`} />
+      {/* Big glossy sphere head (chubby look) */}
+      <circle cx="32" cy="18" r="15.5" fill={`url(#${headId})`} stroke={c.deep} strokeWidth="1.4" />
 
       {/* Specular highlights */}
-      <ellipse cx="27" cy="10.5" rx="4.6" ry="3.2" fill="#ffffff" opacity="0.65" transform="rotate(-20 27 10.5)" />
+      <ellipse cx="26" cy="11" rx="5.6" ry="4" fill="#ffffff" opacity="0.85" transform="rotate(-22 26 11)" />
+      <circle cx="22.5" cy="17.5" r="1.9" fill="#ffffff" opacity="0.55" />
       <path
-        d="M26 32 C24.5 38 23.5 46 22.8 54"
+        d="M24.5 36 C22.5 42 21.3 50 20.6 56"
         stroke="#ffffff"
-        strokeOpacity="0.35"
-        strokeWidth="3"
+        strokeOpacity="0.4"
+        strokeWidth="3.4"
         strokeLinecap="round"
         fill="none"
       />
-      <ellipse cx="24" cy="60" rx="3" ry="1.6" fill="#ffffff" opacity="0.3" />
+      <ellipse cx="22" cy="60.5" rx="3.4" ry="1.8" fill="#ffffff" opacity="0.35" />
     </svg>
   );
 }

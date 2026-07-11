@@ -35,14 +35,6 @@ const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {
   yellow: [{ x: 10.5, y: 10.5 }, { x: 12.5, y: 10.5 }, { x: 10.5, y: 12.5 }, { x: 12.5, y: 12.5 }],
 };
 
-/** Gradient angle per screen corner so the light always comes from the center. */
-const CORNER_GRADIENT: Record<string, string> = {
-  tl: '135deg',
-  tr: '225deg',
-  bl: '45deg',
-  br: '315deg',
-};
-
 // Stacking offsets (px) for overlapping pieces (up to 4)
 const STACK_OFFSETS = [
   { dx: 0, dy: 0 },
@@ -284,7 +276,8 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
               style={{
                 left: `${(origin.x / 15) * 100}%`,
                 top: `${(origin.y / 15) * 100}%`,
-                background: `linear-gradient(${CORNER_GRADIENT[corner]}, ${cfg.cssLight}, ${cfg.cssColor} 60%, ${cfg.cssColor})`,
+                // Flat saturated corner color (Ludo Club) — no gradient
+                background: cfg.cssColor,
               }}
             >
               <div className="home-base-pad" />
