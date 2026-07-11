@@ -96,12 +96,18 @@ export const COLOR_CONFIG: Record<Color, {
   },
 };
 
-/** Position just before home stretch entry for each color. */
+/** Position just before home stretch entry for each color.
+ *  This is the last board square (0-51) from which rolling 1+ enters the home stretch.
+ *  It's the square immediately before the player's entry square going clockwise.
+ *  Red (entry=0): HS_entry = 51 (pos 51 + 1 = HS)
+ *  Green (entry=13): HS_entry = 12 (pos 12 + 1 = HS)
+ *  Yellow (entry=26): HS_entry = 25 (pos 25 + 1 = HS)
+ *  Blue (entry=39): HS_entry = 38 (pos 38 + 1 = HS) */
 export const HOME_STRETCH_ENTRY: Record<Color, number> = {
-  red: 50,   // index before re-entering home stretch (after going around)
-  green: 11,
-  yellow: 24,
-  blue: 37,
+  red: 51,
+  green: 12,
+  yellow: 25,
+  blue: 38,
 };
 
 export const AVATAR_EMOJIS = [

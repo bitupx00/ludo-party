@@ -177,9 +177,15 @@ export default function Game() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: var(--gap-md);
-          padding: var(--gap-sm) var(--gap-md);
+          gap: var(--gap-sm);
+          padding: var(--gap-xs) var(--gap-md);
           overflow: hidden;
+        }
+        @media (max-width: 480px) {
+          .game-main {
+            gap: 4px;
+            padding: 2px 8px;
+          }
         }
         .game-turn-indicator {
           display: flex;

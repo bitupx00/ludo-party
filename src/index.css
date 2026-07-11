@@ -121,42 +121,6 @@ body {
   border-radius: var(--radius-lg);
 }
 
-/* Portrait orientation warning for gameplay */
-.portrait-warning {
-  display: none;
-}
-
-@media (orientation: portrait) and (max-width: 480px) {
-  .portrait-warning {
-    display: flex;
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    background: rgba(0, 0, 0, 0.95);
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--gap-lg);
-    color: var(--color-text);
-    text-align: center;
-    padding: var(--gap-xl);
-  }
-
-  .portrait-warning .rotate-icon {
-    font-size: 64px;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  .portrait-warning h2 {
-    font-size: 1.4rem;
-  }
-
-  .portrait-warning p {
-    font-size: 1rem;
-    color: var(--color-text-secondary);
-  }
-}
-
 /* Gradient text utility */
 .gradient-text {
   background: linear-gradient(135deg, var(--color-red), var(--color-yellow), var(--color-green), var(--color-blue));

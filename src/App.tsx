@@ -38,11 +38,6 @@ export default function App() {
           style={{ minHeight: '100dvh' }}
         >
           <Game />
-          <div className="portrait-warning">
-            <span className="rotate-icon">📱🔄</span>
-            <h2>¡Gira tu dispositivo!</h2>
-            <p>El juego se juega mejor en horizontal 🎮</p>
-          </div>
         </motion.div>
       )}
     </AnimatePresence>

@@ -236,11 +236,27 @@
   transform: scale(0.7);
 }
 
-/* Responsive */
+/* Responsive — mobile-first portrait */
 @media (max-width: 480px) {
   .board-container {
-    width: 92vmin;
-    height: 92vmin;
+    width: 95vw;
+    height: 95vw;
+  }
+
+  .home-base {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .home-base-label {
+    font-size: 0.5rem;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .board-container {
+    width: min(88vmin, 540px);
+    height: min(88vmin, 540px);
   }
 }
 

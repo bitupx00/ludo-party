@@ -1,0 +1,54 @@
+{"ts":"2026-07-11T04:37:56.433Z","player":"SYSTEM","playerIdx":null,"action":"TEST_START","detail":"4-Player Automated Game Test — Ludo Party v1.1","severity":"info"}
+{"ts":"2026-07-11T04:37:56.686Z","player":"SYSTEM","playerIdx":null,"action":"NAVIGATE","detail":"http://localhost:3457","severity":"info"}
+{"ts":"2026-07-11T04:37:58.829Z","player":"SYSTEM","playerIdx":null,"action":"LOBBY_PHASE","detail":"Adding 4 human players","severity":"info"}
+{"ts":"2026-07-11T04:37:59.651Z","player":"Ana","playerIdx":0,"action":"LOBBY_ADD","detail":"Ana (Rojo) added ✅","severity":"info"}
+{"ts":"2026-07-11T04:38:00.561Z","player":"Carlos","playerIdx":1,"action":"LOBBY_ADD","detail":"Carlos (Azul) added ✅","severity":"info"}
+{"ts":"2026-07-11T04:38:01.444Z","player":"Diana","playerIdx":2,"action":"LOBBY_ADD","detail":"Diana (Amarillo) added ✅","severity":"info"}
+{"ts":"2026-07-11T04:38:02.394Z","player":"Eduardo","playerIdx":3,"action":"LOBBY_ADD","detail":"Eduardo (Verde) added ✅","severity":"info"}
+{"ts":"2026-07-11T04:38:02.395Z","player":"SYSTEM","playerIdx":null,"action":"LOBBY_VERIFY","detail":"Expected 4 players, found 0","severity":"error"}
+{"ts":"2026-07-11T04:38:02.899Z","player":"SYSTEM","playerIdx":null,"action":"GAME_START","detail":"🚀 ¡A JUGAR! clicked — game starting","severity":"success"}
+{"ts":"2026-07-11T04:38:04.899Z","player":"SYSTEM","playerIdx":null,"action":"GAMEPLAY_PHASE","detail":"=== GAMEPLAY — 4 HUMANS PLAYING ===","severity":"info"}
+{"ts":"2026-07-11T04:38:04.900Z","player":"Eduardo","playerIdx":3,"action":"ROLL_DICE","detail":"Turn 1 — Rolling...","severity":"info"}
+{"ts":"2026-07-11T04:38:06.409Z","player":"Eduardo","playerIdx":3,"action":"ROLL_RESULT","detail":"Could not read dice — turn may have auto-advanced","severity":"warn"}
+{"ts":"2026-07-11T04:38:08.420Z","player":"Diana","playerIdx":2,"action":"ROLL_DICE","detail":"Turn 2 — Rolling...","severity":"info"}
+{"ts":"2026-07-11T04:38:09.929Z","player":"Diana","playerIdx":2,"action":"ROLL_RESULT","detail":"Could not read dice — turn may have auto-advanced","severity":"warn"}
+{"ts":"2026-07-11T04:38:23.517Z","player":"SYSTEM","playerIdx":null,"action":"PROGRESS","detail":"Turn 25: moves=0, captures=0, entries=0, homeStretch=0, skips=0, extras=0","severity":"info"}
+{"ts":"2026-07-11T04:38:23.518Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Ana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:23.518Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Carlos: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:23.518Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Diana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:23.518Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Eduardo: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:36.101Z","player":"SYSTEM","playerIdx":null,"action":"PROGRESS","detail":"Turn 50: moves=0, captures=0, entries=0, homeStretch=0, skips=0, extras=0","severity":"info"}
+{"ts":"2026-07-11T04:38:36.102Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Ana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:36.102Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Carlos: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:36.102Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Diana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:36.102Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Eduardo: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:48.685Z","player":"SYSTEM","playerIdx":null,"action":"PROGRESS","detail":"Turn 75: moves=0, captures=0, entries=0, homeStretch=0, skips=0, extras=0","severity":"info"}
+{"ts":"2026-07-11T04:38:48.685Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Ana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:48.685Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Carlos: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:48.685Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Diana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:38:48.686Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Eduardo: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:01.264Z","player":"SYSTEM","playerIdx":null,"action":"PROGRESS","detail":"Turn 100: moves=0, captures=0, entries=0, homeStretch=0, skips=0, extras=0","severity":"info"}
+{"ts":"2026-07-11T04:39:01.265Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Ana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:01.265Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Carlos: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:01.265Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Diana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:01.265Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Eduardo: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:13.846Z","player":"SYSTEM","playerIdx":null,"action":"PROGRESS","detail":"Turn 125: moves=0, captures=0, entries=0, homeStretch=0, skips=0, extras=0","severity":"info"}
+{"ts":"2026-07-11T04:39:13.847Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Ana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:13.847Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Carlos: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:13.847Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Diana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:13.847Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Eduardo: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:26.430Z","player":"SYSTEM","playerIdx":null,"action":"PROGRESS","detail":"Turn 150: moves=0, captures=0, entries=0, homeStretch=0, skips=0, extras=0","severity":"info"}
+{"ts":"2026-07-11T04:39:26.431Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Ana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:26.431Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Carlos: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:26.431Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Diana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:26.431Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Eduardo: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:39.011Z","player":"SYSTEM","playerIdx":null,"action":"PROGRESS","detail":"Turn 175: moves=0, captures=0, entries=0, homeStretch=0, skips=0, extras=0","severity":"info"}
+{"ts":"2026-07-11T04:39:39.011Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Ana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:39.011Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Carlos: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:39.011Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Diana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:39.011Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Eduardo: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:51.597Z","player":"SYSTEM","playerIdx":null,"action":"PROGRESS","detail":"Turn 200: moves=0, captures=0, entries=0, homeStretch=0, skips=0, extras=0","severity":"info"}
+{"ts":"2026-07-11T04:39:51.598Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Ana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:51.598Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Carlos: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:51.598Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Diana: 🏠4 🎮0 🏁0","severity":"info"}
+{"ts":"2026-07-11T04:39:51.598Z","player":"SYSTEM","playerIdx":null,"action":"SCORE","detail":"Eduardo: 🏠4 🎮0 🏁0","severity":"info"}

@@ -209,16 +209,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       diceValue: value,
       phase: 'moving',
-      messages: [
-        ...get().messages,
-        {
+      messages: pushMessage(get().messages, {
           id: createId(),
           playerId: currentPlayer.id,
           text: `🎲 Salió un ${value}`,
           timestamp: Date.now(),
-        },
-      ],
-    });
+        }),
+      });
 
     // Check if any pieces can move
     const movable = getMovablePieces({ ...get(), diceValue: value }, value);
@@ -234,7 +231,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       };
 
       set({
-        messages: [...state.messages, nextMsg],
+        messages: pushMessage(state.messages, nextMsg),
       });
 
       // Auto-advance after a short delay
@@ -252,7 +249,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const current = get();
         if (current.phase !== 'moving') return;
         get().selectPiece(movable[0].id);
-      }, 800);
+      }, 1200);
     }
   },
 
@@ -274,16 +271,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { messages, currentPlayerIndex, players } = get();
     const currentPlayer = players[currentPlayerIndex];
     set({
-      messages: [
-        ...messages,
-        {
+      messages: pushMessage(messages, {
           id: createId(),
           playerId: currentPlayer?.id ?? 'system',
           text,
           sticker,
           timestamp: Date.now(),
-        },
-      ],
+        }),
     });
   },
 
@@ -316,6 +310,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 }));
 
 // ─── Internal Helpers ──────────────────────────────────────────────────
+
+const MAX_MESSAGES = 100;
+function pushMessage(existing: GameMessage[], msg: GameMessage): GameMessage[] {
+  const next = [...existing, msg];
+  return next.length > MAX_MESSAGES ? next.slice(-MAX_MESSAGES) : next;
+}
 
 function executeMove(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
@@ -367,15 +367,12 @@ function executeMove(
     const winnerPlayer = newState.players.find((p) => p.color === newState.winner);
     set({
       ...newState,
-      messages: [
-        ...newState.messages,
-        {
+      messages: pushMessage(newState.messages, {
           id: createId(),
           playerId: winnerPlayer?.id ?? 'system',
           text: randomPick(WIN_MESSAGES),
           timestamp: Date.now(),
-        },
-      ],
+        }),
     });
     // Add win effects
     const winPos = getSquarePosition(COLOR_CONFIG[newState.winner as Color].entryIndex);
@@ -412,15 +409,12 @@ function scheduleBotTurn(
     set({
       diceValue: value,
       phase: 'moving',
-      messages: [
-        ...state.messages,
-        {
+      messages: pushMessage(state.messages, {
           id: createId(),
           playerId: currentPlayer.id,
           text: `🎲 ${currentPlayer.emoji} Salió un ${value}`,
           timestamp: Date.now(),
-        },
-      ],
+        }),
     });
 
     // Check movable pieces
@@ -432,15 +426,12 @@ function scheduleBotTurn(
         const s = get();
         if (s.phase !== 'moving') return;
         set({
-          messages: [
-            ...s.messages,
-            {
+          messages: pushMessage(s.messages, {
               id: createId(),
               playerId: currentPlayer.id,
               text: randomPick(NO_MOVE_MESSAGES),
               timestamp: Date.now(),
-            },
-          ],
+            }),
         });
         setTimeout(() => {
           const current = get();
@@ -461,16 +452,13 @@ function scheduleBotTurn(
           const current = get();
           const reaction = getBotReaction();
           set({
-            messages: [
-              ...current.messages,
-              {
+            messages: pushMessage(current.messages, {
                 id: createId(),
                 playerId: currentPlayer.id,
                 text: reaction.text,
                 sticker: reaction.sticker,
                 timestamp: Date.now(),
-              },
-            ],
+              }),
           });
         }, 800);
       }
