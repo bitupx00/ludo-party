@@ -194,24 +194,28 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
                 background: `linear-gradient(${CORNER_GRADIENT[corner]}, ${cfg.cssLight}, ${cfg.cssColor} 60%, ${cfg.cssColor})`,
               }}
             >
-              <div className="home-base-pad">
-                {BASE_SLOTS[color].map((slot, i) => {
-                  const r = rot(slot.x + 0.5, slot.y + 0.5);
-                  return (
-                    <span
-                      key={i}
-                      className={`home-base-slot home-base-slot--${color}`}
-                      style={{
-                        left: `${((r.x - origin.x) / 6) * 100}%`,
-                        top: `${((r.y - origin.y) / 6) * 100}%`,
-                      }}
-                    />
-                  );
-                })}
-              </div>
+              <div className="home-base-pad" />
             </div>
           );
         })}
+
+        {/* Base waiting slots — same coordinate math as the pieces, so the
+            pawns always sit exactly on their circles (any rotation). */}
+        {COLORS_ORDER.flatMap((color) =>
+          BASE_SLOTS[color].map((slot, i) => {
+            const r = rot(slot.x, slot.y);
+            return (
+              <span
+                key={`slot-${color}-${i}`}
+                className={`home-base-slot home-base-slot--${color}`}
+                style={{
+                  left: `${r.x * CELL + CELL / 2}%`,
+                  top: `${r.y * CELL + CELL / 2}%`,
+                }}
+              />
+            );
+          }),
+        )}
 
         {/* Path + home stretch cells */}
         {pathCells}

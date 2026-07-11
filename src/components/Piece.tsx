@@ -73,9 +73,11 @@ export default function Piece({ piece, xs, ys, offset, onClick }: PieceProps) {
           : { type: 'spring', stiffness: 260, damping: 22, mass: 0.6 }
       }
     >
+      {/* Static layer owns the centering translate — framer animates scale on
+          the button below and would clobber a CSS transform there. */}
       <div
         className="piece-offset"
-        style={{ transform: `translate(${offset.dx}px, ${offset.dy}px)` }}
+        style={{ transform: `translate(calc(-50% + ${offset.dx}px), calc(-80% + ${offset.dy}px))` }}
       >
         <motion.button
           className={[

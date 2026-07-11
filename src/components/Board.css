@@ -47,12 +47,14 @@
 
 .home-base-slot {
   position: absolute;
-  width: 34%;
+  width: 9%; /* ~1.35 cells, in board units (same space as the pieces) */
   aspect-ratio: 1;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), rgba(0, 0, 0, 0.06) 70%);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95), rgba(0, 0, 0, 0.07) 70%);
   box-shadow: inset 0 2px 5px rgba(80, 50, 20, 0.3);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .home-base-slot--red    { border: 2px solid var(--color-red-glow); }
@@ -133,7 +135,7 @@
 /* ── Pieces overlay ─────────────────────────────────────────────── */
 .pieces-overlay {
   position: absolute;
-  inset: 0;
+  inset: 3px; /* match the grid's 3px border so % coords share one reference */
   pointer-events: none;
   z-index: 10;
 }
@@ -165,7 +167,8 @@
   position: relative;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transform: translate(-50%, -68%);
+  /* Centering lives on .piece-offset — framer-motion owns this element's
+     transform (scale animations) and would overwrite any CSS translate. */
   touch-action: manipulation;
 }
 
