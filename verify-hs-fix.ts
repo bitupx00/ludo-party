@@ -1,20 +1,21 @@
 import { calculateNewPosition } from "./src/game/gameEngine";
 
+// Ludo Club convention: HS entries — red 50, blue 11, yellow 24, green 37
 const tests = [
-  { color: "red" as const, pos: 51, dice: 1, expect: 52 },
-  { color: "red" as const, pos: 51, dice: 6, expect: -2 },
-  { color: "green" as const, pos: 12, dice: 1, expect: 52 },
-  { color: "yellow" as const, pos: 25, dice: 1, expect: 52 },
-  { color: "blue" as const, pos: 38, dice: 1, expect: 52 },
-  { color: "red" as const, pos: 50, dice: 2, expect: 52 },
+  { color: "red" as const, pos: 50, dice: 1, expect: 52 },
+  { color: "red" as const, pos: 50, dice: 6, expect: -2 },
+  { color: "blue" as const, pos: 11, dice: 1, expect: 52 },
+  { color: "yellow" as const, pos: 24, dice: 1, expect: 52 },
+  { color: "green" as const, pos: 37, dice: 1, expect: 52 },
+  { color: "red" as const, pos: 49, dice: 2, expect: 52 },
   { color: "red" as const, pos: 55, dice: 1, expect: 56 },
   { color: "red" as const, pos: 55, dice: 2, expect: -2 },
-  { color: "green" as const, pos: 11, dice: 2, expect: 52 },
-  { color: "blue" as const, pos: 37, dice: 2, expect: 52 },
+  { color: "blue" as const, pos: 10, dice: 2, expect: 52 },
+  { color: "green" as const, pos: 36, dice: 2, expect: 52 },
   // Verify board positions still work
   { color: "red" as const, pos: 0, dice: 3, expect: 3 },
-  { color: "red" as const, pos: 49, dice: 1, expect: 50 },
-  { color: "red" as const, pos: 50, dice: 1, expect: 51 },
+  { color: "red" as const, pos: 48, dice: 1, expect: 49 },
+  { color: "green" as const, pos: 40, dice: 3, expect: 43 },
 ];
 
 let pass = 0, fail = 0;

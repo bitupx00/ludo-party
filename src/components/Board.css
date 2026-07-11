@@ -102,10 +102,12 @@
 .board-square--hs {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
-.board-square--hs-red    { background: linear-gradient(180deg, var(--color-red-light), var(--color-red)); }
-.board-square--hs-green  { background: linear-gradient(90deg, var(--color-green-light), var(--color-green)); }
-.board-square--hs-yellow { background: linear-gradient(0deg, var(--color-yellow-light), var(--color-yellow)); }
-.board-square--hs-blue   { background: linear-gradient(270deg, var(--color-blue-light), var(--color-blue)); }
+/* Lane direction (Ludo Club): red = left arm →, blue = top arm ↓,
+   yellow = right arm ←, green = bottom arm ↑ */
+.board-square--hs-red    { background: linear-gradient(90deg, var(--color-red-light), var(--color-red)); }
+.board-square--hs-blue   { background: linear-gradient(180deg, var(--color-blue-light), var(--color-blue)); }
+.board-square--hs-yellow { background: linear-gradient(270deg, var(--color-yellow-light), var(--color-yellow)); }
+.board-square--hs-green  { background: linear-gradient(0deg, var(--color-green-light), var(--color-green)); }
 
 /* ── Center goal ────────────────────────────────────────────────── */
 .board-center {

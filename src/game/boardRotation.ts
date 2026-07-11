@@ -63,9 +63,10 @@ export function arrowFor(a: { x: number; y: number }, b: { x: number; y: number 
 }
 
 /** Center-goal triangle color for each side (0=top, 1=right, 2=bottom, 3=left)
- *  after k quarter-turns. Unrotated: top=red, right=blue, bottom=yellow, left=green. */
+ *  after k quarter-turns. Unrotated home lanes (Ludo Club): blue arrives from
+ *  the top arm, yellow from the right, green from the bottom, red from the left. */
 export function centerSideColors(k: number): [Color, Color, Color, Color] {
-  const base: Color[] = ['red', 'blue', 'yellow', 'green'];
+  const base: Color[] = ['blue', 'yellow', 'green', 'red'];
   const turns = ((k % 4) + 4) % 4;
   return [0, 1, 2, 3].map((side) => base[(side - turns + 4) % 4]) as [Color, Color, Color, Color];
 }

@@ -2,18 +2,22 @@ import type { Color } from './types';
 import { COLOR_CONFIG } from './types';
 
 /**
- * Ludo board path: 52 squares numbered 0–51 in clockwise order.
+ * Ludo board path: 52 squares numbered 0–51, LUDO CLUB convention.
  *
  * The board is a cross with 4 arms on a 15×15 logical grid.
- * Each arm is 3 cells wide and 6 cells long.
+ * Bases: red = top-left, blue = top-right, green = bottom-left, yellow = bottom-right.
  *
- *   - Top arm:    cols 6–8, rows 0–5    (Red entry)
- *   - Left arm:   cols 0–5, rows 6–8    (Green entry)
- *   - Bottom arm: cols 6–8, rows 9–14  (Yellow entry)
- *   - Right arm:  cols 9–14, rows 6–8   (Blue entry)
- *   - Center:     cols 6–8, rows 6–8
+ * Ludo Club geometry (counterclockwise travel):
+ *  - Each color EXITS onto the arm beside its base (bottom-right of the base
+ *    from that player's rotated point of view) and walks around the ring.
+ *  - Each color's HOME LANE is the center column/row of that same arm,
+ *    entered from the arm's tip after 50 ring squares.
  *
- * Positions are returned as percentages (0–100) for CSS absolute positioning.
+ *  Entries:  red (1,6) → east   | blue (8,1) → south
+ *            yellow (13,8) → west | green (6,13) → north
+ *  Home-lane entrances (last ring square before the lane):
+ *            red (0,7)=idx 50 | blue (7,0)=idx 11
+ *            yellow (14,7)=idx 24 | green (7,14)=idx 37
  */
 
 const GRID = 15;
@@ -26,58 +30,40 @@ function cell(col: number, row: number): { x: number; y: number } {
   };
 }
 
-/**
- * Build the 52-square main path in clockwise order.
- *
- * Tracing the OUTSIDE perimeter of the cross, clockwise from top-left:
- *
- *   Segment A (0–5):   Top arm left side, going DOWN   — col 6, rows 0→5
- *   Segment B (6–11):  Cross top, going LEFT           — row 6, cols 5→0
- *   Segment C (12–13): Left arm tip                     — col 0, rows 7→8
- *   Segment D (14–18): Cross bottom-left, going RIGHT   — row 8, cols 1→5
- *   Segment E (19–24): Bottom arm left side, going DOWN — col 6, rows 9→14
- *   Segment F (25–26): Bottom arm tip                   — row 14, cols 7→8
- *   Segment G (27–31): Bottom arm right side, going UP  — col 8, rows 13→9
- *   Segment H (32–37): Cross bottom-right, going RIGHT  — row 8, cols 9→14
- *   Segment I (38–39): Right arm tip                   — col 14, rows 7→6
- *   Segment J (40–44): Cross top-right, going LEFT     — row 6, cols 13→9
- *   Segment K (45–50): Top arm right side, going UP    — col 8, rows 5→0
- *   Segment L (51):    Top arm tip                      — col 7, row 0
- *
- * Total: 6+6+2+5+6+2+5+6+2+5+6+1 = 52 ✓
- *
- * Entry indices: Red=0, Green=13, Yellow=26, Blue=39 (each 13 apart)
- */
-
 const BOARD_PATH: { col: number; row: number }[] = [];
 
-// A: indices 0–5 — down col 6 of top arm
-for (let r = 0; r <= 5; r++) BOARD_PATH.push({ col: 6, row: r });
-// B: indices 6–11 — left across row 6 toward left arm
-for (let c = 5; c >= 0; c--) BOARD_PATH.push({ col: c, row: 6 });
-// C: indices 12–13 — left arm tip going down
-BOARD_PATH.push({ col: 0, row: 7 });
-BOARD_PATH.push({ col: 0, row: 8 });
-// D: indices 14–18 — right across row 8 toward center
-for (let c = 1; c <= 5; c++) BOARD_PATH.push({ col: c, row: 8 });
-// E: indices 19–24 — down col 6 of bottom arm
-for (let r = 9; r <= 14; r++) BOARD_PATH.push({ col: 6, row: r });
-// F: indices 25–26 — bottom arm tip going right
-BOARD_PATH.push({ col: 7, row: 14 });
-BOARD_PATH.push({ col: 8, row: 14 });
-// G: indices 27–31 — up col 8 of bottom arm
-for (let r = 13; r >= 9; r--) BOARD_PATH.push({ col: 8, row: r });
-// H: indices 32–37 — right across row 8 into right arm
-for (let c = 9; c <= 14; c++) BOARD_PATH.push({ col: c, row: 8 });
-// I: indices 38–39 — right arm tip going up
-BOARD_PATH.push({ col: 14, row: 7 });
-BOARD_PATH.push({ col: 14, row: 6 });
-// J: indices 40–44 — left across row 6 toward center
-for (let c = 13; c >= 9; c--) BOARD_PATH.push({ col: c, row: 6 });
-// K: indices 45–50 — up col 8 of top arm
-for (let r = 5; r >= 0; r--) BOARD_PATH.push({ col: 8, row: r });
-// L: index 51 — top arm tip connecting back
+// 0–4: red entry — east along left arm's top row: (1,6) → (5,6)
+for (let c = 1; c <= 5; c++) BOARD_PATH.push({ col: c, row: 6 });
+// 5–10: north up the top arm's left column: (6,5) → (6,0)
+for (let r = 5; r >= 0; r--) BOARD_PATH.push({ col: 6, row: r });
+// 11: (7,0) — top tip (BLUE home-lane entrance)
 BOARD_PATH.push({ col: 7, row: 0 });
+// 12: (8,0)
+BOARD_PATH.push({ col: 8, row: 0 });
+// 13–17: blue entry — south down the top arm's right column: (8,1) → (8,5)
+for (let r = 1; r <= 5; r++) BOARD_PATH.push({ col: 8, row: r });
+// 18–23: east along right arm's top row: (9,6) → (14,6)
+for (let c = 9; c <= 14; c++) BOARD_PATH.push({ col: c, row: 6 });
+// 24: (14,7) — right tip (YELLOW home-lane entrance)
+BOARD_PATH.push({ col: 14, row: 7 });
+// 25: (14,8)
+BOARD_PATH.push({ col: 14, row: 8 });
+// 26–30: yellow entry — west along right arm's bottom row: (13,8) → (9,8)
+for (let c = 13; c >= 9; c--) BOARD_PATH.push({ col: c, row: 8 });
+// 31–36: south down the bottom arm's right column: (8,9) → (8,14)
+for (let r = 9; r <= 14; r++) BOARD_PATH.push({ col: 8, row: r });
+// 37: (7,14) — bottom tip (GREEN home-lane entrance)
+BOARD_PATH.push({ col: 7, row: 14 });
+// 38: (6,14)
+BOARD_PATH.push({ col: 6, row: 14 });
+// 39–43: green entry — north up the bottom arm's left column: (6,13) → (6,9)
+for (let r = 13; r >= 9; r--) BOARD_PATH.push({ col: 6, row: r });
+// 44–49: west along left arm's bottom row: (5,8) → (0,8)
+for (let c = 5; c >= 0; c--) BOARD_PATH.push({ col: c, row: 8 });
+// 50: (0,7) — left tip (RED home-lane entrance)
+BOARD_PATH.push({ col: 0, row: 7 });
+// 51: (0,6)
+BOARD_PATH.push({ col: 0, row: 6 });
 
 if (BOARD_PATH.length !== 52) {
   throw new Error(`Board path has ${BOARD_PATH.length} squares, expected 52`);
@@ -90,45 +76,44 @@ export function getSquarePosition(index: number): { x: number; y: number } {
 }
 
 /**
- * Home stretch positions — 5 squares from the edge of each arm toward the center.
- * Each color enters its home stretch from the board square just before its entry
- * point, then moves along the center lane of its arm toward the board center.
+ * Home stretch positions — 5 squares along the CENTER lane of each color's
+ * own arm, from the arm tip toward the board center (Ludo Club).
  */
 const HOME_STRETCH_PATHS: Record<Color, { col: number; row: number }[]> = {
   red: [
-    { col: 7, row: 1 },
-    { col: 7, row: 2 },
-    { col: 7, row: 3 },
-    { col: 7, row: 4 },
-    { col: 7, row: 5 },
-  ],
-  green: [
     { col: 1, row: 7 },
     { col: 2, row: 7 },
     { col: 3, row: 7 },
     { col: 4, row: 7 },
     { col: 5, row: 7 },
   ],
-  yellow: [
-    { col: 7, row: 13 },
-    { col: 7, row: 12 },
-    { col: 7, row: 11 },
-    { col: 7, row: 10 },
-    { col: 7, row: 9 },
-  ],
   blue: [
+    { col: 7, row: 1 },
+    { col: 7, row: 2 },
+    { col: 7, row: 3 },
+    { col: 7, row: 4 },
+    { col: 7, row: 5 },
+  ],
+  yellow: [
     { col: 13, row: 7 },
     { col: 12, row: 7 },
     { col: 11, row: 7 },
     { col: 10, row: 7 },
     { col: 9, row: 7 },
   ],
+  green: [
+    { col: 7, row: 13 },
+    { col: 7, row: 12 },
+    { col: 7, row: 11 },
+    { col: 7, row: 10 },
+    { col: 7, row: 9 },
+  ],
 };
 
 /**
  * Get the position of a home stretch square.
  * @param color - Which color's home stretch.
- * @param index - 0 (just entered) to 4 (home / closest to center).
+ * @param index - 0 (just entered) to 4 (closest to the center goal).
  */
 export function getHomeStretchPosition(color: Color, index: number): { x: number; y: number } {
   const pos = HOME_STRETCH_PATHS[color][index];

@@ -25,7 +25,7 @@ interface BoardProps {
 const COLORS_ORDER = ['red', 'green', 'yellow', 'blue'] as const;
 
 /** Entry square index per color (matches boardPath.ts / gameEngine). */
-const ENTRY_SQUARES: Record<Color, number> = { red: 0, green: 13, yellow: 26, blue: 39 };
+const ENTRY_SQUARES: Record<Color, number> = { red: 0, blue: 13, yellow: 26, green: 39 };
 
 /** Waiting slots inside each base, in UNROTATED grid units. */
 const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {

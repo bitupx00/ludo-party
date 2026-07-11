@@ -12,11 +12,16 @@ Mover las 4 fichas desde tu base (casa 🏠) alrededor del tablero hasta la meta
 ## Inicio
 - Cada jugador tiene **4 fichas** en su base (posición -1)
 - Para **entrar al tablero**: necesitas sacar **6** en el dado (regla Ludo Club)
-- Al entrar, la ficha se coloca en la casilla de entrada de tu color
+- Al entrar, la ficha se coloca en la casilla de salida de tu color, ubicada
+  en el brazo junto a tu base (abajo-derecha de tu base en tu perspectiva,
+  como Ludo Club)
   - Rojo → casilla 0
-  - Verde → casilla 13
+  - Azul → casilla 13
   - Amarillo → casilla 26
-  - Azul → casilla 39
+  - Verde → casilla 39
+- Cada color recorre **50 casillas** del anillo y entra a su corredor por la
+  punta de su propio brazo (entradas al corredor: rojo 50, azul 11,
+  amarillo 24, verde 37)
 
 ## Turnos
 1. El jugador actual **tira el dado** (1-6, completamente aleatorio)

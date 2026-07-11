@@ -81,7 +81,7 @@ export const COLOR_CONFIG: Record<Color, {
     displayName: 'Rojo',
   },
   green: {
-    entryIndex: 13,
+    entryIndex: 39,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -99,7 +99,7 @@ export const COLOR_CONFIG: Record<Color, {
     displayName: 'Amarillo',
   },
   blue: {
-    entryIndex: 39,
+    entryIndex: 13,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -109,18 +109,18 @@ export const COLOR_CONFIG: Record<Color, {
   },
 };
 
-/** Position just before home stretch entry for each color.
- *  This is the last board square (0-51) from which rolling 1+ enters the home stretch.
- *  It's the square immediately before the player's entry square going clockwise.
- *  Red (entry=0): HS_entry = 51 (pos 51 + 1 = HS)
- *  Green (entry=13): HS_entry = 12 (pos 12 + 1 = HS)
- *  Yellow (entry=26): HS_entry = 25 (pos 25 + 1 = HS)
- *  Blue (entry=39): HS_entry = 38 (pos 38 + 1 = HS) */
+/** Last board square (0-51) from which rolling 1+ enters the home stretch.
+ *  Ludo Club convention: each color travels 50 ring squares from its entry
+ *  and turns into its own arm's center lane at the arm tip.
+ *  Red (entry=0): HS_entry = 50 — left tip (0,7)
+ *  Blue (entry=13): HS_entry = 11 — top tip (7,0)
+ *  Yellow (entry=26): HS_entry = 24 — right tip (14,7)
+ *  Green (entry=39): HS_entry = 37 — bottom tip (7,14) */
 export const HOME_STRETCH_ENTRY: Record<Color, number> = {
-  red: 51,
-  green: 12,
-  yellow: 25,
-  blue: 38,
+  red: 50,
+  green: 37,
+  yellow: 24,
+  blue: 11,
 };
 
 export const AVATAR_EMOJIS = [
