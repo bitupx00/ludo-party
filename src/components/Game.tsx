@@ -8,6 +8,7 @@ import GameChat from './GameChat.tsx';
 import StickerPicker from './StickerPicker.tsx';
 import CaptureOverlay from './CaptureOverlay.tsx';
 import WinScreen from './WinScreen.tsx';
+import VideoChat from './VideoChat.tsx';
 import type { Color, Piece } from '../game/types.ts';
 import { PLAYER_CONFIG } from '../game/types.ts';
 
@@ -159,6 +160,9 @@ export default function Game() {
           onPlayAgain={handlePlayAgain}
         />
       )}
+
+      {/* Video chat overlay */}
+      <VideoChat />
 
       <style>{`
         .game-layout {

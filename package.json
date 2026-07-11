@@ -12,6 +12,7 @@
   "dependencies": {
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.42.2",
+    "peerjs": "^1.5.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "zustand": "^5.0.14"
