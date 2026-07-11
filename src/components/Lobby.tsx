@@ -146,7 +146,7 @@ export default function Lobby() {
               placeholder={t('yourName')}
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
-              maxLength={16}
+              maxLength={24}
               disabled={onlineConnecting}
             />
             <button
@@ -228,7 +228,7 @@ export default function Lobby() {
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && canAddHuman && handleAddPlayer()}
-            maxLength={16}
+            maxLength={24}
             disabled={players.length >= 4 || (gameMode === 'solo' && humans.length >= 1)}
           />
           <button

@@ -295,7 +295,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   addRemotePlayer: (name: string, points?: number) => {
     const { players } = get();
     if (players.length >= 4) return null;
-    get().addPlayer(name.trim().slice(0, 16) || 'Jugador', points ?? 0);
+    get().addPlayer(name.trim().slice(0, 24) || 'Jugador', points ?? 0);
     const added = get().players[get().players.length - 1];
     if (added) playSfx('join');
     return added?.id ?? null;
@@ -391,7 +391,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // where the old link hadn't dropped yet) — just keep playing.
     if (!player.isBot) return;
 
-    const cleanName = name?.trim().slice(0, 16) || player.name.replace(/ 🤖$/, '');
+    const cleanName = name?.trim().slice(0, 24) || player.name.replace(/ 🤖$/, '');
     // Give them back a human avatar (the original was replaced by the bot's)
     const usedEmojis = new Set(state.players.filter((p) => p.id !== playerId).map((p) => p.emoji));
     const available = AVATAR_EMOJIS.filter((e) => !usedEmojis.has(e));

@@ -82,11 +82,11 @@ export function chooseBotMove(
   });
   if (homePiece) return homePiece.id;
 
-  // Priority 4: Enter home stretch (position 52-55)
+  // Priority 4: Enter the home stretch lane (positions 52-56)
   const hsPiece = movable.find((p) => {
     if (p.position === -1) return false;
     const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
-    return newPos >= 52 && newPos <= 55;
+    return newPos >= 52 && newPos <= 56;
   });
   if (hsPiece) return hsPiece.id;
 
