@@ -18,6 +18,9 @@ export interface Player {
   emoji: string; // avatar emoji
   pieces: Piece[];
   isBot?: boolean;
+  /** Lucky-dice shop points: +1 for every 6 or 1 rolled, spent buying
+   *  weighted dice (see LUCKY_DICE_COST in gameEngine). */
+  points?: number;
 }
 
 export interface Piece {

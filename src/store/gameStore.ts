@@ -3,6 +3,9 @@ import type { Color, Player, CaptureEffect, GameMessage, GameMode } from '../gam
 import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER, ONLINE_SEAT_ORDER } from '../game/types';
 import {
   rollDice,
+  rollLuckyDice,
+  earnsPoint,
+  LUCKY_DICE_COST,
   getMovablePieces,
   movePiece,
   advanceTurn,
@@ -107,7 +110,7 @@ interface GameStore {
   /** Host: seat a remote guest; returns the new player id (null if full). */
   addRemotePlayer: (name: string) => string | null;
   /** Host: apply a validated action coming from a guest. */
-  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string }) => void;
+  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number }) => void;
   /** Host: a guest disconnected — unseat (lobby) or convert to bot (game). */
   handleGuestLeft: (playerId: string) => void;
   /** Guest: the host closed the room. */
@@ -123,6 +126,9 @@ interface GameStore {
 
   // Gameplay
   roll: () => void;
+  /** Roll using a bought lucky dice (points shop): 30% the chosen number,
+   *  70% a lower one. Cost is validated/deducted host-side. */
+  rollLucky: (n: number) => void;
   selectPiece: (pieceId: string) => void;
 
   // Fun stuff
@@ -302,7 +308,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!current || current.id !== playerId) return;
 
     if (action.a === 'roll') {
-      doRoll(set, get);
+      // lucky: doRoll validates the points cost itself (host-authoritative)
+      doRoll(set, get, action.lucky);
     } else if (action.a === 'select' && action.pieceId) {
       if (state.phase !== 'moving' || state.diceValue === null) return;
       if (state.diceValue === 6 && state.consecutiveSixes >= 2) return; // third six: cancelled
@@ -451,9 +458,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Fixed turn order by color (red → green → yellow → blue) so teams alternate.
-    const ordered = [...allPlayers].sort(
-      (a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color),
-    );
+    // Everyone starts each match with 0 shop points.
+    const ordered = [...allPlayers]
+      .sort((a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color))
+      .map((p) => ({ ...p, points: 0 }));
 
     set({
       players: ordered,
@@ -500,6 +508,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (onlineRole === 'host' && currentPlayer.id !== localPlayerId) return;
 
     doRoll(set, get);
+  },
+
+  rollLucky: (n: number) => {
+    const { phase, currentPlayerIndex, players, onlineRole, localPlayerId } = get();
+    if (phase !== 'rolling') return;
+    if (LUCKY_DICE_COST[n] === undefined) return;
+
+    const currentPlayer = players[currentPlayerIndex];
+    if (!currentPlayer || currentPlayer.isBot) return;
+    if ((currentPlayer.points ?? 0) < LUCKY_DICE_COST[n]) return;
+
+    // Online: only the owner of the current turn may roll
+    if (onlineRole === 'guest') {
+      if (currentPlayer.id === localPlayerId) sendActionToHost({ a: 'roll', lucky: n });
+      return;
+    }
+    if (onlineRole === 'host' && currentPlayer.id !== localPlayerId) return;
+
+    doRoll(set, get, n);
   },
 
   selectPiece: (pieceId: string) => {
@@ -601,6 +628,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const fresh = players.map((p) => ({
       ...p,
+      points: 0,
       pieces: p.pieces.map((piece) => ({
         ...piece,
         position: -1,
@@ -727,16 +755,43 @@ function cancelThirdSix(
   }, 1600);
 }
 
-/** Roll the dice for the current (human) player and resolve the aftermath. */
+/** Add/subtract lucky-dice shop points for a player. */
+function adjustPoints(
+  set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  playerId: string,
+  delta: number,
+) {
+  set((state) => ({
+    players: state.players.map((p) =>
+      p.id === playerId ? { ...p, points: Math.max(0, (p.points ?? 0) + delta) } : p,
+    ),
+  }));
+}
+
+/** Roll the dice for the current (human) player and resolve the aftermath.
+ *  `luckyN` = a bought lucky dice number: the cost is validated and
+ *  deducted HERE (host-authoritative — guests can't fake points) and the
+ *  roll uses the 30%/70% weighted distribution instead of a fair die. */
 function doRoll(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
   get: () => GameStore,
+  luckyN?: number,
 ) {
   const { currentPlayerIndex } = get();
   const currentPlayer = get().players[currentPlayerIndex];
   if (!currentPlayer) return;
 
-  const value = rollDice();
+  let value: number;
+  const cost = luckyN !== undefined ? LUCKY_DICE_COST[luckyN] : undefined;
+  if (cost !== undefined && (currentPlayer.points ?? 0) >= cost) {
+    adjustPoints(set, currentPlayer.id, -cost);
+    value = rollLuckyDice(luckyN!);
+  } else {
+    value = rollDice();
+  }
+  // Every 6 or 1 rolled earns a shop point
+  if (earnsPoint(value)) adjustPoints(set, currentPlayer.id, 1);
+
   const isThirdSix = value === 6 && get().consecutiveSixes >= 2;
 
   set({
@@ -890,8 +945,9 @@ function scheduleBotTurn(
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (!currentPlayer?.isBot) return;
 
-    // Bot rolls
+    // Bot rolls (bots also earn shop points — visible fairness, they just never spend them)
     const value = rollDice();
+    if (earnsPoint(value)) adjustPoints(set, currentPlayer.id, 1);
     const isThirdSix = value === 6 && state.consecutiveSixes >= 2;
 
     set({

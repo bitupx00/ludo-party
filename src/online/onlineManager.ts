@@ -14,7 +14,7 @@ import { useGameStore, SNAPSHOT_KEYS, type GameSnapshot } from '../store/gameSto
 /* ─── Protocol ────────────────────────────────────────────────────── */
 
 export type GuestAction =
-  | { a: 'roll' }
+  | { a: 'roll'; lucky?: number } // lucky = bought lucky-dice number (host validates the cost)
   | { a: 'select'; pieceId: string }
   | { a: 'reaction'; emoji: string }
   | { a: 'chat'; text: string };

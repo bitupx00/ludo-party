@@ -6,6 +6,7 @@ import Dice3D from './Dice3D.tsx';
 import AvatarBadge from './AvatarBadge.tsx';
 import GameChat from './GameChat.tsx';
 import StickerPicker from './StickerPicker.tsx';
+import DiceShop from './DiceShop.tsx';
 import CaptureOverlay from './CaptureOverlay.tsx';
 import WinScreen from './WinScreen.tsx';
 import type { Color, Piece, Player } from '../game/types.ts';
@@ -33,6 +34,7 @@ export default function Game() {
   const reactions = useGameStore((s) => s.reactions);
   const selectPiece = useGameStore((s) => s.selectPiece);
   const roll = useGameStore((s) => s.roll);
+  const rollLucky = useGameStore((s) => s.rollLucky);
   const sendReaction = useGameStore((s) => s.sendReaction);
   const sendChatMessage = useGameStore((s) => s.sendChatMessage);
   const clearCaptureEffects = useGameStore((s) => s.clearCaptureEffects);
@@ -44,6 +46,7 @@ export default function Game() {
 
   const [chatOpen, setChatOpen] = useState(false);
   const [stickersOpen, setStickersOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const currentPlayer = players[currentPlayerIndex];
@@ -54,6 +57,16 @@ export default function Game() {
     ? !isBot
     : currentPlayer?.id === localPlayerId;
   const canRoll = phase === 'rolling' && !winner;
+
+  // Lucky-dice shop: whose points this device shows/spends — online →
+  // your own player; local modes → the current human (shared device),
+  // falling back to the first human while a bot plays.
+  const shopPlayer = onlineRole !== 'none'
+    ? players.find((p) => p.id === localPlayerId)
+    : currentPlayer && !currentPlayer.isBot
+      ? currentPlayer
+      : players.find((p) => !p.isBot);
+  const shopPoints = shopPlayer?.points ?? 0;
 
   // Board perspective (Ludo Club): this device's color sits bottom-left
   const myColor: Color = useMemo(() => {
@@ -313,6 +326,18 @@ export default function Game() {
               )}
             </button>
 
+            {/* Lucky-dice shop: always visible so players track their ⭐,
+                buying only enabled on your own roll. */}
+            <button
+              className="game-hud-side-btn game-shop-btn"
+              onClick={() => setShopOpen(true)}
+              aria-label={t('luckyTitle')}
+              title={t('luckyTitle')}
+            >
+              🎯
+              <span className="game-shop-points">⭐{shopPoints}</span>
+            </button>
+
             {/* Big interactive dice: only during the local player's own
                 turn (Ludo Club style) — other turns show a small dice next
                 to that player's avatar instead (see renderBadge above). */}
@@ -353,6 +378,15 @@ export default function Game() {
         onClose={() => setStickersOpen(false)}
         onStickerSelect={handleStickerSelect}
         onPhraseSelect={sendChatMessage}
+      />
+
+      {/* Lucky-dice shop */}
+      <DiceShop
+        isOpen={shopOpen}
+        points={shopPoints}
+        canBuy={canRoll && myTurn}
+        onClose={() => setShopOpen(false)}
+        onBuy={rollLucky}
       />
 
       {/* Capture overlay */}
@@ -553,6 +587,21 @@ export default function Game() {
         .game-hud-side-btn:active {
           transform: translateY(3px);
           box-shadow: 0 1px 0 rgba(20, 8, 70, 0.3);
+        }
+        .game-shop-points {
+          position: absolute;
+          bottom: -6px;
+          left: 50%;
+          translate: -50% 0;
+          font-size: 0.62rem;
+          font-weight: 800;
+          font-family: var(--font-display);
+          color: #ffd65a;
+          background: rgba(20, 9, 46, 0.92);
+          border: 1px solid rgba(255, 214, 90, 0.5);
+          border-radius: var(--radius-full);
+          padding: 1px 7px;
+          white-space: nowrap;
         }
         .game-chat-unread {
           position: absolute;

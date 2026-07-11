@@ -9,6 +9,26 @@ export function rollDice(): number {
   return Math.floor(Math.random() * 6) + 1;
 }
 
+// ─── Lucky dice (points shop) ────────────────────────────────────────
+// Players earn 1 point for every natural 6 or 1 they roll. Points buy a
+// "lucky dice" of a chosen number: 30% chance the roll IS that number,
+// 70% chance it lands one of the two numbers just below it (min 1).
+
+/** Cost in points of each buyable lucky-dice number. */
+export const LUCKY_DICE_COST: Record<number, number> = { 2: 3, 3: 3, 4: 3, 5: 3, 6: 4 };
+
+/** True when the rolled value earns the roller a shop point. */
+export function earnsPoint(value: number): boolean {
+  return value === 6 || value === 1;
+}
+
+/** Weighted roll for a bought lucky dice of number `n`. */
+export function rollLuckyDice(n: number): number {
+  if (Math.random() < 0.3) return n;
+  const lower = [n - 1, n - 2].filter((v) => v >= 1);
+  return lower.length > 0 ? lower[Math.floor(Math.random() * lower.length)] : n;
+}
+
 /** Check if rolling a 6 three times in a row should forfeit the turn. */
 export function shouldForfeitTurn(consecutiveSixes: number): boolean {
   return consecutiveSixes >= 3;
@@ -395,6 +415,7 @@ export function createPlayer(
     emoji,
     pieces: Array.from({ length: 4 }, (_, i) => createPiece(id, color, i)),
     isBot,
+    points: 0,
   };
 }
 
