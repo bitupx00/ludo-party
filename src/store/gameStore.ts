@@ -17,6 +17,8 @@ import { createBotPlayers, chooseBotMove, getBotReaction, BOT_NAMES, BOT_EMOJIS 
 import {
   NO_MOVE_MESSAGES,
   WIN_MESSAGES,
+  CAPTURE_BONUS_MESSAGES,
+  HOME_BONUS_MESSAGES,
   randomPick,
 } from '../game/stickers';
 
@@ -70,6 +72,7 @@ interface GameStore {
   // Fun stuff
   addMessage: (text: string, sticker?: string) => void;
   sendReaction: (emoji: string) => void;
+  sendChatMessage: (text: string) => void;
   addCaptureEffect: (x: number, y: number, type: CaptureEffect['type']) => void;
   clearCaptureEffects: () => void;
 
@@ -101,17 +104,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   movablePieceIds: () => {
-    const { players, currentPlayerIndex, diceValue } = get();
+    const { players, currentPlayerIndex, diceValue, phase } = get();
     const dice = diceValue ?? 0;
-    if (dice === 0) return [];
+    if (dice === 0 || phase !== 'moving') return [];
     const player = players[currentPlayerIndex];
     if (!player) return [];
     return player.pieces
-      .filter((p) => p.position !== 56)
-      .filter((p) => {
-        if (p.position === -1) return dice === 5 || dice === 6;
-        return canPieceMove(p, dice, player.color);
-      })
+      .filter((p) => canPieceMove(p, dice, player.color))
       .map((p) => p.id);
   },
 
@@ -330,13 +329,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   sendReaction: (emoji: string) => {
-    const { players, currentPlayerIndex } = get();
-    // Attribute the reaction to the device holder: the current player if human,
-    // otherwise the first human at the table.
-    const current = players[currentPlayerIndex];
-    const target = current && !current.isBot
-      ? current
-      : players.find((p) => !p.isBot) ?? current;
+    const target = deviceHolder(get());
     if (!target) return;
 
     set((s) => ({
@@ -346,6 +339,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playerId: target.id,
         text: emoji,
         sticker: emoji,
+        timestamp: Date.now(),
+      }),
+    }));
+  },
+
+  sendChatMessage: (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const target = deviceHolder(get());
+    if (!target) return;
+
+    set((s) => ({
+      messages: pushMessage(s.messages, {
+        id: createId(),
+        playerId: target.id,
+        text: trimmed.slice(0, 200),
         timestamp: Date.now(),
       }),
     }));
@@ -431,54 +440,57 @@ function pushMessage(existing: GameMessage[], msg: GameMessage): GameMessage[] {
   return next.length > MAX_MESSAGES ? next.slice(-MAX_MESSAGES) : next;
 }
 
+/** Who holds the device: the current player if human, else the first human. */
+function deviceHolder(state: GameStore): Player | undefined {
+  const current = state.players[state.currentPlayerIndex];
+  if (current && !current.isBot) return current;
+  return state.players.find((p) => !p.isBot) ?? current;
+}
+
 function executeMove(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
   get: () => GameStore,
   pieceId: string,
 ) {
   const state = get();
-  const { diceValue } = state;
+  const { diceValue, currentPlayerIndex } = state;
   if (diceValue === null) return;
+
+  const movedBefore = state.players[currentPlayerIndex]?.pieces.find((p) => p.id === pieceId);
+  if (!movedBefore) return;
 
   // Execute the move
   let newState = movePiece({ ...state }, pieceId, diceValue);
+  const movedAfter = newState.players[currentPlayerIndex].pieces.find((p) => p.id === pieceId);
 
-  // Check for captures and add effects
-  if (newState.messages.length > state.messages.length) {
-    const newMessages = newState.messages.slice(state.messages.length);
-    for (const msg of newMessages) {
-      // Check if any capture happened (new message contains capture keywords)
-      const isCapture = msg.text.includes('BOOM') ||
-        msg.text.includes('dormir') ||
-        msg.text.includes('CASA') ||
-        msg.text.includes('R.I.P') ||
-        msg.text.includes('CAPTURADO') ||
-        msg.text.includes('Eliminado') ||
-        msg.text.includes('taxi');
-
-      if (isCapture) {
-        // Add capture effect at the piece's position
-        const movedPiece = newState.players[state.currentPlayerIndex].pieces.find(
-          (p) => p.id === pieceId,
-        );
-        if (movedPiece && movedPiece.position >= 0 && movedPiece.position < 52) {
-          const pos = getSquarePosition(movedPiece.position);
-          newState = addCaptureEffectToState(newState, pos.x, pos.y, 'capture');
-        }
-      }
-
-      // Check for home arrival
-      const isHome = msg.text.includes('casa') || msg.text.includes('Safe') || msg.text.includes('fiesta');
-      if (isHome) {
-        const pos = getSquarePosition(COLOR_CONFIG[state.players[state.currentPlayerIndex].color].entryIndex);
-        newState = addCaptureEffectToState(newState, pos.x, pos.y, 'home');
-      }
+  // Structural event detection (no message sniffing):
+  // capture = an opponent piece that was on the board is now back at base
+  let captured = false;
+  for (let i = 0; i < state.players.length; i++) {
+    if (i === currentPlayerIndex) continue;
+    const before = state.players[i].pieces;
+    const after = newState.players[i].pieces;
+    for (let j = 0; j < before.length; j++) {
+      if (before[j].position >= 0 && after[j].position === -1) captured = true;
     }
+  }
+  const reachedHome = movedAfter != null && movedAfter.position === 56 && movedBefore.position !== 56;
+
+  // Visual effects
+  if (captured && movedAfter && movedAfter.position >= 0 && movedAfter.position < 52) {
+    const pos = getSquarePosition(movedAfter.position);
+    newState = addCaptureEffectToState(newState, pos.x, pos.y, 'capture');
+  }
+  if (reachedHome && newState.phase !== 'finished') {
+    const pos = getSquarePosition(COLOR_CONFIG[state.players[currentPlayerIndex].color].entryIndex);
+    newState = addCaptureEffectToState(newState, pos.x, pos.y, 'home');
   }
 
   // Check for win
   if (newState.phase === 'finished' && newState.winner) {
     const winnerPlayer = newState.players.find((p) => p.color === newState.winner);
+    const winPos = getSquarePosition(COLOR_CONFIG[newState.winner as Color].entryIndex);
+    newState = addCaptureEffectToState(newState, winPos.x, winPos.y, 'win');
     set({
       ...newState,
       messages: pushMessage(newState.messages, {
@@ -488,15 +500,23 @@ function executeMove(
           timestamp: Date.now(),
         }),
     });
-    // Add win effects
-    const winPos = getSquarePosition(COLOR_CONFIG[newState.winner as Color].entryIndex);
-    newState = addCaptureEffectToState(newState, winPos.x, winPos.y, 'win');
-    set(newState);
     return;
   }
 
-  // Advance turn
-  const advanced = advanceTurn(newState);
+  // Ludo Club rule: capturing or reaching the goal grants an extra roll
+  const bonusRoll = captured || reachedHome;
+  let advanced = advanceTurn(newState, bonusRoll);
+  if (bonusRoll && diceValue !== 6 && advanced.currentPlayerIndex === currentPlayerIndex) {
+    advanced = {
+      ...advanced,
+      messages: pushMessage(advanced.messages, {
+        id: createId(),
+        playerId: state.players[currentPlayerIndex].id,
+        text: randomPick(captured ? CAPTURE_BONUS_MESSAGES : HOME_BONUS_MESSAGES),
+        timestamp: Date.now(),
+      }),
+    };
+  }
   set(advanced);
 
   // Schedule bot turn if next player is a bot

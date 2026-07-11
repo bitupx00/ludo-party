@@ -59,7 +59,6 @@ export default function VideoTile({
           width: size,
           height: size,
           borderColor: color,
-          transform: isLocal ? 'scaleX(-1)' : undefined,
         }}
       >
         {hasVideo ? (
@@ -69,6 +68,7 @@ export default function VideoTile({
             playsInline
             muted={isLocal}
             className="video-tile-video"
+            style={{ transform: isLocal ? 'scaleX(-1)' : undefined }}
           />
         ) : (
           <div
@@ -76,7 +76,7 @@ export default function VideoTile({
             style={{
               width: size,
               height: size,
-              background: `${color}33`,
+              background: `linear-gradient(160deg, ${color}, #1a0f3a)`,
             }}
           >
             <span style={{ fontSize: size * 0.4 }}>{emoji}</span>
@@ -134,7 +134,7 @@ const videoTileStyles = `
   border-radius: 50%;
   border: 2.5px solid;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
+  background: #14092e; /* solid — video must not look translucent */
   position: relative;
 }
 

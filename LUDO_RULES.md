@@ -11,7 +11,7 @@ Mover las 4 fichas desde tu base (casa 🏠) alrededor del tablero hasta la meta
 
 ## Inicio
 - Cada jugador tiene **4 fichas** en su base (posición -1)
-- Para **entrar al tablero**: necesitas sacar **5 o 6** en el dado
+- Para **entrar al tablero**: necesitas sacar **6** en el dado (regla Ludo Club)
 - Al entrar, la ficha se coloca en la casilla de entrada de tu color
   - Rojo → casilla 0
   - Verde → casilla 13
@@ -23,7 +23,9 @@ Mover las 4 fichas desde tu base (casa 🏠) alrededor del tablero hasta la meta
 2. Si puede mover alguna ficha, **selecciona cuál mover**
 3. Si NO puede mover NINGUNA ficha, el turno pasa automáticamente
 4. **Sacar 6 = turno extra** (el mismo jugador vuelve a tirar)
-5. **Tres 6s consecutivos = turno perdido** (anti-trampa, regla Parchís)
+5. **Tres 6s consecutivos = turno perdido** (el tercer 6 anula el turno)
+6. **Capturar una ficha = tirada extra** (regla Ludo Club)
+7. **Meter una ficha en meta = tirada extra** (regla Ludo Club)
 
 ## Movimiento
 - Una ficha se mueve hacia adelante según el valor del dado
@@ -34,7 +36,8 @@ Mover las 4 fichas desde tu base (casa 🏠) alrededor del tablero hasta la meta
 ## Capturas
 - Si tu ficha cae en una casilla ocupada por un oponente → **captura**: el oponente vuelve a su base
 - **Safe squares** (casillas seguras): [0, 8, 13, 21, 26, 34, 39, 47] — NO se puede capturar aquí
-- Al capturar, el capturador gana un **turno extra** (en algunas variantes)
+- Al capturar, el capturador gana una **tirada extra**
+- En modo **Equipos 2v2** (Rojo+Amarillo vs Verde+Azul) NO se captura al compañero
 
 ## Home Stretch (Corredor Final)
 - Cada color tiene su propio corredor de 5 casillas

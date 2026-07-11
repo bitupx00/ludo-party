@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Peer, { type DataConnection } from 'peerjs';
 import VideoTile from './VideoTile.tsx';
 import { useGameStore } from '../store/gameStore.ts';
+import { useVideoStore } from '../store/videoStore.ts';
 import { PLAYER_CONFIG } from '../game/types.ts';
 import type { Color } from '../game/types.ts';
 
@@ -44,19 +45,21 @@ function pickNextColor(usedColors: Set<Color>): Color {
 
 export default function VideoChat() {
   const players = useGameStore(s => s.players);
-  const currentPlayerIndex = useGameStore(s => s.currentPlayerIndex);
-  const currentPlayer = players[currentPlayerIndex];
 
-  // Don't show for bots
-  if (!currentPlayer || currentPlayer.isBot) return null;
+  // Mount as long as ANY human is at the table. Unmounting on bot turns
+  // (the old check used the rotating currentPlayer) killed the PeerJS
+  // connection and camera every time a bot played.
+  const hasHuman = players.some(p => !p.isBot);
+  if (!hasHuman) return null;
 
   return <VideoChatInner />;
 }
 
 function VideoChatInner() {
   const players = useGameStore(s => s.players);
-  const currentPlayerIndex = useGameStore(s => s.currentPlayerIndex);
-  const currentPlayer = players[currentPlayerIndex];
+  // Local identity = the device holder (first human), NOT the rotating
+  // current player — the camera belongs to a fixed person.
+  const currentPlayer = players.find(p => !p.isBot);
   const playerConfig = currentPlayer ? PLAYER_CONFIG[currentPlayer.color] : null;
 
   const [isOpen, setIsOpen] = useState(false);
@@ -120,6 +123,10 @@ function VideoChatInner() {
       localStreamRef.current = stream;
       setLocalStream(stream);
       setCameraError(null);
+      // Publish to the game UI: the local camera renders inside the avatar circle
+      useVideoStore.getState().setLocal(currentPlayer?.color ?? null, stream);
+      useVideoStore.getState().setCameraOn(stream.getVideoTracks().length > 0);
+      useVideoStore.getState().setMicOn(true);
       return stream;
     } catch (err) {
       const name = (err as DOMException).name;
@@ -138,13 +145,15 @@ function VideoChatInner() {
         setLocalStream(audioStream);
         setCameraError(null);
         setCameraOn(false);
+        useVideoStore.getState().setLocal(currentPlayer?.color ?? null, audioStream);
+        useVideoStore.getState().setCameraOn(false);
         return audioStream;
       } catch {
         setCameraError('No se pudo acceder al micrófono 🎤❌');
         return null;
       }
     }
-  }, []);
+  }, [currentPlayer?.color]);
 
   /* ─── Toggle camera track ────────────────────────────────────── */
 
@@ -155,6 +164,7 @@ function VideoChatInner() {
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
       setCameraOn(videoTrack.enabled);
+      useVideoStore.getState().setCameraOn(videoTrack.enabled);
     }
   }, []);
 
@@ -165,6 +175,7 @@ function VideoChatInner() {
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
       setMicOn(audioTrack.enabled);
+      useVideoStore.getState().setMicOn(audioTrack.enabled);
     }
   }, []);
 
@@ -217,6 +228,26 @@ function VideoChatInner() {
       localVideoRef.current.srcObject = localStream;
     }
   }, [localStream]);
+
+  /* ─── Mirror remote streams into avatar circles (by color) ─────── */
+
+  useEffect(() => {
+    const store = useVideoStore.getState();
+    const localColor = currentPlayer?.color;
+    const activeColors = new Set<Color>();
+    for (const peer of remotePeers) {
+      if (peer.color === localColor) continue;
+      activeColors.add(peer.color);
+      store.setRemote(peer.color, peer.stream);
+    }
+    // Remove colors whose peer left
+    for (const color of COLORS_ORDER) {
+      if (color === localColor) continue;
+      if (!activeColors.has(color) && useVideoStore.getState().streams[color]) {
+        store.setRemote(color, null);
+      }
+    }
+  }, [remotePeers, currentPlayer?.color]);
 
   /* ─── Host a room ─────────────────────────────────────────────── */
 
@@ -477,6 +508,7 @@ function VideoChatInner() {
     setCameraError(null);
     setCameraOn(true);
     setMicOn(true);
+    useVideoStore.getState().clearAll();
   }, [cleanupPeer, cleanupLocalStream]);
 
   /* ─── Cleanup on unmount ─────────────────────────────────────── */
@@ -485,6 +517,7 @@ function VideoChatInner() {
     return () => {
       cleanupPeer();
       cleanupLocalStream();
+      useVideoStore.getState().clearAll();
     };
   }, [cleanupPeer, cleanupLocalStream]);
 

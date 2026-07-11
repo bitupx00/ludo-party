@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameMessage, Player } from '../game/types.ts';
 import { useT } from '../i18n.ts';
@@ -9,6 +9,7 @@ interface GameChatProps {
   isOpen: boolean;
   onToggle: () => void;
   unreadCount: number;
+  onSendMessage: (text: string) => void;
 }
 
 function formatTime(timestamp: number): string {
@@ -16,9 +17,17 @@ function formatTime(timestamp: number): string {
   return date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function GameChat({ messages, players, isOpen, onToggle }: GameChatProps) {
+export default function GameChat({ messages, players, isOpen, onToggle, onSendMessage }: GameChatProps) {
   const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState('');
+
+  const handleSend = () => {
+    const text = draft.trim();
+    if (!text) return;
+    onSendMessage(text);
+    setDraft('');
+  };
 
   // Build a playerId → player lookup
   const playerMap = new Map<string, Player>();
@@ -103,6 +112,27 @@ export default function GameChat({ messages, players, isOpen, onToggle }: GameCh
                 })}
               </AnimatePresence>
             </div>
+
+            {/* Message input */}
+            <div className="chat-input-row">
+              <input
+                type="text"
+                className="chat-input"
+                placeholder={t('typeMessage')}
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSend()}
+                maxLength={200}
+              />
+              <button
+                className="chat-send-btn"
+                onClick={handleSend}
+                disabled={!draft.trim()}
+                aria-label={t('send')}
+              >
+                ➤
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -119,6 +149,7 @@ export default function GameChat({ messages, players, isOpen, onToggle }: GameCh
           z-index: 80;
           border-radius: 0;
           border-right: none;
+          background: rgba(46, 32, 128, 0.94);
         }
         @media (max-width: 768px) {
           .chat-panel {
@@ -239,6 +270,56 @@ export default function GameChat({ messages, players, isOpen, onToggle }: GameCh
           opacity: 0.4;
           text-align: right;
           margin-top: 2px;
+        }
+        .chat-input-row {
+          display: flex;
+          gap: 8px;
+          padding: 10px var(--gap-md) calc(10px + env(safe-area-inset-bottom));
+          border-top: 1px solid var(--color-border);
+          flex-shrink: 0;
+        }
+        .chat-input {
+          flex: 1;
+          min-width: 0;
+          padding: 10px 16px;
+          border-radius: var(--radius-full);
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.1);
+          color: var(--color-text);
+          font-family: var(--font-body);
+          font-size: 0.9rem;
+          font-weight: 700;
+          outline: none;
+        }
+        .chat-input:focus {
+          border-color: #ffd65a;
+        }
+        .chat-input::placeholder {
+          color: var(--color-text-muted);
+        }
+        .chat-send-btn {
+          width: 42px;
+          height: 42px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          border: none;
+          background: linear-gradient(180deg, #ffc93d, #ff9f1a);
+          color: #fff;
+          font-size: 1rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 3px 0 #d97a06;
+          transition: transform 100ms ease, box-shadow 100ms ease, opacity 150ms ease;
+        }
+        .chat-send-btn:active:not(:disabled) {
+          transform: translateY(2px);
+          box-shadow: 0 1px 0 #d97a06;
+        }
+        .chat-send-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
         }
       `}</style>
     </>

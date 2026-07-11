@@ -70,9 +70,10 @@ export function calculateNewPosition(
   return hsPosition;
 }
 
-/** Can a piece in home (position -1) enter the board with this dice roll? */
+/** Can a piece in home (position -1) enter the board with this dice roll?
+ *  Ludo Club rule: only a 6 lets a piece leave the base. */
 export function canEnterBoard(piece: Piece, diceValue: number): boolean {
-  return piece.position === -1 && (diceValue === 5 || diceValue === 6);
+  return piece.position === -1 && diceValue === 6;
 }
 
 /** Check if a piece can make a valid move with the given dice value. */
@@ -268,43 +269,17 @@ export function checkWin(state: GameState, color: Color): boolean {
 // ─── Turn Management ─────────────────────────────────────────────────
 
 /**
- * Advance to the next player's turn.
- * If the current player rolled a 6, they get another turn (unless 3 sixes).
+ * Advance to the next player's turn (Ludo Club rules):
+ * - Rolling a 6 grants an extra roll — but the THIRD consecutive 6 forfeits the turn.
+ * - A capture or getting a piece home also grants an extra roll (`bonusRoll`).
+ * - Otherwise the next player goes.
  */
-export function getNextPlayer(state: GameState): GameState {
+export function advanceTurn(state: GameState, bonusRoll = false): GameState {
   const rolledSix = state.diceValue === 6;
+  const sixesInRow = rolledSix ? state.consecutiveSixes + 1 : 0;
 
-  // If rolled a 6, same player goes again (unless 3 consecutive sixes)
-  if (rolledSix && !shouldForfeitTurn(state.consecutiveSixes)) {
-    return {
-      ...state,
-      phase: 'rolling',
-      diceValue: null,
-      consecutiveSixes: state.consecutiveSixes + 1,
-      messages: [
-        ...state.messages,
-        {
-          id: crypto.randomUUID(),
-          playerId: state.players[state.currentPlayerIndex].id,
-          text: randomPick(SIX_MESSAGES),
-          timestamp: Date.now(),
-        },
-      ],
-    };
-  }
-
-  // Forfeit turn if 3 consecutive sixes
-  if (shouldForfeitTurn(state.consecutiveSixes)) {
-    const forfeitMessages: GameMessage[] = [
-      ...state.messages,
-      {
-        id: crypto.randomUUID(),
-        playerId: state.players[state.currentPlayerIndex].id,
-        text: '¡TRES SESES! 🎲🎲🎲 Turno perdido por tramposo 😤',
-        timestamp: Date.now(),
-      },
-    ];
-    // Advance to next player (the 6-turn is forfeited)
+  // Third consecutive six → turn forfeited (even if the move captured something)
+  if (rolledSix && sixesInRow >= 3) {
     const nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
     return {
       ...state,
@@ -313,7 +288,36 @@ export function getNextPlayer(state: GameState): GameState {
       diceValue: null,
       consecutiveSixes: 0,
       turnCount: state.turnCount + 1,
-      messages: forfeitMessages,
+      messages: [
+        ...state.messages,
+        {
+          id: crypto.randomUUID(),
+          playerId: state.players[state.currentPlayerIndex].id,
+          text: '¡TRES SEISES! 🎲🎲🎲 Turno perdido por tramposo 😤',
+          timestamp: Date.now(),
+        },
+      ],
+    };
+  }
+
+  // Extra roll: rolled a 6, captured a piece, or brought a piece home
+  if (rolledSix || bonusRoll) {
+    return {
+      ...state,
+      phase: 'rolling',
+      diceValue: null,
+      consecutiveSixes: sixesInRow,
+      messages: rolledSix
+        ? [
+            ...state.messages,
+            {
+              id: crypto.randomUUID(),
+              playerId: state.players[state.currentPlayerIndex].id,
+              text: randomPick(SIX_MESSAGES),
+              timestamp: Date.now(),
+            },
+          ]
+        : state.messages,
     };
   }
 
@@ -329,13 +333,9 @@ export function getNextPlayer(state: GameState): GameState {
   };
 }
 
-/**
- * Determine what happens after a move:
- * - If rolled 6 and not 3 consecutive: same player rolls again
- * - Otherwise: next player
- */
-export function advanceTurn(state: GameState): GameState {
-  return getNextPlayer(state);
+/** @deprecated kept for test compatibility — use advanceTurn. */
+export function getNextPlayer(state: GameState): GameState {
+  return advanceTurn(state);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────

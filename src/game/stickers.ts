@@ -78,6 +78,18 @@ export const WIN_MESSAGES = [
   '¡VICTORIA! 🏅💪 GG WP',
 ];
 
+export const CAPTURE_BONUS_MESSAGES = [
+  '¡Captura = otra tirada! 🎁🎲',
+  'Premio por la captura: ¡tira otra vez! 🔁',
+  '¡Cazador recompensado! 🎯🎲',
+];
+
+export const HOME_BONUS_MESSAGES = [
+  '¡Ficha en meta = tirada extra! 🏁🎲',
+  '¡Premio por llegar! Tira de nuevo 🎁',
+  'Meta alcanzada → otra tirada 🔁🏆',
+];
+
 export const NO_MOVE_MESSAGES = [
   'No se puede mover nada 😴 Siguiente turno',
   'Pieza atascada... ni modo 🤷',

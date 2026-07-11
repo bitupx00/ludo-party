@@ -35,6 +35,7 @@ export default function Game() {
   const selectPiece = useGameStore((s) => s.selectPiece);
   const roll = useGameStore((s) => s.roll);
   const sendReaction = useGameStore((s) => s.sendReaction);
+  const sendChatMessage = useGameStore((s) => s.sendChatMessage);
   const clearCaptureEffects = useGameStore((s) => s.clearCaptureEffects);
   const movablePieceIds = useGameStore((s) => s.movablePieceIds);
   const goHome = useGameStore((s) => s.goHome);
@@ -53,10 +54,19 @@ export default function Game() {
     return map;
   }, [players]);
 
+  // Movable pieces must react to dice/phase/turn changes — `players` alone
+  // doesn't change on a roll, and depending only on it froze the game
+  // whenever the player had 2+ movable pieces (none became clickable).
+  const movableIds = useMemo(
+    () => movablePieceIds(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [players, diceValue, phase, currentPlayerIndex, movablePieceIds],
+  );
+
   // Flatten all pieces with their parent color and player
   const allPieces = useMemo(() => {
     const result: (Piece & { _color: Color; _playerId: string; _isMovable: boolean })[] = [];
-    const movableSet = new Set(movablePieceIds());
+    const movableSet = new Set(movableIds);
     for (const player of players) {
       for (const piece of player.pieces) {
         result.push({
@@ -68,7 +78,7 @@ export default function Game() {
       }
     }
     return result;
-  }, [players, movablePieceIds]);
+  }, [players, movableIds]);
 
   // Track unread messages when chat is closed
   useEffect(() => {
@@ -165,7 +175,7 @@ export default function Game() {
               >
                 🔥 {t('extraTurn')} ({t('rolledSix')})
               </motion.div>
-            ) : phase === 'moving' && !isBot && movablePieceIds().length > 1 ? (
+            ) : phase === 'moving' && !isBot && movableIds.length > 1 ? (
               <motion.div
                 key="tap"
                 className="game-status"
@@ -241,6 +251,7 @@ export default function Game() {
         isOpen={chatOpen}
         onToggle={() => setChatOpen(!chatOpen)}
         unreadCount={unreadCount}
+        onSendMessage={sendChatMessage}
       />
 
       {/* Sticker picker */}

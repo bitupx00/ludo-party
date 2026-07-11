@@ -1,9 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Player } from '../game/types.ts';
 import { PLAYER_CONFIG, TEAMMATE } from '../game/types.ts';
 import type { Reaction } from '../store/gameStore.ts';
+import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
+
+/** Camera feed rendered inside the avatar circle (replaces the emoji). */
+function AvatarVideo({ stream, mirrored, muted }: { stream: MediaStream; mirrored: boolean; muted: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (ref.current && ref.current.srcObject !== stream) {
+      ref.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      playsInline
+      muted={muted}
+      className="avatar-badge-video"
+      style={mirrored ? { transform: 'scaleX(-1)' } : undefined}
+    />
+  );
+}
 
 interface AvatarBadgeProps {
   player: Player;
@@ -30,6 +53,14 @@ export default function AvatarBadge({
   const config = PLAYER_CONFIG[player.color];
   const [bubbleVisible, setBubbleVisible] = useState(false);
 
+  // Camera feed for this player (video chat): shown inside the circle
+  const stream = useVideoStore((s) => s.streams[player.color]);
+  const isLocalCam = useVideoStore((s) => s.localColor === player.color);
+  const cameraOn = useVideoStore((s) => s.cameraOn);
+  const micOn = useVideoStore((s) => s.micOn);
+  const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
+  const showVideo = hasVideoTrack && (!isLocalCam || cameraOn);
+
   // Show the reaction bubble briefly whenever a new reaction arrives
   useEffect(() => {
     if (!reaction) return;
@@ -49,7 +80,12 @@ export default function AvatarBadge({
           animate={isCurrent ? { scale: [1, 1.06, 1] } : { scale: 1 }}
           transition={isCurrent ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut' } : {}}
         >
-          <span className="avatar-badge-emoji">{player.emoji}</span>
+          {showVideo && stream ? (
+            <AvatarVideo stream={stream} mirrored={isLocalCam} muted={isLocalCam} />
+          ) : (
+            <span className="avatar-badge-emoji">{player.emoji}</span>
+          )}
+          {isLocalCam && !micOn && <span className="avatar-badge-mic-off">🔇</span>}
           {isCurrent && <span className="avatar-badge-ring" />}
         </motion.div>
 
@@ -130,6 +166,31 @@ export default function AvatarBadge({
           font-size: clamp(20px, 5.5vmin, 27px);
           line-height: 1;
           filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+        }
+        .avatar-badge-video {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
+          background: #14092e;
+          opacity: 1;
+        }
+        .avatar-badge-mic-off {
+          position: absolute;
+          bottom: -4px;
+          left: -4px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: rgba(20, 9, 46, 0.9);
+          border: 1.5px solid rgba(255, 255, 255, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.6rem;
+          z-index: 3;
         }
         .avatar-badge-ring {
           position: absolute;
