@@ -35,6 +35,7 @@ export default function Lobby() {
   const addPlayer = useGameStore((s) => s.addPlayer);
   const addBotPlayer = useGameStore((s) => s.addBotPlayer);
   const removePlayer = useGameStore((s) => s.removePlayer);
+  const changeSeat = useGameStore((s) => s.changeSeat);
   const startGame = useGameStore((s) => s.startGame);
   const goHome = useGameStore((s) => s.goHome);
   const createOnlineRoom = useGameStore((s) => s.createOnlineRoom);
@@ -47,6 +48,9 @@ export default function Lobby() {
   const isOnline = gameMode === 'online';
   const isGuest = onlineRole === 'guest';
   const onlineSetup = isOnline && onlineRole === 'none';
+  // Free seats are pickable: online → you move your own seat; local
+  // modes → the last human added moves (pick right after adding).
+  const canPickSeat = isOnline ? onlineRole !== 'none' && !!localPlayerId : humans.length >= 1;
 
   const canAddHuman = !isOnline && nameInput.trim().length > 0 && players.length < 4
     && !(gameMode === 'solo' && humans.length >= 1);
@@ -321,15 +325,25 @@ export default function Lobby() {
                       </button>
                     )
                   ) : (
-                    isNextFree && gameMode !== 'solo' && !isOnline && !isGuest && (
-                      <button
-                        className="lobby-seat-add-bot"
-                        onClick={addBotPlayer}
-                        aria-label={t('addBot')}
-                      >
-                        +🤖
-                      </button>
-                    )
+                    <span className="lobby-seat-free-actions">
+                      {canPickSeat && (
+                        <button
+                          className="lobby-seat-sit"
+                          onClick={() => changeSeat(color)}
+                        >
+                          👇 {t('sitHere')}
+                        </button>
+                      )}
+                      {isNextFree && gameMode !== 'solo' && !isOnline && !isGuest && (
+                        <button
+                          className="lobby-seat-add-bot"
+                          onClick={addBotPlayer}
+                          aria-label={t('addBot')}
+                        >
+                          +🤖
+                        </button>
+                      )}
+                    </span>
                   )}
                   {gameMode === 'teams' && (
                     <span
@@ -603,6 +617,29 @@ export default function Lobby() {
         .lobby-seat-remove:hover {
           background: var(--color-red);
           color: #fff;
+        }
+        .lobby-seat-free-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        .lobby-seat-sit {
+          padding: 6px 10px;
+          border-radius: var(--radius-full);
+          border: 2px solid color-mix(in srgb, var(--seat-color) 70%, transparent);
+          background: color-mix(in srgb, var(--seat-color) 22%, transparent);
+          color: var(--color-text);
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 0.72rem;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background var(--transition-fast), transform var(--transition-fast);
+        }
+        .lobby-seat-sit:hover {
+          background: color-mix(in srgb, var(--seat-color) 40%, transparent);
+          transform: translateY(-1px);
         }
         .lobby-seat-add-bot {
           flex-shrink: 0;

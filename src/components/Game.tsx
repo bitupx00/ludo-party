@@ -14,10 +14,9 @@ import { PLAYER_CONFIG } from '../game/types.ts';
 import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useSoundStore, playSfx } from '../sound.ts';
+import { QUICK_GIFS, GIF_PREFIX } from '../game/gifs.ts';
+import GifSticker from './GifSticker.tsx';
 import { useT } from '../i18n.ts';
-
-/** Quick reactions shown next to the dice (Ludo Club style). */
-const QUICK_REACTIONS = ['😂', '😭', '🤬', '🔥', '💀', '👏'];
 
 export default function Game() {
   const t = useT();
@@ -295,14 +294,15 @@ export default function Game() {
           )}
 
           <div className="game-reactions">
-            {QUICK_REACTIONS.map((emoji) => (
+            {QUICK_GIFS.map((id) => (
               <motion.button
-                key={emoji}
+                key={id}
                 className="game-reaction-btn"
-                onClick={() => { playSfx('pop'); sendReaction(emoji); }}
+                onClick={() => { playSfx('pop'); sendReaction(`${GIF_PREFIX}${id}`); }}
                 whileTap={{ scale: 0.8 }}
+                aria-label={id}
               >
-                {emoji}
+                <GifSticker id={id} size={24} />
               </motion.button>
             ))}
             <motion.button

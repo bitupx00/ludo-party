@@ -6,6 +6,9 @@ import type { Reaction } from '../store/gameStore.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
 import { MiniDice } from './Dice3D.tsx';
+import { isGifReaction, gifIdOf, gifById } from '../game/gifs.ts';
+import GifSticker from './GifSticker.tsx';
+import { playSfx } from '../sound.ts';
 
 /** Attach a stream to a media element and keep playback alive: autoplay
  *  with sound is often blocked until a user gesture (mobile especially),
@@ -89,12 +92,19 @@ export default function AvatarBadge({
   const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
   const showVideo = hasVideoTrack && (!isLocalCam || cameraOn);
 
-  // Show the reaction bubble briefly whenever a new reaction arrives
+  // Show the reaction bubble briefly whenever a new reaction arrives —
+  // gif stickers also play their funny sound (on every client, since
+  // reactions arrive via the shared snapshot).
   useEffect(() => {
     if (!reaction) return;
     setBubbleVisible(true);
+    if (isGifReaction(reaction.emoji)) {
+      const gif = gifById(gifIdOf(reaction.emoji));
+      if (gif) playSfx(gif.sfx);
+    }
     const timer = setTimeout(() => setBubbleVisible(false), REACTION_VISIBLE_MS);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reaction?.key]);
 
   return (
@@ -136,13 +146,15 @@ export default function AvatarBadge({
           {bubbleVisible && reaction && (
             <motion.div
               key={reaction.key}
-              className="avatar-reaction-bubble"
+              className={`avatar-reaction-bubble ${isGifReaction(reaction.emoji) ? 'avatar-reaction-bubble--gif' : ''}`}
               initial={{ opacity: 0, scale: 0.3, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.5, y: -8 }}
               transition={{ type: 'spring', stiffness: 500, damping: 22 }}
             >
-              {reaction.emoji}
+              {isGifReaction(reaction.emoji)
+                ? <GifSticker id={gifIdOf(reaction.emoji)} size={42} />
+                : reaction.emoji}
             </motion.div>
           )}
         </AnimatePresence>
@@ -272,6 +284,11 @@ export default function AvatarBadge({
           right: auto;
           left: -12px;
           border-radius: 17px 17px 4px 17px;
+        }
+        .avatar-reaction-bubble--gif {
+          min-width: 52px;
+          height: 52px;
+          top: -26px;
         }
         .avatar-badge-dice {
           position: absolute;

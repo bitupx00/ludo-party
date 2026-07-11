@@ -6,7 +6,8 @@ import {
   createPlayer,
   createId,
 } from './gameEngine';
-import { randomPick, STICKERS, CAPTURE_MESSAGES } from './stickers';
+import { randomPick, CAPTURE_MESSAGES } from './stickers';
+import { GIFS, GIF_PREFIX } from './gifs';
 
 export const BOT_NAMES: Record<Color, string> = {
   red: 'Rex',
@@ -151,10 +152,10 @@ export function getBotReaction(): { text: string; sticker?: string } {
   const roll = Math.random();
 
   if (roll < 0.3) {
-    const sticker = randomPick(STICKERS);
+    const gif = randomPick(GIFS);
     return {
-      text: `${sticker.emoji} ${sticker.label}`,
-      sticker: sticker.emoji,
+      text: gif.label,
+      sticker: `${GIF_PREFIX}${gif.id}`,
     };
   }
 

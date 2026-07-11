@@ -114,7 +114,7 @@ interface GameStore {
   /** Host: seat a remote guest; returns the new player id (null if full). */
   addRemotePlayer: (name: string, points?: number) => string | null;
   /** Host: apply a validated action coming from a guest. */
-  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number }) => void;
+  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number; color?: Color }) => void;
   /** Host: a guest disconnected — unseat (lobby) or convert to bot (game). */
   handleGuestLeft: (playerId: string) => void;
   /** Host: a disconnected guest came back (validated seat ticket) — give
@@ -129,6 +129,10 @@ interface GameStore {
   addPlayer: (name: string, initialPoints?: number) => void;
   addBotPlayer: () => void;
   removePlayer: (id: string) => void;
+  /** Move a player onto a FREE color seat (lobby only). Online: moves this
+   *  device's own player (guests go through the host); local modes: moves
+   *  the most recently added human. */
+  changeSeat: (color: Color) => void;
   startGame: () => void;
 
   // Gameplay
@@ -307,11 +311,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!player) return;
 
     if (action.a === 'reaction' && action.emoji) {
-      reactionFromPlayer(set, get, player, action.emoji.slice(0, 8));
+      reactionFromPlayer(set, get, player, action.emoji.slice(0, 20));
       return;
     }
     if (action.a === 'chat' && action.text) {
       chatFromPlayer(set, get, player, action.text);
+      return;
+    }
+    if (action.a === 'seat' && action.color) {
+      if (state.screen !== 'lobby') return;
+      if (state.players.some((p) => p.color === action.color)) return; // taken
+      set({ players: state.players.map((p) => (p.id === playerId ? { ...p, color: action.color! } : p)) });
       return;
     }
 
@@ -491,6 +501,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { players } = get();
     if (get().phase !== 'lobby') return;
     set({ players: players.filter((p) => p.id !== id) });
+  },
+
+  changeSeat: (color: Color) => {
+    const { players, screen, onlineRole, localPlayerId } = get();
+    if (screen !== 'lobby') return;
+    if (players.some((p) => p.color === color)) return; // seat taken
+
+    if (onlineRole === 'guest') {
+      sendActionToHost({ a: 'seat', color });
+      return;
+    }
+    // Online host → own player; local modes → most recently added human
+    const target = onlineRole === 'host'
+      ? players.find((p) => p.id === localPlayerId)
+      : [...players].reverse().find((p) => !p.isBot);
+    if (!target) return;
+    playSfx('click');
+    set({ players: players.map((p) => (p.id === target.id ? { ...p, color } : p)) });
   },
 
   startGame: () => {

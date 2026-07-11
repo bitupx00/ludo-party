@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { STICKER_TABS, STICKER_GRID, QUICK_PHRASES } from '../game/stickers.ts';
-import type { StickerCategory } from '../game/stickers.ts';
+import { QUICK_PHRASES } from '../game/stickers.ts';
+import { GIFS, GIF_PREFIX } from '../game/gifs.ts';
+import GifSticker from './GifSticker.tsx';
 
 interface StickerPickerProps {
   isOpen: boolean;
   onClose: () => void;
-  onStickerSelect: (emoji: string) => void;
+  /** Receives the reaction payload (`gif:<id>`). */
+  onStickerSelect: (payload: string) => void;
   /** Quick phrases go to the chat as text messages. */
   onPhraseSelect: (text: string) => void;
 }
 
-/** Bottom-sheet sticker panel (controlled from the game HUD). */
+/** Bottom-sheet panel with animated GIF stickers + quick phrases. */
 export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhraseSelect }: StickerPickerProps) {
-  const [activeTab, setActiveTab] = useState<StickerCategory>('reacciones');
+  const [activeTab, setActiveTab] = useState<'gifs' | 'frases'>('gifs');
 
-  const handleStickerClick = (emoji: string) => {
-    onStickerSelect(emoji);
+  const handleGifClick = (id: string) => {
+    onStickerSelect(`${GIF_PREFIX}${id}`);
     onClose();
   };
 
@@ -45,19 +47,21 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
           >
             {/* Tabs */}
             <div className="sticker-tabs">
-              {STICKER_TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  className={`sticker-tab ${activeTab === tab.key ? 'sticker-tab--active' : ''}`}
-                  onClick={() => setActiveTab(tab.key)}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              <button
+                className={`sticker-tab ${activeTab === 'gifs' ? 'sticker-tab--active' : ''}`}
+                onClick={() => setActiveTab('gifs')}
+              >
+                🎬 GIFs
+              </button>
+              <button
+                className={`sticker-tab ${activeTab === 'frases' ? 'sticker-tab--active' : ''}`}
+                onClick={() => setActiveTab('frases')}
+              >
+                💬 Frases
+              </button>
               <button className="sticker-close" onClick={onClose} aria-label="✕">✕</button>
             </div>
 
-            {/* Grid / quick phrases */}
             {activeTab === 'frases' ? (
               <div className="sticker-phrases">
                 {QUICK_PHRASES.map((phrase, i) => (
@@ -76,18 +80,19 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
               </div>
             ) : (
               <div className="sticker-grid">
-                {(STICKER_GRID[activeTab] ?? []).map((emoji, i) => (
+                {GIFS.map((gif, i) => (
                   <motion.button
-                    key={`${activeTab}-${i}`}
+                    key={gif.id}
                     className="sticker-item"
-                    onClick={() => handleStickerClick(emoji)}
+                    onClick={() => handleGifClick(gif.id)}
                     whileTap={{ scale: 0.8 }}
-                    whileHover={{ scale: 1.15 }}
+                    whileHover={{ scale: 1.08 }}
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: i * 0.02 }}
+                    transition={{ delay: i * 0.03 }}
                   >
-                    {emoji}
+                    <GifSticker id={gif.id} size={44} />
+                    <span className="sticker-item-label">{gif.label}</span>
                   </motion.button>
                 ))}
               </div>
@@ -106,10 +111,14 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
         .sticker-panel {
           position: fixed;
           bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
+          /* Centered via auto margins — framer-motion owns this element's
+             transform (y slide animation) and would clobber a CSS
+             translateX(-50%), shoving the panel off to the right. */
+          left: 0;
+          right: 0;
+          margin: 0 auto;
           width: min(560px, 100%);
-          max-height: 50vh;
+          max-height: 54vh;
           border-radius: var(--radius-xl) var(--radius-xl) 0 0;
           padding: var(--gap-md);
           padding-bottom: calc(var(--gap-md) + env(safe-area-inset-bottom));
@@ -156,25 +165,33 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
         }
         .sticker-grid {
           display: grid;
-          grid-template-columns: repeat(6, 1fr);
-          gap: var(--gap-xs);
+          grid-template-columns: repeat(5, 1fr);
+          gap: var(--gap-sm);
           overflow-y: auto;
           padding-bottom: var(--gap-sm);
         }
         .sticker-item {
-          aspect-ratio: 1;
           border: none;
           border-radius: var(--radius-md);
           background: rgba(255, 255, 255, 0.08);
-          font-size: 1.8rem;
           cursor: pointer;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
+          gap: 4px;
+          padding: 8px 2px 6px;
           transition: background var(--transition-fast);
         }
         .sticker-item:hover {
           background: rgba(255, 255, 255, 0.16);
+        }
+        .sticker-item-label {
+          font-family: var(--font-display);
+          font-size: 0.58rem;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+          color: var(--color-text-secondary);
         }
         .sticker-phrases {
           display: flex;

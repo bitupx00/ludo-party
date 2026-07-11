@@ -1,4 +1,5 @@
 import Peer, { type DataConnection, type MediaConnection, type PeerOptions } from 'peerjs';
+import type { Color } from '../game/types';
 import { useGameStore, SNAPSHOT_KEYS, type GameSnapshot } from '../store/gameStore';
 import { loadProfile } from '../profile';
 
@@ -30,6 +31,7 @@ import { loadProfile } from '../profile';
 export type GuestAction =
   | { a: 'roll'; lucky?: number } // lucky = bought lucky-dice number (host validates the cost)
   | { a: 'select'; pieceId: string }
+  | { a: 'seat'; color: Color } // lobby color pick (host validates it's free)
   | { a: 'reaction'; emoji: string }
   | { a: 'chat'; text: string };
 

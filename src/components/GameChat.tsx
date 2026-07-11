@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameMessage, Player } from '../game/types.ts';
 import { useT } from '../i18n.ts';
+import { isGifReaction, gifIdOf } from '../game/gifs.ts';
+import GifSticker from './GifSticker.tsx';
 
 interface GameChatProps {
   messages: GameMessage[];
@@ -106,7 +108,11 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
                       )}
                       <span className="chat-bubble-text">
                         {msg.sticker ? (
-                          <span className="chat-sticker">{msg.sticker}</span>
+                          <span className="chat-sticker">
+                            {isGifReaction(msg.sticker)
+                              ? <GifSticker id={gifIdOf(msg.sticker)} size={48} />
+                              : msg.sticker}
+                          </span>
                         ) : (
                           msg.text
                         )}
