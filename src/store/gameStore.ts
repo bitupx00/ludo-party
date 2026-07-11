@@ -27,6 +27,7 @@ import {
   WIN_MESSAGES,
   CAPTURE_BONUS_MESSAGES,
   HOME_BONUS_MESSAGES,
+  THREE_SIX_MESSAGES,
   randomPick,
 } from '../game/stickers';
 
@@ -162,9 +163,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   movablePieceIds: () => {
-    const { players, currentPlayerIndex, diceValue, phase } = get();
+    const { players, currentPlayerIndex, diceValue, phase, consecutiveSixes } = get();
     const dice = diceValue ?? 0;
     if (dice === 0 || phase !== 'moving') return [];
+    // Third consecutive six: play cancelled, nothing may move
+    if (dice === 6 && consecutiveSixes >= 2) return [];
     const player = players[currentPlayerIndex];
     if (!player) return [];
     return player.pieces
@@ -295,6 +298,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       doRoll(set, get);
     } else if (action.a === 'select' && action.pieceId) {
       if (state.phase !== 'moving' || state.diceValue === null) return;
+      if (state.diceValue === 6 && state.consecutiveSixes >= 2) return; // third six: cancelled
       const owns = player.pieces.some((p) => p.id === action.pieceId);
       if (!owns) return;
       executeMove(set, get, action.pieceId);
@@ -484,8 +488,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   selectPiece: (pieceId: string) => {
-    const { phase, diceValue, players, currentPlayerIndex, onlineRole, localPlayerId } = get();
+    const { phase, diceValue, players, currentPlayerIndex, onlineRole, localPlayerId, consecutiveSixes } = get();
     if (phase !== 'moving' || diceValue === null) return;
+    if (diceValue === 6 && consecutiveSixes >= 2) return; // third six: cancelled
 
     const currentPlayer = players[currentPlayerIndex];
     if (!currentPlayer || currentPlayer.isBot) return;
@@ -673,6 +678,35 @@ function chatFromPlayer(
   }));
 }
 
+/** Ludo Club rule: the THIRD consecutive six cancels the play entirely —
+ *  no piece moves, the turn passes to the next player. */
+function cancelThirdSix(
+  set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  get: () => GameStore,
+  playerId: string,
+) {
+  set({
+    messages: pushMessage(get().messages, {
+      id: createId(),
+      playerId,
+      text: randomPick(THREE_SIX_MESSAGES),
+      timestamp: Date.now(),
+    }),
+  });
+  setTimeout(() => {
+    const current = get();
+    if (current.phase !== 'moving') return;
+    set({
+      currentPlayerIndex: (current.currentPlayerIndex + 1) % current.players.length,
+      phase: 'rolling',
+      diceValue: null,
+      consecutiveSixes: 0,
+      turnCount: current.turnCount + 1,
+    });
+    scheduleBotTurn(set, get);
+  }, 1600);
+}
+
 /** Roll the dice for the current (human) player and resolve the aftermath. */
 function doRoll(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
@@ -683,6 +717,7 @@ function doRoll(
   if (!currentPlayer) return;
 
   const value = rollDice();
+  const isThirdSix = value === 6 && get().consecutiveSixes >= 2;
 
   set({
     diceValue: value,
@@ -695,6 +730,12 @@ function doRoll(
         timestamp: Date.now(),
       }),
     });
+
+  // Third consecutive six: the play is cancelled, nothing moves
+  if (isThirdSix) {
+    cancelThirdSix(set, get, currentPlayer.id);
+    return;
+  }
 
   // Check if any pieces can move
   const movable = getMovablePieces({ ...get(), diceValue: value }, value);
@@ -827,6 +868,7 @@ function scheduleBotTurn(
 
     // Bot rolls
     const value = rollDice();
+    const isThirdSix = value === 6 && state.consecutiveSixes >= 2;
 
     set({
       diceValue: value,
@@ -839,6 +881,12 @@ function scheduleBotTurn(
           timestamp: Date.now(),
         }),
     });
+
+    // Third consecutive six: the bot's play is cancelled too
+    if (isThirdSix) {
+      cancelThirdSix(set, get, currentPlayer.id);
+      return;
+    }
 
     // Check movable pieces
     const movable = getMovablePieces({ ...get(), diceValue: value }, value);

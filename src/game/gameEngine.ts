@@ -104,35 +104,55 @@ export function getMovablePieces(state: GameState, diceValue: number): Piece[] {
 
 // ─── Capture Logic ───────────────────────────────────────────────────
 
-/** Check if a piece at the given position can capture an opponent's piece. */
-export function checkCapture(state: GameState, piece: Piece): Piece | null {
-  if (piece.position < 0 || piece.position >= 52) return null;
+/**
+ * Opponent pieces the moved piece captures at its square (Ludo Club rules):
+ * - Nothing is captured on safe squares (the 4 exits + the 4 stars).
+ * - BLOCKS: 2+ pieces of the same owner (same TEAM in 2v2) on a square form
+ *   a wall that cannot be captured — the mover just shares the square.
+ * - Lone opponent pieces on the square are all captured.
+ */
+export function checkCapture(state: GameState, piece: Piece): Piece[] {
+  if (piece.position < 0 || piece.position >= 52) return [];
 
-  // Cannot capture on safe squares (global safe squares set)
   const GLOBAL_SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
-  if (GLOBAL_SAFE_SQUARES.includes(piece.position)) return null;
+  if (GLOBAL_SAFE_SQUARES.includes(piece.position)) return [];
 
   const currentPlayer = state.players[state.currentPlayerIndex];
 
-  // Look for opponent pieces at the same position
+  // Group opponent pieces on this square by capture group
+  // (their team in 2v2, otherwise their own color)
+  const groups = new Map<string, Piece[]>();
   for (const player of state.players) {
     if (player.color === currentPlayer.color) continue;
     if (state.teamsMode && TEAMMATE[currentPlayer.color] === player.color) continue;
+    const groupKey = state.teamsMode
+      ? (player.color === 'red' || player.color === 'yellow' ? 'team-a' : 'team-b')
+      : player.color;
     for (const opponentPiece of player.pieces) {
       if (opponentPiece.position === piece.position) {
-        return opponentPiece;
+        const list = groups.get(groupKey) ?? [];
+        list.push(opponentPiece);
+        groups.set(groupKey, list);
       }
     }
   }
-  return null;
+
+  // Blocks (2+ pieces in a group) are safe; lone pieces get captured
+  const captured: Piece[] = [];
+  for (const pieces of groups.values()) {
+    if (pieces.length === 1) captured.push(pieces[0]);
+  }
+  return captured;
 }
 
-/** Execute a capture: send the captured piece home and update state. */
+/** Execute captures: send the captured pieces home and update state. */
 export function executeCapture(
   state: GameState,
-  captured: Piece,
-  _capturer: Piece,
+  captured: Piece[],
 ): GameState {
+  if (captured.length === 0) return state;
+  const capturedIds = new Set(captured.map((p) => p.id));
+
   const newMessages: GameMessage[] = [
     ...state.messages,
     {
@@ -149,7 +169,7 @@ export function executeCapture(
     players: state.players.map((player) => ({
       ...player,
       pieces: player.pieces.map((piece) =>
-        piece.id === captured.id
+        capturedIds.has(piece.id)
           ? { ...piece, position: -1, capturedCount: piece.capturedCount + 1 }
           : piece,
       ),
@@ -246,11 +266,11 @@ export function movePiece(
     return newState;
   }
 
-  // Check for capture (only on main board, not in home stretch)
+  // Check for captures (only on main board, not in home stretch)
   if (newPos >= 0 && newPos < 52) {
     const captured = checkCapture(newState, movedPiece);
-    if (captured) {
-      newState = executeCapture(newState, captured, movedPiece);
+    if (captured.length > 0) {
+      newState = executeCapture(newState, captured);
     }
   }
 

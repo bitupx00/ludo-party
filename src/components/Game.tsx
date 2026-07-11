@@ -27,6 +27,7 @@ export default function Game() {
   const diceValue = useGameStore((s) => s.diceValue);
   const rollSeq = useGameStore((s) => s.rollSeq);
   const winner = useGameStore((s) => s.winner);
+  const consecutiveSixes = useGameStore((s) => s.consecutiveSixes);
   const gameMode = useGameStore((s) => s.gameMode);
   const captureEffects = useGameStore((s) => s.captureEffects);
   const messages = useGameStore((s) => s.messages);
@@ -207,7 +208,17 @@ export default function Game() {
         {/* Status line: extra turn / tap hint */}
         <div className="game-status-slot">
           <AnimatePresence mode="wait">
-            {diceValue === 6 && phase === 'moving' ? (
+            {diceValue === 6 && phase === 'moving' && consecutiveSixes >= 2 ? (
+              <motion.div
+                key="cancelled"
+                className="game-status game-status--danger"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+              >
+                🚫 {t('thirdSix')}
+              </motion.div>
+            ) : diceValue === 6 && phase === 'moving' ? (
               <motion.div
                 key="extra"
                 className="game-status game-status--gold"
@@ -458,6 +469,11 @@ export default function Game() {
           color: #ffd65a;
           background: rgba(255, 214, 90, 0.12);
           border: 1px solid rgba(255, 214, 90, 0.35);
+        }
+        .game-status--danger {
+          color: #ffb0bb;
+          background: rgba(240, 64, 92, 0.15);
+          border: 1px solid rgba(240, 64, 92, 0.4);
         }
         .game-hud {
           display: flex;

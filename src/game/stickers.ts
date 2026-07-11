@@ -90,6 +90,12 @@ export const HOME_BONUS_MESSAGES = [
   'Meta alcanzada → otra tirada 🔁🏆',
 ];
 
+export const THREE_SIX_MESSAGES = [
+  '¡TRES SEISES! 🎲🎲🎲 Jugada cancelada, turno perdido 😤',
+  '3×6 = prohibido 🚫 La jugada se cancela',
+  '¡Demasiada suerte! Tercer 6 → pierdes el turno 😅',
+];
+
 export const NO_MOVE_MESSAGES = [
   'No se puede mover nada 😴 Siguiente turno',
   'Pieza atascada... ni modo 🤷',

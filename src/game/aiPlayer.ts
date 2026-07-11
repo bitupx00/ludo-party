@@ -109,32 +109,38 @@ export function chooseBotMove(
   return sortedByProgress[0].id;
 }
 
-/** Find a piece that can capture an opponent. */
+/** Find a piece that can capture an opponent (respecting safe cells and blocks). */
 function findCaptureMove(
   state: GameState,
   currentPlayer: Player,
   movable: Piece[],
   diceValue: number,
 ): Piece | null {
+  const GLOBAL_SAFE = [0, 8, 13, 21, 26, 34, 39, 47];
+
   for (const piece of movable) {
     if (piece.position === -1) continue;
 
     const newPos = calculateNewPosition(piece.position, diceValue, currentPlayer.color);
     if (newPos < 0 || newPos >= 52) continue;
+    if (GLOBAL_SAFE.includes(newPos)) continue;
 
-    // Check if any opponent is at the new position
+    // Group opponents at the target square: blocks (2+ per group) can't be captured
+    const groups = new Map<string, number>();
     for (const player of state.players) {
       if (player.color === currentPlayer.color) continue;
       if (state.teamsMode && TEAMMATE[currentPlayer.color] === player.color) continue;
+      const key = state.teamsMode
+        ? (player.color === 'red' || player.color === 'yellow' ? 'team-a' : 'team-b')
+        : player.color;
       for (const opponentPiece of player.pieces) {
         if (opponentPiece.position === newPos) {
-          // Cannot capture on safe squares
-          const GLOBAL_SAFE = [0, 8, 13, 21, 26, 34, 39, 47];
-          if (!GLOBAL_SAFE.includes(newPos)) {
-            return piece;
-          }
+          groups.set(key, (groups.get(key) ?? 0) + 1);
         }
       }
+    }
+    for (const count of groups.values()) {
+      if (count === 1) return piece; // a lone piece is capturable
     }
   }
   return null;

@@ -28,9 +28,12 @@ Mover las 4 fichas desde tu base (casa 🏠) alrededor del tablero hasta la meta
 2. Si puede mover alguna ficha, **selecciona cuál mover**
 3. Si NO puede mover NINGUNA ficha, el turno pasa automáticamente
 4. **Sacar 6 = turno extra** (el mismo jugador vuelve a tirar)
-5. **Tres 6s consecutivos = turno perdido** (el tercer 6 anula el turno)
-6. **Capturar una ficha = tirada extra** (regla Ludo Club)
-7. **Meter una ficha en meta = tirada extra** (regla Ludo Club)
+5. Con un 6 y fichas dentro y fuera de la base, **el jugador elige**: sacar
+   una ficha nueva (aparece en su casilla de salida) o avanzar una del tablero
+6. **Tres 6s consecutivos = la jugada se CANCELA**: el tercer 6 no mueve
+   ninguna ficha y el turno pasa al siguiente jugador (regla Ludo Club)
+7. **Capturar una ficha = tirada extra** (regla Ludo Club)
+8. **Meter una ficha en meta = tirada extra** (regla Ludo Club)
 
 ## Movimiento
 - Una ficha se mueve hacia adelante según el valor del dado
@@ -39,9 +42,15 @@ Mover las 4 fichas desde tu base (casa 🏠) alrededor del tablero hasta la meta
 - Dentro del home stretch, si el dado excede la distancia a meta → **no puede mover esa ficha** (no se puede pasar de largo)
 
 ## Capturas
-- Si tu ficha cae en una casilla ocupada por un oponente → **captura**: el oponente vuelve a su base
-- **Safe squares** (casillas seguras): [0, 8, 13, 21, 26, 34, 39, 47] — NO se puede capturar aquí
+- Si tu ficha cae en una casilla ocupada por un oponente **solo** → **captura**: el oponente vuelve a su base
+- **Safe squares** (casillas seguras): [0, 8, 13, 21, 26, 34, 39, 47] — las 4 salidas
+  de todos los colores + las 4 estrellas. NO se puede capturar aquí
+- **BLOQUEOS (regla Ludo Club)**: 2+ fichas del mismo jugador en una casilla
+  forman un muro que NO se puede capturar; el rival solo se posiciona ahí
+- En **Equipos 2v2**: 2+ fichas del mismo EQUIPO (ej. una roja + una amarilla)
+  también forman bloqueo — el equipo rival no puede capturarlas
 - Al capturar, el capturador gana una **tirada extra**
+- Si hay varias fichas rivales SOLAS de distintos colores en la casilla, se capturan todas
 - En modo **Equipos 2v2** (Rojo+Amarillo vs Verde+Azul) NO se captura al compañero
 
 ## Home Stretch (Corredor Final)
