@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore.ts';
 import type { Color, Player } from '../game/types.ts';
 import { COLORS, PLAYER_CONFIG } from '../game/types.ts';
 import { BOT_NAMES, BOT_EMOJIS } from '../game/aiPlayer.ts';
+import { getStoredTicket } from '../online/onlineManager.ts';
 import { useT } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
 
@@ -19,6 +20,9 @@ export default function Lobby() {
     }
   });
   const [copied, setCopied] = useState(false);
+  // Seat ticket from a previous online session on this device: offers a
+  // one-tap "rejoin your room" shortcut (the seat is reclaimed by token).
+  const [storedTicket] = useState(getStoredTicket);
   const players = useGameStore((s) => s.players);
   const gameMode = useGameStore((s) => s.gameMode);
   const onlineRole = useGameStore((s) => s.onlineRole);
@@ -124,6 +128,16 @@ export default function Lobby() {
             initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
           >
+            {storedTicket && (
+              <button
+                className="btn btn-green lobby-online-btn"
+                onClick={() => joinOnlineRoom(storedTicket.code, storedTicket.name)}
+                disabled={onlineConnecting}
+              >
+                🔁 {t('rejoinRoom')} · {storedTicket.code}
+              </button>
+            )}
+
             <input
               type="text"
               className="lobby-input"

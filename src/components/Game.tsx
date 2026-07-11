@@ -43,6 +43,7 @@ export default function Game() {
 
   const onlineRole = useGameStore((s) => s.onlineRole);
   const localPlayerId = useGameStore((s) => s.localPlayerId);
+  const onlineReconnecting = useGameStore((s) => s.onlineReconnecting);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [stickersOpen, setStickersOpen] = useState(false);
@@ -395,6 +396,13 @@ export default function Game() {
         onDismiss={clearCaptureEffects}
       />
 
+      {/* Connection lost: rebuilding the link to the host in the background */}
+      {onlineReconnecting && (
+        <div className="game-reconnecting">
+          📡 {t('reconnecting')}
+        </div>
+      )}
+
       {/* Win screen */}
       {winner && <WinScreen winnerColor={winner} />}
 
@@ -587,6 +595,25 @@ export default function Game() {
         .game-hud-side-btn:active {
           transform: translateY(3px);
           box-shadow: 0 1px 0 rgba(20, 8, 70, 0.3);
+        }
+        .game-reconnecting {
+          position: fixed;
+          top: calc(54px + env(safe-area-inset-top));
+          left: 50%;
+          translate: -50% 0;
+          z-index: 80;
+          font-family: var(--font-display);
+          font-size: 0.85rem;
+          font-weight: 800;
+          color: #ffd65a;
+          background: rgba(20, 9, 46, 0.92);
+          border: 1.5px solid rgba(255, 214, 90, 0.55);
+          border-radius: var(--radius-full);
+          padding: 7px 18px;
+          box-shadow: 0 6px 18px rgba(8, 2, 30, 0.5);
+          animation: pulse-glow 1.2s ease-in-out infinite;
+          pointer-events: none;
+          white-space: nowrap;
         }
         .game-shop-points {
           position: absolute;

@@ -7,15 +7,25 @@ import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
 import { MiniDice } from './Dice3D.tsx';
 
+/** Attach a stream to a media element and keep playback alive: autoplay
+ *  with sound is often blocked until a user gesture (mobile especially),
+ *  so retry play() on the next interaction instead of staying silent. */
+function useStreamPlayback(ref: React.RefObject<HTMLMediaElement | null>, stream: MediaStream) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (el.srcObject !== stream) el.srcObject = stream;
+    const tryPlay = () => { void el.play().catch(() => { /* retried on gesture */ }); };
+    tryPlay();
+    document.addEventListener('pointerdown', tryPlay);
+    return () => document.removeEventListener('pointerdown', tryPlay);
+  }, [ref, stream]);
+}
+
 /** Camera feed rendered inside the avatar circle (replaces the emoji). */
 function AvatarVideo({ stream, mirrored, muted }: { stream: MediaStream; mirrored: boolean; muted: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (ref.current && ref.current.srcObject !== stream) {
-      ref.current.srcObject = stream;
-    }
-  }, [stream]);
+  useStreamPlayback(ref, stream);
 
   return (
     <video
@@ -27,6 +37,15 @@ function AvatarVideo({ stream, mirrored, muted }: { stream: MediaStream; mirrore
       style={mirrored ? { transform: 'scaleX(-1)' } : undefined}
     />
   );
+}
+
+/** Voice-only playback for remote streams without a visible video track —
+ *  without this, a mic-only participant (camera denied/off-device) would
+ *  never be heard at all. */
+function AvatarAudio({ stream }: { stream: MediaStream }) {
+  const ref = useRef<HTMLAudioElement>(null);
+  useStreamPlayback(ref, stream);
+  return <audio ref={ref} autoPlay style={{ display: 'none' }} />;
 }
 
 interface AvatarBadgeProps {
@@ -93,6 +112,10 @@ export default function AvatarBadge({
             <AvatarVideo stream={stream} mirrored={isLocalCam} muted={isLocalCam} />
           ) : (
             <span className="avatar-badge-emoji">{player.emoji}</span>
+          )}
+          {/* Remote audio still plays when there's no video to show */}
+          {!showVideo && stream && !isLocalCam && stream.getAudioTracks().length > 0 && (
+            <AvatarAudio stream={stream} />
           )}
           {isLocalCam && !micOn && <span className="avatar-badge-mic-off">🔇</span>}
           {isSpeaking && <span className="avatar-badge-speaking" />}

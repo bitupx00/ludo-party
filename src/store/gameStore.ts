@@ -94,6 +94,8 @@ interface GameStore {
   /** i18n key of the last online error (shown in the lobby/home). */
   onlineError: string | null;
   onlineConnecting: boolean;
+  /** Guest: the link to the host dropped and is being rebuilt in the background. */
+  onlineReconnecting: boolean;
 
   // Computed helpers (exposed for UI)
   currentPlayer: () => Player | undefined;
@@ -113,6 +115,9 @@ interface GameStore {
   applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number }) => void;
   /** Host: a guest disconnected — unseat (lobby) or convert to bot (game). */
   handleGuestLeft: (playerId: string) => void;
+  /** Host: a disconnected guest came back (validated seat ticket) — give
+   *  their seat back, flipping the bot substitute back to human. */
+  reclaimSeat: (playerId: string, name?: string) => void;
   /** Guest: the host closed the room. */
   handleHostLeft: () => void;
   /** Guest: mirror a host snapshot. */
@@ -163,6 +168,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   localPlayerId: null,
   onlineError: null,
   onlineConnecting: false,
+  onlineReconnecting: false,
 
   // ─── Computed helpers ──────────────────────────────────────────────
   currentPlayer: () => {
@@ -209,6 +215,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       localPlayerId: null,
       onlineError: null,
       onlineConnecting: false,
+      onlineReconnecting: false,
     });
   },
 
@@ -225,6 +232,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       localPlayerId: null,
       onlineError: null,
       onlineConnecting: false,
+      onlineReconnecting: false,
     });
   },
 
@@ -247,6 +255,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           roomCode: code,
           localPlayerId: hostPlayer?.id ?? null,
           onlineConnecting: false,
+          onlineReconnecting: false,
           onlineError: null,
         });
         if (hostPlayer) setMyPlayerId(hostPlayer.id);
@@ -369,6 +378,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
+  reclaimSeat: (playerId: string, name?: string) => {
+    const state = get();
+    const player = state.players.find((p) => p.id === playerId);
+    if (!player) return;
+    playSfx('join');
+
+    // Nothing to restore if the seat never got botified (very fast rejoin
+    // where the old link hadn't dropped yet) — just keep playing.
+    if (!player.isBot) return;
+
+    const cleanName = name?.trim().slice(0, 16) || player.name.replace(/ 🤖$/, '');
+    // Give them back a human avatar (the original was replaced by the bot's)
+    const usedEmojis = new Set(state.players.filter((p) => p.id !== playerId).map((p) => p.emoji));
+    const available = AVATAR_EMOJIS.filter((e) => !usedEmojis.has(e));
+    const emoji = available[Math.floor(Math.random() * available.length)] || '🎲';
+
+    set({
+      players: state.players.map((p) =>
+        p.id === playerId ? { ...p, isBot: false, name: cleanName, emoji } : p,
+      ),
+      messages: pushMessage(state.messages, {
+        id: createId(),
+        playerId: 'system',
+        text: `🔌 ${cleanName} se reconectó`,
+        timestamp: Date.now(),
+        kind: 'system',
+      }),
+    });
+  },
+
   handleHostLeft: () => {
     clearTimers();
     stopAvSession();
@@ -381,6 +420,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       localPlayerId: null,
       onlineError: 'errHostLeft',
       onlineConnecting: false,
+      onlineReconnecting: false,
     });
   },
 
@@ -613,6 +653,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       localPlayerId: null,
       onlineError: null,
       onlineConnecting: false,
+      onlineReconnecting: false,
     });
   },
 
