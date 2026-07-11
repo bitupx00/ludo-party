@@ -146,6 +146,10 @@ export default function Game() {
     if (!player) return <span key={color} />;
     const isCurrent = player.id === currentPlayer?.id;
     const finished = player.pieces.filter((p) => p.position >= 56).length;
+    // Turn dice (Ludo Club style): the big HUD dice only shows on the local
+    // device's own turn, so opponents' turns get a small dice badge on
+    // their avatar instead — undefined means "don't show one at all".
+    const showTurnDice = isCurrent && !myTurn;
     return (
       <AvatarBadge
         key={player.id}
@@ -156,6 +160,8 @@ export default function Game() {
         reaction={reactions[player.id]}
         align={align}
         showTeamBadge={gameMode === 'teams'}
+        diceValue={showTurnDice ? (phase === 'moving' ? diceValue : null) : undefined}
+        diceRolling={showTurnDice && phase === 'rolling'}
       />
     );
   };
@@ -307,13 +313,18 @@ export default function Game() {
               )}
             </button>
 
-            <Dice3D
-              value={diceValue}
-              rollSeq={rollSeq}
-              canRoll={canRoll}
-              isBot={!myTurn}
-              onRoll={roll}
-            />
+            {/* Big interactive dice: only during the local player's own
+                turn (Ludo Club style) — other turns show a small dice next
+                to that player's avatar instead (see renderBadge above). */}
+            {myTurn && (
+              <Dice3D
+                value={diceValue}
+                rollSeq={rollSeq}
+                canRoll={canRoll}
+                isBot={false}
+                onRoll={roll}
+              />
+            )}
 
             <button
               className="game-hud-side-btn"

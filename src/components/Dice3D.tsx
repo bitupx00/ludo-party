@@ -28,7 +28,7 @@ const FACE_ROTATION: Record<number, { x: number; y: number }> = {
 };
 
 /** Which of the 9 grid slots hold a pip for each face value. */
-const PIP_MAP: Record<number, number[]> = {
+export const PIP_MAP: Record<number, number[]> = {
   1: [4],
   2: [0, 8],
   3: [0, 4, 8],
@@ -53,6 +53,66 @@ function DiceFace({ value }: { value: number }) {
       {Array.from({ length: 9 }, (_, i) => (
         <span key={i} className={pips.includes(i) ? 'd3-pip' : 'd3-pip d3-pip--off'} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * Small flat die badge shown next to an opponent's avatar while it's their
+ * turn (Ludo Club style) — the big interactive Dice3D only appears in the
+ * HUD during the LOCAL player's own turn.
+ */
+export function MiniDice({ value, rolling }: { value: number | null; rolling: boolean }) {
+  const pips = value ? PIP_MAP[value] : [];
+  return (
+    <div className={`mini-dice ${rolling ? 'mini-dice--rolling' : ''}`}>
+      {value ? (
+        <div className="mini-dice-face">
+          {Array.from({ length: 9 }, (_, i) => (
+            <span key={i} className={pips.includes(i) ? 'mini-dice-pip' : 'mini-dice-pip mini-dice-pip--off'} />
+          ))}
+        </div>
+      ) : (
+        <span className="mini-dice-icon">🎲</span>
+      )}
+      <style>{`
+        .mini-dice {
+          width: clamp(20px, 5.5vmin, 26px);
+          height: clamp(20px, 5.5vmin, 26px);
+          border-radius: 22%;
+          background: radial-gradient(circle at 30% 25%, #ffffff 0%, #f3eee2 55%, #ddd3bd 100%);
+          border: 1.5px solid rgba(120, 100, 60, 0.3);
+          box-shadow: 0 2px 6px rgba(18, 8, 60, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .mini-dice--rolling {
+          animation: pulse-glow 0.7s ease-in-out infinite;
+        }
+        .mini-dice-icon {
+          font-size: clamp(11px, 3vmin, 14px);
+          line-height: 1;
+        }
+        .mini-dice-face {
+          width: 100%;
+          height: 100%;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          grid-template-rows: repeat(3, 1fr);
+          place-items: center;
+          padding: 14%;
+        }
+        .mini-dice-pip {
+          width: 70%;
+          height: 70%;
+          border-radius: 50%;
+          background: #4534b8;
+        }
+        .mini-dice-pip--off {
+          visibility: hidden;
+        }
+      `}</style>
     </div>
   );
 }

@@ -182,3 +182,8 @@ export const PLAYER_CONFIG: Record<Color, {
 };
 
 export const PLAYER_COLORS_ORDER: Color[] = ['red', 'green', 'yellow', 'blue'];
+
+/** Seat order for ONLINE rooms (Ludo Club style): the first two seats taken
+ *  are always diagonally-opposite corners (red ↔ yellow), never adjacent
+ *  ("lateral") ones. A 3rd/4th joiner then fills the remaining corners. */
+export const ONLINE_SEAT_ORDER: Color[] = ['red', 'yellow', 'blue', 'green'];

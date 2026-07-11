@@ -44,7 +44,11 @@ export default function Lobby() {
 
   const canAddHuman = !isOnline && nameInput.trim().length > 0 && players.length < 4
     && !(gameMode === 'solo' && humans.length >= 1);
-  const canStart = !isGuest && (gameMode === 'local' ? players.length >= 2 : humans.length >= 1);
+  const canStart = !isGuest && (
+    gameMode === 'local' ? players.length >= 2
+      : gameMode === 'online' ? humans.length >= 2
+      : humans.length >= 1
+  );
 
   const handleAddPlayer = useCallback(() => {
     if (!nameInput.trim()) return;
@@ -94,7 +98,7 @@ export default function Lobby() {
   const hint = isGuest
     ? t('waitingHost')
     : isOnline
-      ? t('waitingPlayers')
+      ? (humans.length < 2 ? t('needTwo') : t('waitingPlayers'))
       : !canStart
         ? (gameMode === 'local' && players.length < 2 && humans.length >= 1 ? t('needTwo') : t('needName'))
         : t('botsWillFill');
@@ -237,7 +241,7 @@ export default function Lobby() {
           <div className="lobby-seat-grid">
             {COLORS.map((color) => {
               const seated = playersByColor.get(color);
-              const willBeBot = !seated;
+              const willBeBot = !seated && !isOnline;
               const isNextFree = color === nextFreeColor;
 
               return (
@@ -284,7 +288,7 @@ export default function Lobby() {
                           <span className="lobby-seat-name lobby-seat-name--ghost">
                             {willBeBot ? `${BOT_EMOJIS[color]} ${BOT_NAMES[color]}` : t('seatFree')}
                           </span>
-                          <span className="lobby-seat-tag">🤖 {t('bot')}</span>
+                          {willBeBot && <span className="lobby-seat-tag">🤖 {t('bot')}</span>}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -301,7 +305,7 @@ export default function Lobby() {
                       </button>
                     )
                   ) : (
-                    isNextFree && gameMode !== 'solo' && !isGuest && (
+                    isNextFree && gameMode !== 'solo' && !isOnline && !isGuest && (
                       <button
                         className="lobby-seat-add-bot"
                         onClick={addBotPlayer}

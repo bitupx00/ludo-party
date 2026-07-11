@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Color, Player, CaptureEffect, GameMessage, GameMode } from '../game/types';
-import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER } from '../game/types';
+import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER, ONLINE_SEAT_ORDER } from '../game/types';
 import {
   rollDice,
   getMovablePieces,
@@ -383,11 +383,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ─── Lobby ─────────────────────────────────────────────────────────
   addPlayer: (name: string) => {
-    const { players } = get();
+    const { players, gameMode } = get();
     if (players.length >= 4) return;
 
+    // Online seating always fills diagonally-opposite corners first (Ludo
+    // Club style) so a 2-player game never sits its players side by side.
+    const seatOrder = gameMode === 'online' ? ONLINE_SEAT_ORDER : COLORS;
     const usedColors = new Set(players.map((p) => p.color));
-    const nextColor = COLORS.find((c) => !usedColors.has(c));
+    const nextColor = seatOrder.find((c) => !usedColors.has(c));
     if (!nextColor) return;
 
     // Pick a random emoji avatar
@@ -436,12 +439,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Online: only the host starts the game
     if (onlineRole === 'guest') return;
 
-    // Solo/teams/online: 1 human is enough (bots fill the rest). Local: need 2+ players.
+    // Solo/teams: 1 human is enough (bots fill the rest). Local: need 2+ players.
+    // Online: always human-only — needs 2+ real players, remaining seats stay empty.
     if (gameMode === 'local' && players.length < 2) return;
-    if (gameMode !== 'local' && humans.length < 1) return;
+    if (gameMode === 'online' && humans.length < 2) return;
+    if (gameMode !== 'local' && gameMode !== 'online' && humans.length < 1) return;
 
     const allPlayers = [...players];
-    if (allPlayers.length < 4) {
+    if (gameMode !== 'online' && allPlayers.length < 4) {
       allPlayers.push(...createBotPlayers(allPlayers));
     }
 

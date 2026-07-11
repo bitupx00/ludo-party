@@ -5,6 +5,7 @@ import { PLAYER_CONFIG, TEAMMATE } from '../game/types.ts';
 import type { Reaction } from '../store/gameStore.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
+import { MiniDice } from './Dice3D.tsx';
 
 /** Camera feed rendered inside the avatar circle (replaces the emoji). */
 function AvatarVideo({ stream, mirrored, muted }: { stream: MediaStream; mirrored: boolean; muted: boolean }) {
@@ -36,6 +37,11 @@ interface AvatarBadgeProps {
   reaction?: Reaction;
   align: 'left' | 'right';
   showTeamBadge?: boolean;
+  /** Mini dice badge (Ludo Club style): shown only for the player whose
+   *  turn it currently is, when that turn isn't the local device's own
+   *  (the big HUD dice covers that case instead). */
+  diceValue?: number | null;
+  diceRolling?: boolean;
 }
 
 const REACTION_VISIBLE_MS = 2600;
@@ -48,6 +54,8 @@ export default function AvatarBadge({
   reaction,
   align,
   showTeamBadge,
+  diceValue,
+  diceRolling,
 }: AvatarBadgeProps) {
   const t = useT();
   const config = PLAYER_CONFIG[player.color];
@@ -90,6 +98,15 @@ export default function AvatarBadge({
           {isSpeaking && <span className="avatar-badge-speaking" />}
           {isCurrent && <span className="avatar-badge-ring" />}
         </motion.div>
+
+        {/* Turn dice (Ludo Club style): only for the currently-rolling
+            player, shown here instead of the big HUD dice when it isn't
+            the local device's own turn. */}
+        {diceValue !== undefined && (
+          <div className="avatar-badge-dice">
+            <MiniDice value={diceValue} rolling={!!diceRolling} />
+          </div>
+        )}
 
         {/* Reaction bubble */}
         <AnimatePresence>
@@ -232,6 +249,14 @@ export default function AvatarBadge({
           right: auto;
           left: -12px;
           border-radius: 17px 17px 4px 17px;
+        }
+        .avatar-badge-dice {
+          position: absolute;
+          top: -9px;
+          left: 50%;
+          translate: -50% 0;
+          z-index: 5;
+          pointer-events: none;
         }
         .avatar-team-dot {
           position: absolute;
