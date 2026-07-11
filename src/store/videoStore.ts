@@ -12,11 +12,17 @@ interface VideoStore {
   localColor: Color | null;
   cameraOn: boolean;
   micOn: boolean;
+  /** Who is currently speaking (voice activity), by color. */
+  speaking: Partial<Record<Color, boolean>>;
+  /** Camera/mic toggle callbacks published by the VideoChat session. */
+  controls: { toggleCamera: () => void; toggleMic: () => void } | null;
 
   setLocal: (color: Color | null, stream: MediaStream | null) => void;
   setRemote: (color: Color, stream: MediaStream | null) => void;
   setCameraOn: (on: boolean) => void;
   setMicOn: (on: boolean) => void;
+  setSpeaking: (color: Color, on: boolean) => void;
+  setControls: (controls: VideoStore['controls']) => void;
   clearAll: () => void;
 }
 
@@ -25,6 +31,8 @@ export const useVideoStore = create<VideoStore>((set, get) => ({
   localColor: null,
   cameraOn: true,
   micOn: true,
+  speaking: {},
+  controls: null,
 
   setLocal: (color, stream) => {
     const { streams, localColor } = get();
@@ -47,5 +55,13 @@ export const useVideoStore = create<VideoStore>((set, get) => ({
   setCameraOn: (on) => set({ cameraOn: on }),
   setMicOn: (on) => set({ micOn: on }),
 
-  clearAll: () => set({ streams: {}, localColor: null, cameraOn: true, micOn: true }),
+  setSpeaking: (color, on) => {
+    const prev = get().speaking;
+    if (!!prev[color] === on) return;
+    set({ speaking: { ...prev, [color]: on } });
+  },
+
+  setControls: (controls) => set({ controls }),
+
+  clearAll: () => set({ streams: {}, localColor: null, cameraOn: true, micOn: true, speaking: {}, controls: null }),
 }));

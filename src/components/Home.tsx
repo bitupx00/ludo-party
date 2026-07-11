@@ -5,7 +5,8 @@ import type { GameMode } from '../game/types.ts';
 import { useT, useLangStore, TIPS } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
 
-const MODES: Array<{ mode: GameMode; icon: string; titleKey: 'modeSolo' | 'modeLocal' | 'modeTeams'; descKey: 'modeSoloDesc' | 'modeLocalDesc' | 'modeTeamsDesc'; accent: string }> = [
+const MODES: Array<{ mode: GameMode; icon: string; titleKey: 'modeSolo' | 'modeLocal' | 'modeTeams' | 'modeOnline'; descKey: 'modeSoloDesc' | 'modeLocalDesc' | 'modeTeamsDesc' | 'modeOnlineDesc'; accent: string }> = [
+  { mode: 'online', icon: '🌐', titleKey: 'modeOnline', descKey: 'modeOnlineDesc', accent: '#9333ea' },
   { mode: 'solo', icon: '🤖', titleKey: 'modeSolo', descKey: 'modeSoloDesc', accent: 'var(--color-blue)' },
   { mode: 'local', icon: '👥', titleKey: 'modeLocal', descKey: 'modeLocalDesc', accent: 'var(--color-green)' },
   { mode: 'teams', icon: '🤝', titleKey: 'modeTeams', descKey: 'modeTeamsDesc', accent: 'var(--color-red)' },
@@ -16,6 +17,7 @@ export default function Home() {
   const lang = useLangStore((s) => s.lang);
   const toggleLang = useLangStore((s) => s.toggleLang);
   const openLobby = useGameStore((s) => s.openLobby);
+  const onlineError = useGameStore((s) => s.onlineError);
   const [tipIndex, setTipIndex] = useState(0);
 
   const tips = TIPS[lang];
@@ -26,6 +28,17 @@ export default function Home() {
     }, 4500);
     return () => clearInterval(interval);
   }, [tips.length]);
+
+  // Deep link: opening /?room=CODE jumps straight to the online lobby
+  useEffect(() => {
+    try {
+      const room = new URLSearchParams(window.location.search).get('room');
+      if (room) openLobby('online');
+    } catch {
+      /* noop */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="screen home">
@@ -67,6 +80,17 @@ export default function Home() {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* Online error (e.g. host closed the room) */}
+        {onlineError && (
+          <motion.p
+            className="home-online-error"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            ⚠️ {t(onlineError as Parameters<typeof t>[0])}
+          </motion.p>
+        )}
 
         {/* Mode cards */}
         <div className="home-modes">
@@ -184,6 +208,15 @@ export default function Home() {
           width: 100%;
           height: auto;
           display: block;
+        }
+        .home-online-error {
+          font-size: 0.85rem;
+          font-weight: 800;
+          color: #ffb0bb;
+          background: rgba(240, 64, 92, 0.18);
+          border: 1px solid rgba(240, 64, 92, 0.4);
+          padding: 6px 16px;
+          border-radius: var(--radius-full);
         }
         .home-modes {
           width: 100%;

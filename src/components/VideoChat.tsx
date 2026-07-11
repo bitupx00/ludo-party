@@ -57,9 +57,11 @@ export default function VideoChat() {
 
 function VideoChatInner() {
   const players = useGameStore(s => s.players);
-  // Local identity = the device holder (first human), NOT the rotating
-  // current player — the camera belongs to a fixed person.
-  const currentPlayer = players.find(p => !p.isBot);
+  const localPlayerId = useGameStore(s => s.localPlayerId);
+  // Local identity = the device holder: the identified local player (online),
+  // otherwise the first human — never the rotating current player.
+  const currentPlayer = (localPlayerId && players.find(p => p.id === localPlayerId))
+    || players.find(p => !p.isBot);
   const playerConfig = currentPlayer ? PLAYER_CONFIG[currentPlayer.color] : null;
 
   const [isOpen, setIsOpen] = useState(false);
@@ -239,15 +241,29 @@ function VideoChatInner() {
       if (peer.color === localColor) continue;
       activeColors.add(peer.color);
       store.setRemote(peer.color, peer.stream);
+      store.setSpeaking(peer.color, peer.isSpeaking);
     }
     // Remove colors whose peer left
     for (const color of COLORS_ORDER) {
       if (color === localColor) continue;
       if (!activeColors.has(color) && useVideoStore.getState().streams[color]) {
         store.setRemote(color, null);
+        store.setSpeaking(color, false);
       }
     }
   }, [remotePeers, currentPlayer?.color]);
+
+  /* ─── Publish camera/mic controls to the game HUD ────────────────── */
+
+  useEffect(() => {
+    if (localStream) {
+      useVideoStore.getState().setControls({ toggleCamera, toggleMic });
+    }
+    return () => {
+      useVideoStore.getState().setControls(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localStream]);
 
   /* ─── Host a room ─────────────────────────────────────────────── */
 

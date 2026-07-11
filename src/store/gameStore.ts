@@ -15,6 +15,14 @@ import {
 import { getSquarePosition } from '../game/boardPath';
 import { createBotPlayers, chooseBotMove, getBotReaction, BOT_NAMES, BOT_EMOJIS } from '../game/aiPlayer';
 import {
+  hostRoom,
+  joinRoom,
+  leaveRoom,
+  sendActionToHost,
+  generateRoomCode,
+} from '../online/onlineManager';
+import { playSfx, vibrate } from '../sound';
+import {
   NO_MOVE_MESSAGES,
   WIN_MESSAGES,
   CAPTURE_BONUS_MESSAGES,
@@ -24,10 +32,32 @@ import {
 
 export type Screen = 'home' | 'lobby' | 'game';
 
+export type OnlineRole = 'none' | 'host' | 'guest';
+
 export interface Reaction {
   emoji: string;
   key: number;
 }
+
+/** Fields mirrored from host to guests in online games. */
+export const SNAPSHOT_KEYS = [
+  'players',
+  'currentPlayerIndex',
+  'diceValue',
+  'phase',
+  'winner',
+  'messages',
+  'captureEffects',
+  'turnCount',
+  'consecutiveSixes',
+  'teamsMode',
+  'screen',
+  'gameMode',
+  'rollSeq',
+  'reactions',
+] as const;
+
+export type GameSnapshot = Pick<GameStore, (typeof SNAPSHOT_KEYS)[number]>;
 
 interface GameStore {
   // State
@@ -50,6 +80,15 @@ interface GameStore {
   /** Latest quick reaction per player id (bubble next to avatar). */
   reactions: Record<string, Reaction>;
 
+  // Online multiplayer
+  onlineRole: OnlineRole;
+  roomCode: string | null;
+  /** This device's player id (set in online games; null = shared device). */
+  localPlayerId: string | null;
+  /** i18n key of the last online error (shown in the lobby/home). */
+  onlineError: string | null;
+  onlineConnecting: boolean;
+
   // Computed helpers (exposed for UI)
   currentPlayer: () => Player | undefined;
   movablePieceIds: () => string[];
@@ -58,6 +97,20 @@ interface GameStore {
   // Navigation
   openLobby: (mode: GameMode) => void;
   goHome: () => void;
+
+  // Online multiplayer
+  createOnlineRoom: (hostName: string) => Promise<void>;
+  joinOnlineRoom: (code: string, name: string) => Promise<void>;
+  /** Host: seat a remote guest; returns the new player id (null if full). */
+  addRemotePlayer: (name: string) => string | null;
+  /** Host: apply a validated action coming from a guest. */
+  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string }) => void;
+  /** Host: a guest disconnected — unseat (lobby) or convert to bot (game). */
+  handleGuestLeft: (playerId: string) => void;
+  /** Guest: the host closed the room. */
+  handleHostLeft: () => void;
+  /** Guest: mirror a host snapshot. */
+  _applySnapshot: (snap: GameSnapshot) => void;
 
   // Lobby
   addPlayer: (name: string) => void;
@@ -96,6 +149,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameMode: 'solo',
   rollSeq: 0,
   reactions: {},
+  onlineRole: 'none',
+  roomCode: null,
+  localPlayerId: null,
+  onlineError: null,
+  onlineConnecting: false,
 
   // ─── Computed helpers ──────────────────────────────────────────────
   currentPlayer: () => {
@@ -127,22 +185,187 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ─── Navigation ────────────────────────────────────────────────────
   openLobby: (mode: GameMode) => {
     clearTimers();
+    leaveRoom();
     set({
       ...createInitialState(),
       screen: 'lobby',
       gameMode: mode,
       teamsMode: mode === 'teams',
       reactions: {},
+      onlineRole: 'none',
+      roomCode: null,
+      localPlayerId: null,
+      onlineError: null,
+      onlineConnecting: false,
     });
   },
 
   goHome: () => {
     clearTimers();
+    leaveRoom();
     set({
       ...createInitialState(),
       screen: 'home',
       reactions: {},
+      onlineRole: 'none',
+      roomCode: null,
+      localPlayerId: null,
+      onlineError: null,
+      onlineConnecting: false,
     });
+  },
+
+  // ─── Online multiplayer ────────────────────────────────────────────
+  createOnlineRoom: async (hostName: string) => {
+    const name = hostName.trim();
+    if (!name) return;
+    set({ onlineConnecting: true, onlineError: null });
+
+    // Retry a few times on room-code collisions
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const code = generateRoomCode();
+      try {
+        await hostRoom(code);
+        // Seat the host as the first player
+        get().addPlayer(name);
+        const hostPlayer = get().players[get().players.length - 1];
+        set({
+          onlineRole: 'host',
+          roomCode: code,
+          localPlayerId: hostPlayer?.id ?? null,
+          onlineConnecting: false,
+          onlineError: null,
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).message === 'code-taken') continue;
+        set({ onlineConnecting: false, onlineError: 'errConnection' });
+        return;
+      }
+    }
+    set({ onlineConnecting: false, onlineError: 'errConnection' });
+  },
+
+  joinOnlineRoom: async (code: string, name: string) => {
+    const trimmedCode = code.trim().toUpperCase();
+    const trimmedName = name.trim();
+    if (!trimmedCode || !trimmedName) return;
+    set({ onlineConnecting: true, onlineError: null });
+    try {
+      await joinRoom(trimmedCode, trimmedName);
+      set({ onlineConnecting: false });
+    } catch (err) {
+      const reason = (err as Error).message;
+      const key = reason === 'room-not-found' ? 'errRoomNotFound'
+        : reason === 'room-full' ? 'errRoomFull'
+        : reason === 'in-game' ? 'errInGame'
+        : 'errConnection';
+      set({ onlineConnecting: false, onlineError: key });
+    }
+  },
+
+  addRemotePlayer: (name: string) => {
+    const { players } = get();
+    if (players.length >= 4) return null;
+    get().addPlayer(name.trim().slice(0, 16) || 'Jugador');
+    const added = get().players[get().players.length - 1];
+    if (added) playSfx('join');
+    return added?.id ?? null;
+  },
+
+  applyGuestAction: (playerId, action) => {
+    const state = get();
+    const player = state.players.find((p) => p.id === playerId);
+    if (!player) return;
+
+    if (action.a === 'reaction' && action.emoji) {
+      reactionFromPlayer(set, get, player, action.emoji.slice(0, 8));
+      return;
+    }
+    if (action.a === 'chat' && action.text) {
+      chatFromPlayer(set, get, player, action.text);
+      return;
+    }
+
+    // Turn-bound actions: only the current player may roll/move
+    const current = state.players[state.currentPlayerIndex];
+    if (!current || current.id !== playerId) return;
+
+    if (action.a === 'roll') {
+      doRoll(set, get);
+    } else if (action.a === 'select' && action.pieceId) {
+      if (state.phase !== 'moving' || state.diceValue === null) return;
+      const owns = player.pieces.some((p) => p.id === action.pieceId);
+      if (!owns) return;
+      executeMove(set, get, action.pieceId);
+    }
+  },
+
+  handleGuestLeft: (playerId: string) => {
+    const state = get();
+    const player = state.players.find((p) => p.id === playerId);
+    if (!player) return;
+    playSfx('leave');
+
+    if (state.screen === 'lobby') {
+      set({ players: state.players.filter((p) => p.id !== playerId) });
+      return;
+    }
+
+    // Mid-game: the seat becomes a bot so the game can continue
+    if (state.phase === 'finished') return;
+    set({
+      players: state.players.map((p) =>
+        p.id === playerId
+          ? { ...p, isBot: true, name: `${p.name} 🤖`, emoji: BOT_EMOJIS[p.color] }
+          : p,
+      ),
+      messages: pushMessage(state.messages, {
+        id: createId(),
+        playerId: 'system',
+        text: `📴 ${player.name} se desconectó — ahora juega un bot`,
+        timestamp: Date.now(),
+      }),
+    });
+
+    // If it was their turn, let the bot take over
+    const after = get();
+    const current = after.players[after.currentPlayerIndex];
+    if (current?.id === playerId) {
+      if (after.phase === 'rolling') {
+        scheduleBotTurn(set, get);
+      } else if (after.phase === 'moving' && after.diceValue !== null) {
+        const chosen = chooseBotMove({ ...after, diceValue: after.diceValue }, after.diceValue);
+        if (chosen) {
+          setTimeout(() => {
+            const s = get();
+            if (s.phase === 'moving') executeMove(set, get, chosen);
+          }, 800);
+        } else {
+          const advanced = advanceTurn({ ...after });
+          set(advanced);
+          scheduleBotTurn(set, get);
+        }
+      }
+    }
+  },
+
+  handleHostLeft: () => {
+    clearTimers();
+    set({
+      ...createInitialState(),
+      screen: 'home',
+      reactions: {},
+      onlineRole: 'none',
+      roomCode: null,
+      localPlayerId: null,
+      onlineError: 'errHostLeft',
+      onlineConnecting: false,
+    });
+  },
+
+  _applySnapshot: (snap: GameSnapshot) => {
+    set({ ...snap });
   },
 
   // ─── Lobby ─────────────────────────────────────────────────────────
@@ -194,10 +417,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   startGame: () => {
-    const { players, gameMode } = get();
+    const { players, gameMode, onlineRole } = get();
     const humans = players.filter((p) => !p.isBot);
 
-    // Solo/teams: 1 human is enough (bots fill the rest). Local: need 2+ players.
+    // Online: only the host starts the game
+    if (onlineRole === 'guest') return;
+
+    // Solo/teams/online: 1 human is enough (bots fill the rest). Local: need 2+ players.
     if (gameMode === 'local' && players.length < 2) return;
     if (gameMode !== 'local' && humans.length < 1) return;
 
@@ -241,74 +467,35 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ─── Gameplay ──────────────────────────────────────────────────────
   roll: () => {
-    const { phase, currentPlayerIndex } = get();
+    const { phase, currentPlayerIndex, players, onlineRole, localPlayerId } = get();
     if (phase !== 'rolling') return;
 
-    const currentPlayer = get().players[currentPlayerIndex];
-    if (!currentPlayer) return;
+    const currentPlayer = players[currentPlayerIndex];
+    if (!currentPlayer || currentPlayer.isBot) return;
 
-    // Don't allow rolling during bot turns (handled automatically)
-    if (currentPlayer.isBot) return;
-
-    const value = rollDice();
-
-    set({
-      diceValue: value,
-      phase: 'moving',
-      rollSeq: get().rollSeq + 1,
-      messages: pushMessage(get().messages, {
-          id: createId(),
-          playerId: currentPlayer.id,
-          text: `🎲 Salió un ${value}`,
-          timestamp: Date.now(),
-        }),
-      });
-
-    // Check if any pieces can move
-    const movable = getMovablePieces({ ...get(), diceValue: value }, value);
-
-    if (movable.length === 0) {
-      // No valid moves
-      const state = get();
-      const nextMsg: GameMessage = {
-        id: createId(),
-        playerId: currentPlayer.id,
-        text: randomPick(NO_MOVE_MESSAGES),
-        timestamp: Date.now(),
-      };
-
-      set({
-        messages: pushMessage(state.messages, nextMsg),
-      });
-
-      // Auto-advance after a short delay
-      setTimeout(() => {
-        const current = get();
-        if (current.phase !== 'moving') return;
-        const advanced = advanceTurn({ ...current });
-        set(advanced);
-        scheduleBotTurn(set, get);
-      }, 1500);
-    } else if (movable.length === 1) {
-      // Auto-select the only movable piece after a short delay
-      if (autoMoveTimeout) clearTimeout(autoMoveTimeout);
-      autoMoveTimeout = setTimeout(() => {
-        const current = get();
-        if (current.phase !== 'moving') return;
-        get().selectPiece(movable[0].id);
-      }, 1200);
+    // Online: only the owner of the current turn may roll
+    if (onlineRole === 'guest') {
+      if (currentPlayer.id === localPlayerId) sendActionToHost({ a: 'roll' });
+      return;
     }
+    if (onlineRole === 'host' && currentPlayer.id !== localPlayerId) return;
+
+    doRoll(set, get);
   },
 
   selectPiece: (pieceId: string) => {
-    const { phase, diceValue, players, currentPlayerIndex } = get();
+    const { phase, diceValue, players, currentPlayerIndex, onlineRole, localPlayerId } = get();
     if (phase !== 'moving' || diceValue === null) return;
 
     const currentPlayer = players[currentPlayerIndex];
-    if (!currentPlayer) return;
+    if (!currentPlayer || currentPlayer.isBot) return;
 
-    // Don't allow manual selection during bot turns
-    if (currentPlayer.isBot) return;
+    // Online: only the owner of the current turn may move
+    if (onlineRole === 'guest') {
+      if (currentPlayer.id === localPlayerId) sendActionToHost({ a: 'select', pieceId });
+      return;
+    }
+    if (onlineRole === 'host' && currentPlayer.id !== localPlayerId) return;
 
     executeMove(set, get, pieceId);
   },
@@ -329,35 +516,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   sendReaction: (emoji: string) => {
+    if (get().onlineRole === 'guest') {
+      sendActionToHost({ a: 'reaction', emoji });
+      return;
+    }
     const target = deviceHolder(get());
     if (!target) return;
-
-    set((s) => ({
-      reactions: { ...s.reactions, [target.id]: { emoji, key: Date.now() } },
-      messages: pushMessage(s.messages, {
-        id: createId(),
-        playerId: target.id,
-        text: emoji,
-        sticker: emoji,
-        timestamp: Date.now(),
-      }),
-    }));
+    reactionFromPlayer(set, get, target, emoji);
   },
 
   sendChatMessage: (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!text.trim()) return;
+    if (get().onlineRole === 'guest') {
+      sendActionToHost({ a: 'chat', text: text.trim().slice(0, 200) });
+      return;
+    }
     const target = deviceHolder(get());
     if (!target) return;
-
-    set((s) => ({
-      messages: pushMessage(s.messages, {
-        id: createId(),
-        playerId: target.id,
-        text: trimmed.slice(0, 200),
-        timestamp: Date.now(),
-      }),
-    }));
+    playSfx('chat');
+    chatFromPlayer(set, get, target, text);
   },
 
   addCaptureEffect: (x: number, y: number, type: CaptureEffect['type']) => {
@@ -378,16 +555,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ─── Reset ───────────────────────────────────────────────────────
   resetGame: () => {
     clearTimers();
+    leaveRoom();
     set({
       ...createInitialState(),
       screen: 'home',
       reactions: {},
+      onlineRole: 'none',
+      roomCode: null,
+      localPlayerId: null,
+      onlineError: null,
+      onlineConnecting: false,
     });
   },
 
   playAgain: () => {
+    const { players, gameMode, onlineRole } = get();
+    // Online: only the host restarts; guests follow via snapshot
+    if (onlineRole === 'guest') return;
     clearTimers();
-    const { players, gameMode } = get();
     if (players.length === 0) {
       get().goHome();
       return;
@@ -440,11 +625,111 @@ function pushMessage(existing: GameMessage[], msg: GameMessage): GameMessage[] {
   return next.length > MAX_MESSAGES ? next.slice(-MAX_MESSAGES) : next;
 }
 
-/** Who holds the device: the current player if human, else the first human. */
+/** Who holds the device: the identified local player (online), else the
+ *  current player if human, else the first human (pass & play). */
 function deviceHolder(state: GameStore): Player | undefined {
+  if (state.localPlayerId) {
+    const me = state.players.find((p) => p.id === state.localPlayerId);
+    if (me) return me;
+  }
   const current = state.players[state.currentPlayerIndex];
   if (current && !current.isBot) return current;
   return state.players.find((p) => !p.isBot) ?? current;
+}
+
+function reactionFromPlayer(
+  set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  _get: () => GameStore,
+  player: Player,
+  emoji: string,
+) {
+  set((s) => ({
+    reactions: { ...s.reactions, [player.id]: { emoji, key: Date.now() } },
+    messages: pushMessage(s.messages, {
+      id: createId(),
+      playerId: player.id,
+      text: emoji,
+      sticker: emoji,
+      timestamp: Date.now(),
+    }),
+  }));
+}
+
+function chatFromPlayer(
+  set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  _get: () => GameStore,
+  player: Player,
+  text: string,
+) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  set((s) => ({
+    messages: pushMessage(s.messages, {
+      id: createId(),
+      playerId: player.id,
+      text: trimmed.slice(0, 200),
+      timestamp: Date.now(),
+    }),
+  }));
+}
+
+/** Roll the dice for the current (human) player and resolve the aftermath. */
+function doRoll(
+  set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  get: () => GameStore,
+) {
+  const { currentPlayerIndex } = get();
+  const currentPlayer = get().players[currentPlayerIndex];
+  if (!currentPlayer) return;
+
+  const value = rollDice();
+
+  set({
+    diceValue: value,
+    phase: 'moving',
+    rollSeq: get().rollSeq + 1,
+    messages: pushMessage(get().messages, {
+        id: createId(),
+        playerId: currentPlayer.id,
+        text: `🎲 Salió un ${value}`,
+        timestamp: Date.now(),
+      }),
+    });
+
+  // Check if any pieces can move
+  const movable = getMovablePieces({ ...get(), diceValue: value }, value);
+
+  if (movable.length === 0) {
+    // No valid moves
+    const state = get();
+    const nextMsg: GameMessage = {
+      id: createId(),
+      playerId: currentPlayer.id,
+      text: randomPick(NO_MOVE_MESSAGES),
+      timestamp: Date.now(),
+    };
+
+    set({
+      messages: pushMessage(state.messages, nextMsg),
+    });
+
+    // Auto-advance after a short delay
+    setTimeout(() => {
+      const current = get();
+      if (current.phase !== 'moving') return;
+      const advanced = advanceTurn({ ...current });
+      set(advanced);
+      scheduleBotTurn(set, get);
+    }, 1500);
+  } else if (movable.length === 1) {
+    // Auto-select the only movable piece after a short delay
+    if (autoMoveTimeout) clearTimeout(autoMoveTimeout);
+    autoMoveTimeout = setTimeout(() => {
+      const current = get();
+      if (current.phase !== 'moving') return;
+      executeMove(set, get, movable[0].id);
+    }, 1200);
+  }
 }
 
 function executeMove(
@@ -476,14 +761,17 @@ function executeMove(
   }
   const reachedHome = movedAfter != null && movedAfter.position === 56 && movedBefore.position !== 56;
 
-  // Visual effects
+  // Visual + audio effects
   if (captured && movedAfter && movedAfter.position >= 0 && movedAfter.position < 52) {
     const pos = getSquarePosition(movedAfter.position);
     newState = addCaptureEffectToState(newState, pos.x, pos.y, 'capture');
+    playSfx('capture');
+    vibrate([40, 30, 70]);
   }
   if (reachedHome && newState.phase !== 'finished') {
     const pos = getSquarePosition(COLOR_CONFIG[state.players[currentPlayerIndex].color].entryIndex);
     newState = addCaptureEffectToState(newState, pos.x, pos.y, 'home');
+    playSfx('home');
   }
 
   // Check for win

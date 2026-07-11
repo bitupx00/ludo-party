@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import type { Color } from '../game/types.ts';
 import { PLAYER_CONFIG, TEAMMATE } from '../game/types.ts';
 import { useGameStore } from '../store/gameStore.ts';
+import { playSfx, vibrate } from '../sound.ts';
 import { useT } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
 
@@ -16,13 +17,29 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
   const config = PLAYER_CONFIG[winnerColor];
   const players = useGameStore((s) => s.players);
   const gameMode = useGameStore((s) => s.gameMode);
+  const onlineRole = useGameStore((s) => s.onlineRole);
   const playAgain = useGameStore((s) => s.playAgain);
   const goHome = useGameStore((s) => s.goHome);
+  const canRestart = onlineRole !== 'guest';
 
+  const localPlayerId = useGameStore((s) => s.localPlayerId);
   const isTeams = gameMode === 'teams';
   const teammateColor = TEAMMATE[winnerColor];
   const winnerPlayer = players.find((p) => p.color === winnerColor);
   const teammatePlayer = players.find((p) => p.color === teammateColor);
+
+  // Victory or defeat sound, from this device's point of view
+  useEffect(() => {
+    const me = localPlayerId
+      ? players.find((p) => p.id === localPlayerId)
+      : players.find((p) => !p.isBot);
+    const iWon = me
+      ? me.color === winnerColor || (isTeams && me.color === teammateColor)
+      : false;
+    playSfx(iWon ? 'win' : 'lose');
+    if (iWon) vibrate([60, 60, 60, 60, 120]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const winnerColors = isTeams ? [winnerColor, teammateColor] : [winnerColor];
   const title = isTeams
@@ -123,13 +140,15 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 1.4 }}
         >
-          <motion.button
-            className="btn btn-primary win-btn"
-            onClick={playAgain}
-            whileTap={{ scale: 0.94 }}
-          >
-            🔄 {t('playAgain')}
-          </motion.button>
+          {canRestart && (
+            <motion.button
+              className="btn btn-primary win-btn"
+              onClick={playAgain}
+              whileTap={{ scale: 0.94 }}
+            >
+              🔄 {t('playAgain')}
+            </motion.button>
+          )}
           <motion.button
             className="btn btn-secondary win-btn"
             onClick={goHome}

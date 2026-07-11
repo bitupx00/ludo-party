@@ -34,11 +34,6 @@
   padding: 7%;
 }
 
-.home-base--red    { background: linear-gradient(135deg, var(--color-red-light), var(--color-red) 60%, var(--color-red-dark)); }
-.home-base--blue   { background: linear-gradient(225deg, var(--color-blue-light), var(--color-blue) 60%, var(--color-blue-dark)); }
-.home-base--green  { background: linear-gradient(45deg, var(--color-green-dark), var(--color-green) 40%, var(--color-green-light)); }
-.home-base--yellow { background: linear-gradient(315deg, var(--color-yellow-dark), var(--color-yellow) 40%, var(--color-yellow-light)); }
-
 .home-base-pad {
   position: relative;
   width: 100%;
@@ -151,7 +146,12 @@
   position: absolute;
   z-index: 10;
   width: var(--piece-size);
-  transition: left 0.35s cubic-bezier(0.3, 1.2, 0.4, 1), top 0.35s cubic-bezier(0.3, 1.2, 0.4, 1);
+  /* Motion is fully driven by framer keyframes — no CSS transition here */
+  will-change: left, top;
+}
+
+.piece-offset {
+  width: 100%;
 }
 
 /* Pawn piece */
@@ -202,6 +202,24 @@
 @keyframes piece-hop {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-12%); }
+}
+
+/* Cell-by-cell travel: quick hops synced to the step duration */
+.piece--traveling .piece-svg {
+  animation: piece-travel-hop 0.17s ease-in-out infinite;
+}
+
+@keyframes piece-travel-hop {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-18%) scaleY(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece--movable .piece-svg,
+  .piece--traveling .piece-svg,
+  .board-center-trophy {
+    animation: none;
+  }
 }
 
 /* Finished piece: shrunk into the center goal */

@@ -77,8 +77,9 @@ function EffectParticles({ type }: { type: string }) {
 export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayProps) {
   const [visible, setVisible] = useState(false);
 
-  // Find the first non-expired capture effect to display
-  const latestEffect = effects.length > 0 ? effects[effects.length - 1] : null;
+  // Only show recent effects (stale ones can reappear via online snapshots)
+  const fresh = effects.filter((e) => Date.now() - e.timestamp < 3000);
+  const latestEffect = fresh.length > 0 ? fresh[fresh.length - 1] : null;
 
   useEffect(() => {
     if (latestEffect) {

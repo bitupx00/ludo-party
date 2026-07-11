@@ -1,7 +1,7 @@
 export type Color = 'red' | 'blue' | 'green' | 'yellow';
 
 /** Game modes selectable from the home dashboard. */
-export type GameMode = 'solo' | 'local' | 'teams';
+export type GameMode = 'solo' | 'local' | 'teams' | 'online';
 
 /** Team pairing for 2v2 mode: opposite corners play together. */
 export const TEAMMATE: Record<Color, Color> = {

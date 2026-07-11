@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { playSfx, vibrate } from '../sound.ts';
 import { useT } from '../i18n.ts';
 
 /**
@@ -76,7 +77,12 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, onRoll }: Dice3
     const extra = 360 * (spinCount.current * 2);
     setRotation({ x: target.x + extra, y: target.y + extra });
     setRolling(true);
-    const timer = setTimeout(() => setRolling(false), 950);
+    playSfx('dice');
+    vibrate(25);
+    const timer = setTimeout(() => {
+      setRolling(false);
+      if (v === 6) { playSfx('six'); vibrate([20, 30, 40]); }
+    }, 950);
     return () => clearTimeout(timer);
   }, [rollSeq]);
 

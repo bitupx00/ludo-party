@@ -58,6 +58,7 @@ export default function AvatarBadge({
   const isLocalCam = useVideoStore((s) => s.localColor === player.color);
   const cameraOn = useVideoStore((s) => s.cameraOn);
   const micOn = useVideoStore((s) => s.micOn);
+  const isSpeaking = useVideoStore((s) => !!s.speaking[player.color]);
   const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
   const showVideo = hasVideoTrack && (!isLocalCam || cameraOn);
 
@@ -86,6 +87,7 @@ export default function AvatarBadge({
             <span className="avatar-badge-emoji">{player.emoji}</span>
           )}
           {isLocalCam && !micOn && <span className="avatar-badge-mic-off">🔇</span>}
+          {isSpeaking && <span className="avatar-badge-speaking" />}
           {isCurrent && <span className="avatar-badge-ring" />}
         </motion.div>
 
@@ -176,6 +178,15 @@ export default function AvatarBadge({
           border-radius: 50%;
           background: #14092e;
           opacity: 1;
+        }
+        .avatar-badge-speaking {
+          position: absolute;
+          inset: -5px;
+          border-radius: 50%;
+          border: 3px solid #4ade80;
+          box-shadow: 0 0 12px rgba(74, 222, 128, 0.8);
+          animation: pulse-glow 0.9s ease-in-out infinite;
+          pointer-events: none;
         }
         .avatar-badge-mic-off {
           position: absolute;

@@ -11,14 +11,13 @@ import WinScreen from './WinScreen.tsx';
 import VideoChat from './VideoChat.tsx';
 import type { Color, Piece, Player } from '../game/types.ts';
 import { PLAYER_CONFIG } from '../game/types.ts';
+import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
+import { useVideoStore } from '../store/videoStore.ts';
+import { useSoundStore, playSfx } from '../sound.ts';
 import { useT } from '../i18n.ts';
 
 /** Quick reactions shown next to the dice (Ludo Club style). */
 const QUICK_REACTIONS = ['😂', '😭', '🤬', '🔥', '💀', '👏'];
-
-/** Corner layout: matches the board's base corners. */
-const TOP_COLORS: Color[] = ['red', 'blue'];
-const BOTTOM_COLORS: Color[] = ['green', 'yellow'];
 
 export default function Game() {
   const t = useT();
@@ -40,13 +39,48 @@ export default function Game() {
   const movablePieceIds = useGameStore((s) => s.movablePieceIds);
   const goHome = useGameStore((s) => s.goHome);
 
+  const onlineRole = useGameStore((s) => s.onlineRole);
+  const localPlayerId = useGameStore((s) => s.localPlayerId);
+
   const [chatOpen, setChatOpen] = useState(false);
   const [stickersOpen, setStickersOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const currentPlayer = players[currentPlayerIndex];
   const isBot = currentPlayer?.isBot ?? false;
+  // Whose turn controls this device: online → only your own player;
+  // local modes → any human (shared device).
+  const myTurn = onlineRole === 'none'
+    ? !isBot
+    : currentPlayer?.id === localPlayerId;
   const canRoll = phase === 'rolling' && !winner;
+
+  // Board perspective (Ludo Club): this device's color sits bottom-left
+  const myColor: Color = useMemo(() => {
+    if (localPlayerId) {
+      const me = players.find((p) => p.id === localPlayerId);
+      if (me) return me.color;
+    }
+    return players.find((p) => !p.isBot)?.color ?? 'green';
+  }, [players, localPlayerId]);
+
+  // Corner → player mapping after rotation (badges follow the board)
+  const rotationK = ROTATION_FOR_COLOR[myColor];
+  const cornerPlayers = useMemo(() => {
+    const corners: Record<'tl' | 'tr' | 'bl' | 'br', Color | null> = { tl: null, tr: null, bl: null, br: null };
+    for (const color of ['red', 'green', 'yellow', 'blue'] as Color[]) {
+      corners[cornerForColor(color, rotationK)] = color;
+    }
+    return corners;
+  }, [rotationK]);
+
+  // Sound & AV controls
+  const muted = useSoundStore((s) => s.muted);
+  const toggleMuted = useSoundStore((s) => s.toggleMuted);
+  const avActive = useVideoStore((s) => s.localColor !== null);
+  const camOn = useVideoStore((s) => s.cameraOn);
+  const micOn = useVideoStore((s) => s.micOn);
+  const avControls = useVideoStore((s) => s.controls);
 
   const playersByColor = useMemo(() => {
     const map = new Map<Color, Player>();
@@ -58,9 +92,9 @@ export default function Game() {
   // doesn't change on a roll, and depending only on it froze the game
   // whenever the player had 2+ movable pieces (none became clickable).
   const movableIds = useMemo(
-    () => movablePieceIds(),
+    () => (myTurn ? movablePieceIds() : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [players, diceValue, phase, currentPlayerIndex, movablePieceIds],
+    [players, diceValue, phase, currentPlayerIndex, myTurn, movablePieceIds],
   );
 
   // Flatten all pieces with their parent color and player
@@ -101,12 +135,11 @@ export default function Game() {
 
   if (players.length === 0) return null;
 
-  const renderBadge = (color: Color) => {
+  const renderBadge = (color: Color, align: 'left' | 'right' = 'left') => {
     const player = playersByColor.get(color);
     if (!player) return <span key={color} />;
     const isCurrent = player.id === currentPlayer?.id;
     const finished = player.pieces.filter((p) => p.position >= 56).length;
-    const align = color === 'red' || color === 'green' ? 'left' : 'right';
     return (
       <AvatarBadge
         key={player.id}
@@ -122,7 +155,7 @@ export default function Game() {
   };
 
   const turnColor = currentPlayer ? PLAYER_CONFIG[currentPlayer.color].cssColor : '#fff';
-  const isHumanTurn = !isBot && !winner;
+  const isHumanTurn = myTurn && !winner;
 
   return (
     <div className="game-layout">
@@ -140,14 +173,21 @@ export default function Game() {
                 : `${t('turnOf')} ${currentPlayer?.name ?? ''}`}
             </span>
           </div>
-          <span className="game-header-spacer" />
+          <button
+            className="game-exit game-mute"
+            onClick={toggleMuted}
+            aria-label={muted ? 'unmute' : 'mute'}
+          >
+            {muted ? '🔇' : '🔊'}
+          </button>
         </div>
 
         {/* Middle: players + board, vertically centered */}
         <div className="game-mid">
-        {/* Top players */}
+        {/* Top players (corners follow board rotation) */}
         <div className="game-badges game-badges--top">
-          {TOP_COLORS.map(renderBadge)}
+          {cornerPlayers.tl && renderBadge(cornerPlayers.tl, 'left')}
+          {cornerPlayers.tr && renderBadge(cornerPlayers.tr, 'right')}
         </div>
 
         {/* Board */}
@@ -155,11 +195,13 @@ export default function Game() {
           pieces={allPieces}
           currentPlayer={currentPlayer}
           onPieceClick={handlePieceClick}
+          perspective={myColor}
         />
 
         {/* Bottom players */}
         <div className="game-badges game-badges--bottom">
-          {BOTTOM_COLORS.map(renderBadge)}
+          {cornerPlayers.bl && renderBadge(cornerPlayers.bl, 'left')}
+          {cornerPlayers.br && renderBadge(cornerPlayers.br, 'right')}
         </div>
 
         {/* Status line: extra turn / tap hint */}
@@ -175,7 +217,7 @@ export default function Game() {
               >
                 🔥 {t('extraTurn')} ({t('rolledSix')})
               </motion.div>
-            ) : phase === 'moving' && !isBot && movableIds.length > 1 ? (
+            ) : phase === 'moving' && myTurn && movableIds.length > 1 ? (
               <motion.div
                 key="tap"
                 className="game-status"
@@ -192,12 +234,32 @@ export default function Game() {
 
         {/* Bottom HUD: reactions + dice + chat */}
         <div className="game-hud">
+          {/* Camera / mic controls — fixed, non-invasive (visible when AV is on) */}
+          {avActive && (
+            <div className="game-av-controls">
+              <button
+                className={`game-av-btn ${camOn ? '' : 'game-av-btn--off'}`}
+                onClick={() => avControls?.toggleCamera()}
+                aria-label="camera"
+              >
+                {camOn ? '📷' : '🚫'}
+              </button>
+              <button
+                className={`game-av-btn ${micOn ? '' : 'game-av-btn--off'}`}
+                onClick={() => avControls?.toggleMic()}
+                aria-label="microphone"
+              >
+                {micOn ? '🎤' : '🔇'}
+              </button>
+            </div>
+          )}
+
           <div className="game-reactions">
             {QUICK_REACTIONS.map((emoji) => (
               <motion.button
                 key={emoji}
                 className="game-reaction-btn"
-                onClick={() => sendReaction(emoji)}
+                onClick={() => { playSfx('pop'); sendReaction(emoji); }}
                 whileTap={{ scale: 0.8 }}
               >
                 {emoji}
@@ -229,7 +291,7 @@ export default function Game() {
               value={diceValue}
               rollSeq={rollSeq}
               canRoll={canRoll}
-              isBot={isBot}
+              isBot={!myTurn}
               onRoll={roll}
             />
 
@@ -259,6 +321,7 @@ export default function Game() {
         isOpen={stickersOpen}
         onClose={() => setStickersOpen(false)}
         onStickerSelect={handleStickerSelect}
+        onPhraseSelect={sendChatMessage}
       />
 
       {/* Capture overlay */}
@@ -337,9 +400,30 @@ export default function Game() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .game-header-spacer {
-          width: 38px;
-          flex-shrink: 0;
+        .game-mute {
+          font-size: 1rem;
+        }
+        .game-av-controls {
+          display: flex;
+          gap: 8px;
+        }
+        .game-av-btn {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: 2px solid rgba(255, 255, 255, 0.25);
+          background: rgba(255, 255, 255, 0.12);
+          font-size: 1rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background var(--transition-fast);
+          touch-action: manipulation;
+        }
+        .game-av-btn--off {
+          background: rgba(240, 64, 92, 0.35);
+          border-color: rgba(240, 64, 92, 0.6);
         }
         .game-mid {
           flex: 1;

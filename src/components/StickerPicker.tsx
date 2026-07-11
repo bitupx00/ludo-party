@@ -1,20 +1,27 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { STICKER_TABS, STICKER_GRID } from '../game/stickers.ts';
+import { STICKER_TABS, STICKER_GRID, QUICK_PHRASES } from '../game/stickers.ts';
 import type { StickerCategory } from '../game/stickers.ts';
 
 interface StickerPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onStickerSelect: (emoji: string) => void;
+  /** Quick phrases go to the chat as text messages. */
+  onPhraseSelect: (text: string) => void;
 }
 
 /** Bottom-sheet sticker panel (controlled from the game HUD). */
-export default function StickerPicker({ isOpen, onClose, onStickerSelect }: StickerPickerProps) {
+export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhraseSelect }: StickerPickerProps) {
   const [activeTab, setActiveTab] = useState<StickerCategory>('reacciones');
 
   const handleStickerClick = (emoji: string) => {
     onStickerSelect(emoji);
+    onClose();
+  };
+
+  const handlePhraseClick = (text: string) => {
+    onPhraseSelect(text);
     onClose();
   };
 
@@ -50,23 +57,41 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect }: Stic
               <button className="sticker-close" onClick={onClose} aria-label="✕">✕</button>
             </div>
 
-            {/* Grid */}
-            <div className="sticker-grid">
-              {(STICKER_GRID[activeTab] ?? []).map((emoji, i) => (
-                <motion.button
-                  key={`${activeTab}-${i}`}
-                  className="sticker-item"
-                  onClick={() => handleStickerClick(emoji)}
-                  whileTap={{ scale: 0.8 }}
-                  whileHover={{ scale: 1.15 }}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: i * 0.02 }}
-                >
-                  {emoji}
-                </motion.button>
-              ))}
-            </div>
+            {/* Grid / quick phrases */}
+            {activeTab === 'frases' ? (
+              <div className="sticker-phrases">
+                {QUICK_PHRASES.map((phrase, i) => (
+                  <motion.button
+                    key={i}
+                    className="sticker-phrase"
+                    onClick={() => handlePhraseClick(phrase)}
+                    whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                  >
+                    {phrase}
+                  </motion.button>
+                ))}
+              </div>
+            ) : (
+              <div className="sticker-grid">
+                {(STICKER_GRID[activeTab] ?? []).map((emoji, i) => (
+                  <motion.button
+                    key={`${activeTab}-${i}`}
+                    className="sticker-item"
+                    onClick={() => handleStickerClick(emoji)}
+                    whileTap={{ scale: 0.8 }}
+                    whileHover={{ scale: 1.15 }}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: i * 0.02 }}
+                  >
+                    {emoji}
+                  </motion.button>
+                ))}
+              </div>
+            )}
           </motion.div>
         </>
       )}
@@ -150,6 +175,29 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect }: Stic
         }
         .sticker-item:hover {
           background: rgba(255, 255, 255, 0.16);
+        }
+        .sticker-phrases {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          overflow-y: auto;
+          padding-bottom: var(--gap-sm);
+        }
+        .sticker-phrase {
+          text-align: left;
+          padding: 10px 16px;
+          border: none;
+          border-radius: var(--radius-lg);
+          background: rgba(255, 255, 255, 0.1);
+          color: var(--color-text);
+          font-family: var(--font-body);
+          font-size: 0.95rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background var(--transition-fast);
+        }
+        .sticker-phrase:hover {
+          background: rgba(255, 255, 255, 0.18);
         }
       `}</style>
     </AnimatePresence>

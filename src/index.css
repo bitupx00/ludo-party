@@ -99,7 +99,7 @@ body {
   font-family: var(--font-body);
   background: var(--color-bg);
   background-image: var(--bg-gradient);
-  background-attachment: fixed;
+  /* no background-attachment: fixed — it forces repaints on mobile scroll */
   color: var(--color-text);
   min-height: 100dvh;
   overflow-x: hidden;
@@ -272,4 +272,18 @@ h1, h2, h3, .font-display {
   flex-direction: column;
   flex: 1;
   padding: var(--gap-md);
+}
+
+/* Accessibility: honor the user's reduced-motion preference for decorative
+   animations (movement of pieces stays, it's informational). */
+@media (prefers-reduced-motion: reduce) {
+  .gradient-text,
+  .home-dice-emoji,
+  .home-pawn,
+  .dice3d--ready,
+  .game-turn-dot,
+  .avatar-badge-ring,
+  .dice3d-ring {
+    animation: none !important;
+  }
 }

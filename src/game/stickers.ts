@@ -100,17 +100,33 @@ export function randomPick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export type StickerCategory = 'reacciones' | 'juego' | 'basura';
+export type StickerCategory = 'reacciones' | 'juego' | 'basura' | 'frases';
 
 export const STICKER_TABS: { key: StickerCategory; label: string }[] = [
   { key: 'reacciones', label: '😂 Reacciones' },
   { key: 'juego', label: '🎲 Juego' },
   { key: 'basura', label: '💀 Trash Talk' },
+  { key: 'frases', label: '💬 Frases' },
+];
+
+/** Quick chat phrases (Ludo Club style quick replies). */
+export const QUICK_PHRASES = [
+  '¡Buena suerte! 🍀',
+  '¡Jajaja! 😂',
+  '¡Nooo! 😱',
+  '¡Te voy a atrapar! 😈',
+  '¡Qué suerte tienes! 🎲',
+  '¡Uy, casi! 😅',
+  '¡Rápido, es tu turno! ⏱️',
+  'GG, bien jugado 🤝',
+  '¡Venganza! 🔥',
+  '¡No me captures! 🙏',
 ];
 
 /** Categorized sticker grid for the sticker picker. */
 export const STICKER_GRID: Record<StickerCategory, string[]> = {
   reacciones: ['😂', '😭', '🤬', '🔥', '🤡', '💀', '🙏', '❤️', '👀', '💯', '🚀', '💩'],
   juego: ['🎲', '🎯', '🏆', '🏠', '🏁', '🛡️', '⚡', '🧠', '🐍', '🥚', '🤔', '😴'],
-  basura: ['😈', '👻', '🤪', '🧊', '🧊', '🤪', '😈', '👻'],
+  basura: ['😈', '👻', '🤪', '🧊', '🥶', '🫠', '😤', '🥴', '🤯', '😵', '🤢', '🙄'],
+  frases: [], // rendered as text buttons, see QUICK_PHRASES
 };

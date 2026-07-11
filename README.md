@@ -6,10 +6,14 @@ El parchís (ludo) más divertido del universo — estilo **Ludo Club**: diseño
 
 ## ✨ Características
 
-- 🏠 **Dashboard limpio** con 3 modos de juego:
+- 🏠 **Dashboard limpio** con 4 modos de juego:
+  - 🌐 **Jugar Online** — crea una sala, comparte el código/link (WhatsApp, Telegram...) y juega en tiempo real (WebRTC P2P, sin servidor de juego; si un jugador se desconecta, un bot toma su asiento)
   - 🤖 **Jugar vs Bots** — tú contra 3 bots
   - 👥 **Pasar y Jugar** — 2–4 amigos en el mismo dispositivo
   - 🤝 **Equipos 2v2** — Rojo+Amarillo vs Verde+Azul (los compañeros no se capturan)
+- 🔄 **Tablero con perspectiva propia**: tu color siempre abajo-izquierda (como Ludo Club)
+- 🚶 **Movimiento casilla por casilla** con rebote al aterrizar (nada de teletransportes)
+- 🔊 **Sonidos sintetizados** (dado, movimiento, captura, meta, victoria...) + vibración en Android + botón de silencio
 - ♟️ **Piezas 3D glossy** (SVG) estilo juego de mesa premium
 - 🎲 **Dado 3D CSS** grande, centro-abajo, tap para tirar
 - 😂 **Reacciones rápidas** junto a cada avatar (burbujas tipo WhatsApp) + panel de stickers
