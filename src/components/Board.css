@@ -185,44 +185,53 @@
   cursor: pointer;
 }
 
-/* The ring is centered at top:80%/left:50% of .piece — the EXACT same
-   anchor point .piece-offset uses (translate(-50%, -80%)) to place the
-   piece on its cell. This guarantees the ring always sits exactly on the
-   cell/piece regardless of the pawn SVG's internal proportions (a
-   bottom%/aspect-ratio approach drifted noticeably off the piece).
+/* Ludo Club reference style: a THICK segmented spinner ring (dark maroon
+   arcs alternating with white dashes) that encircles the pawn's whole
+   body and spins BEHIND it — the pawn occludes the ring where they
+   overlap. Centered on the pawn's belly (55% down the SVG box), sized
+   relative to the piece so it wraps generously around the body.
    Centering uses the standalone `translate` property (not `transform`)
-   because `animation` below drives `rotate` — a CSS animation replaces
-   the ENTIRE `transform` property for its duration, so if centering also
-   lived in `transform` the spin animation would silently strip it back
-   to the box's untranslated top-left corner every frame (this was the
-   root cause of the old ring drifting off the piece).
-   Ludo Club style: a segmented ring that spins around the piece border,
-   not a soft shadow blob sitting underneath it. */
+   because the animation drives `rotate` — a CSS animation replaces the
+   ENTIRE `transform` property while it runs, so centering placed in
+   `transform` would be silently stripped every frame (this was the root
+   cause of the old ring drifting off the piece). Band thickness comes
+   from a percentage-based radial mask so it scales with the piece. */
 .piece--movable::before {
   content: '';
   position: absolute;
   left: 50%;
-  top: 80%;
-  width: 70%;
+  top: 55%;
+  width: 120%;
   aspect-ratio: 1;
   translate: -50% -50%;
   border-radius: 50%;
+  z-index: 0;
   background: conic-gradient(
     from 0deg,
-    #ffd65a 0deg 78deg,
-    transparent 78deg 90deg,
-    #fff7dd 90deg 168deg,
-    transparent 168deg 180deg,
-    #ffd65a 180deg 258deg,
-    transparent 258deg 270deg,
-    #fff7dd 270deg 348deg,
+    #4d1013 0deg 70deg,
+    transparent 70deg 82deg,
+    #f2eaea 82deg 110deg,
+    transparent 110deg 122deg,
+    #4d1013 122deg 185deg,
+    transparent 185deg 197deg,
+    #f2eaea 197deg 225deg,
+    transparent 225deg 237deg,
+    #4d1013 237deg 300deg,
+    transparent 300deg 312deg,
+    #f2eaea 312deg 348deg,
     transparent 348deg 360deg
   );
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
-  filter: drop-shadow(0 0 5px rgba(255, 214, 90, 0.8));
-  animation: ring-spin 1.5s linear infinite;
+  -webkit-mask: radial-gradient(farthest-side, transparent 66%, #000 67%);
+  mask: radial-gradient(farthest-side, transparent 66%, #000 67%);
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.5));
+  animation: ring-spin 1.6s linear infinite;
   pointer-events: none;
+}
+
+/* The pawn renders ON TOP of its spinner ring (reference look). */
+.piece--movable .piece-svg {
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes ring-spin {
