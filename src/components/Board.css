@@ -1,9 +1,9 @@
-/* ===== Board Styles ===== */
+/* ===== Board Styles — premium cream board, Ludo Club inspired ===== */
 
 .board-container {
   position: relative;
-  width: min(90vmin, 570px);
-  height: min(90vmin, 570px);
+  width: min(94vw, 50dvh, 540px);
+  aspect-ratio: 1;
   margin: 0 auto;
   flex-shrink: 0;
 }
@@ -15,129 +15,127 @@
   width: 100%;
   height: 100%;
   background: var(--board-bg);
-  border-radius: var(--radius-lg);
-  border: 2px solid var(--board-border);
+  border-radius: 4.2%;
+  border: 3px solid var(--board-border);
   overflow: hidden;
   position: relative;
   box-shadow:
-    0 0 40px rgba(0, 0, 0, 0.5),
-    inset 0 0 60px rgba(0, 0, 0, 0.3);
+    0 18px 40px rgba(18, 8, 60, 0.45),
+    0 4px 10px rgba(18, 8, 60, 0.3),
+    inset 0 0 0 1px rgba(120, 100, 60, 0.15);
 }
 
-/* Home base areas (4 corners) */
+/* ── Corner home bases (6x6 blocks) ─────────────────────────────── */
 .home-base {
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px;
-  position: relative;
-  border: 2px solid rgba(255, 255, 255, 0.08);
-}
-
-.home-base--red {
-  background: linear-gradient(135deg, rgba(255, 71, 87, 0.15), rgba(255, 71, 87, 0.08));
-  border-color: rgba(255, 71, 87, 0.25);
-}
-
-.home-base--green {
-  background: linear-gradient(135deg, rgba(46, 213, 115, 0.15), rgba(46, 213, 115, 0.08));
-  border-color: rgba(46, 213, 115, 0.25);
-}
-
-.home-base--yellow {
-  background: linear-gradient(135deg, rgba(255, 165, 2, 0.15), rgba(255, 165, 2, 0.08));
-  border-color: rgba(255, 165, 2, 0.25);
-}
-
-.home-base--blue {
-  background: linear-gradient(135deg, rgba(55, 66, 250, 0.15), rgba(55, 66, 250, 0.08));
-  border-color: rgba(55, 66, 250, 0.25);
-}
-
-.home-base-label {
   position: absolute;
-  bottom: 4px;
-  right: 6px;
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.4;
-  font-weight: 700;
+  width: 40%;
+  height: 40%;
+  z-index: 1;
+  padding: 7%;
 }
 
-/* Board squares */
+.home-base--red    { background: linear-gradient(135deg, var(--color-red-light), var(--color-red) 60%, var(--color-red-dark)); }
+.home-base--blue   { background: linear-gradient(225deg, var(--color-blue-light), var(--color-blue) 60%, var(--color-blue-dark)); }
+.home-base--green  { background: linear-gradient(45deg, var(--color-green-dark), var(--color-green) 40%, var(--color-green-light)); }
+.home-base--yellow { background: linear-gradient(315deg, var(--color-yellow-dark), var(--color-yellow) 40%, var(--color-yellow-light)); }
+
+.home-base-pad {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--board-cell);
+  border-radius: 18%;
+  box-shadow:
+    inset 0 2px 8px rgba(80, 50, 20, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.home-base-slot {
+  position: absolute;
+  width: 34%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), rgba(0, 0, 0, 0.06) 70%);
+  box-shadow: inset 0 2px 5px rgba(80, 50, 20, 0.3);
+}
+
+.home-base-slot--red    { border: 2px solid var(--color-red-glow); }
+.home-base-slot--blue   { border: 2px solid var(--color-blue-glow); }
+.home-base-slot--green  { border: 2px solid var(--color-green-glow); }
+.home-base-slot--yellow { border: 2px solid var(--color-yellow-glow); }
+
+/* ── Path squares ───────────────────────────────────────────────── */
 .board-square {
   width: 100%;
   height: 100%;
-  border-radius: 2px;
   position: relative;
-  transition: background var(--transition-fast);
-}
-
-.board-square--default {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.board-square--red {
-  background: rgba(255, 71, 87, 0.2);
-}
-.board-square--green {
-  background: rgba(46, 213, 115, 0.2);
-}
-.board-square--yellow {
-  background: rgba(255, 165, 2, 0.2);
-}
-.board-square--blue {
-  background: rgba(55, 66, 250, 0.2);
-}
-
-/* Safe squares with star marker */
-.board-square--safe::after {
-  content: '⭐';
-  position: absolute;
-  inset: 0;
+  background: var(--board-cell);
+  box-shadow: inset 0 0 0 1px var(--board-line);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: min(2.5vmin, 16px);
-  opacity: 0.5;
+}
+
+.board-square--entry {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.board-square--red    { background: linear-gradient(160deg, var(--color-red-light), var(--color-red)); }
+.board-square--green  { background: linear-gradient(160deg, var(--color-green-light), var(--color-green)); }
+.board-square--yellow { background: linear-gradient(160deg, var(--color-yellow-light), var(--color-yellow)); }
+.board-square--blue   { background: linear-gradient(160deg, var(--color-blue-light), var(--color-blue)); }
+
+.board-entry-arrow {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: min(3.4vmin, 18px);
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   pointer-events: none;
 }
 
-/* Home stretch squares */
-.board-square--home-stretch-red {
-  background: linear-gradient(180deg, rgba(255, 71, 87, 0.1), rgba(255, 71, 87, 0.3));
-}
-.board-square--home-stretch-green {
-  background: linear-gradient(90deg, rgba(46, 213, 115, 0.1), rgba(46, 213, 115, 0.3));
-}
-.board-square--home-stretch-yellow {
-  background: linear-gradient(180deg, rgba(255, 165, 2, 0.1), rgba(255, 165, 2, 0.3));
-}
-.board-square--home-stretch-blue {
-  background: linear-gradient(90deg, rgba(55, 66, 250, 0.1), rgba(55, 66, 250, 0.3));
+.board-safe-star {
+  color: #cbb98e;
+  font-size: min(3vmin, 16px);
+  line-height: 1;
+  pointer-events: none;
 }
 
-/* Center/goal square */
+/* ── Home stretch (colored lanes to the center) ─────────────────── */
+.board-square--hs {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.board-square--hs-red    { background: linear-gradient(180deg, var(--color-red-light), var(--color-red)); }
+.board-square--hs-green  { background: linear-gradient(90deg, var(--color-green-light), var(--color-green)); }
+.board-square--hs-yellow { background: linear-gradient(0deg, var(--color-yellow-light), var(--color-yellow)); }
+.board-square--hs-blue   { background: linear-gradient(270deg, var(--color-blue-light), var(--color-blue)); }
+
+/* ── Center goal ────────────────────────────────────────────────── */
 .board-center {
-  background: linear-gradient(135deg,
-    rgba(255, 71, 87, 0.4),
-    rgba(46, 213, 115, 0.4),
-    rgba(255, 165, 2, 0.4),
-    rgba(55, 66, 250, 0.4)
-  );
-  border-radius: var(--radius-md);
+  grid-column: 7 / span 3;
+  grid-row: 7 / span 3;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: min(4vmin, 26px);
-  animation: gradient-shift 4s ease infinite;
+  z-index: 1;
 }
 
-/* Pieces overlay */
+.board-center-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.board-center-trophy {
+  position: relative;
+  font-size: min(4.6vmin, 26px);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ── Pieces overlay ─────────────────────────────────────────────── */
 .pieces-overlay {
   position: absolute;
   inset: 0;
@@ -149,120 +147,75 @@
   pointer-events: auto;
 }
 
-/* Piece container for positioning */
 .piece-slot {
   position: absolute;
-  transform: translate(-50%, -50%);
   z-index: 10;
-  transition: left 0.3s ease, top 0.3s ease;
+  width: var(--piece-size);
+  transition: left 0.35s cubic-bezier(0.3, 1.2, 0.4, 1), top 0.35s cubic-bezier(0.3, 1.2, 0.4, 1);
 }
 
-/* Piece base */
+/* Pawn piece */
 .piece {
-  width: var(--piece-size);
-  height: var(--piece-size);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--piece-font);
-  cursor: pointer;
+  width: 100%;
+  display: block;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: default;
   position: relative;
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transform: translate(-50%, -68%);
+  touch-action: manipulation;
 }
 
-.piece:active {
-  transform: scale(0.9);
+.piece-svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
-.piece--red {
-  background: linear-gradient(135deg, var(--color-red-light), var(--color-red));
-}
-.piece--green {
-  background: linear-gradient(135deg, var(--color-green-light), var(--color-green));
-}
-.piece--yellow {
-  background: linear-gradient(135deg, var(--color-yellow-light), var(--color-yellow));
-}
-.piece--blue {
-  background: linear-gradient(135deg, var(--color-blue-light), var(--color-blue));
-}
-
-/* Movable piece pulse */
+/* Movable piece: golden pulse ring at the pawn's base + subtle bounce */
 .piece--movable {
-  animation: pulse-glow 1.2s ease-in-out infinite;
   cursor: pointer;
 }
 
 .piece--movable::before {
   content: '';
   position: absolute;
-  inset: -4px;
+  left: 50%;
+  bottom: 2%;
+  width: 110%;
+  aspect-ratio: 1.6;
+  transform: translateX(-50%);
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  animation: pulse-ring 1.2s ease-in-out infinite;
+  border: 3px solid rgba(255, 214, 90, 0.95);
+  box-shadow: 0 0 12px rgba(255, 214, 90, 0.7);
+  animation: pulse-ring 1.1s ease-in-out infinite;
+  pointer-events: none;
 }
 
-/* Current player highlight */
-.piece--current {
-  box-shadow:
-    0 0 12px var(--glow-color, rgba(255, 255, 255, 0.4)),
-    0 0 24px var(--glow-color, rgba(255, 255, 255, 0.2));
-  border-color: rgba(255, 255, 255, 0.5);
+.piece--movable .piece-svg {
+  animation: piece-hop 0.8s ease-in-out infinite;
 }
 
-.piece--red.piece--current { --glow-color: var(--color-red-glow); }
-.piece--green.piece--current { --glow-color: var(--color-green-glow); }
-.piece--yellow.piece--current { --glow-color: var(--color-yellow-glow); }
-.piece--blue.piece--current { --glow-color: var(--color-blue-glow); }
-
-/* Stacked pieces offset */
-.piece--stacked {
-  position: absolute;
+@keyframes piece-hop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12%); }
 }
 
-.piece--stack-0 { transform: translate(-30%, -30%); }
-.piece--stack-1 { transform: translate(30%, -30%); }
-.piece--stack-2 { transform: translate(-30%, 30%); }
-.piece--stack-3 { transform: translate(30%, 30%); }
-
-/* Finished piece */
+/* Finished piece: shrunk into the center goal */
 .piece--finished {
-  opacity: 0.5;
-  transform: scale(0.7);
+  opacity: 0.85;
+}
+.piece--finished .piece-svg {
+  transform: scale(0.62);
+  transform-origin: bottom center;
 }
 
-/* Responsive — mobile-first portrait */
-@media (max-width: 480px) {
+/* Responsive tuning */
+@media (min-width: 768px) {
   .board-container {
-    width: 95vw;
-    height: 95vw;
-  }
-
-  .home-base {
-    gap: 4px;
-    padding: 4px;
-  }
-
-  .home-base-label {
-    font-size: 0.5rem;
-  }
-}
-
-@media (min-width: 481px) and (max-width: 768px) {
-  .board-container {
-    width: min(88vmin, 540px);
-    height: min(88vmin, 540px);
-  }
-}
-
-@media (min-width: 1024px) {
-  .board-container {
-    width: min(70vmin, 520px);
-    height: min(70vmin, 520px);
+    width: min(88vw, 52dvh, 540px);
   }
 }

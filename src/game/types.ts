@@ -1,5 +1,16 @@
 export type Color = 'red' | 'blue' | 'green' | 'yellow';
 
+/** Game modes selectable from the home dashboard. */
+export type GameMode = 'solo' | 'local' | 'teams';
+
+/** Team pairing for 2v2 mode: opposite corners play together. */
+export const TEAMMATE: Record<Color, Color> = {
+  red: 'yellow',
+  yellow: 'red',
+  green: 'blue',
+  blue: 'green',
+};
+
 export interface Player {
   id: string;
   name: string;
@@ -26,6 +37,8 @@ export interface GameState {
   captureEffects: CaptureEffect[];
   turnCount: number;
   consecutiveSixes: number;
+  /** When true (2v2 mode), teammates cannot capture each other. */
+  teamsMode?: boolean;
 }
 
 export interface GameMessage {
@@ -136,29 +149,29 @@ export const PLAYER_CONFIG: Record<Color, {
   red: {
     label: COLOR_CONFIG.red.displayName,
     emoji: COLOR_CONFIG.red.emoji,
-    cssColor: '#FF4757',
-    cssLight: '#FF6B81',
+    cssColor: '#f0405c',
+    cssLight: '#fb7185',
     cssClass: COLOR_CONFIG.red.cssClass,
   },
   green: {
     label: COLOR_CONFIG.green.displayName,
     emoji: COLOR_CONFIG.green.emoji,
-    cssColor: '#2ED573',
-    cssLight: '#7BED9F',
+    cssColor: '#26c165',
+    cssLight: '#4ade80',
     cssClass: COLOR_CONFIG.green.cssClass,
   },
   yellow: {
     label: COLOR_CONFIG.yellow.displayName,
     emoji: COLOR_CONFIG.yellow.emoji,
-    cssColor: '#FFA502',
-    cssLight: '#ECCC68',
+    cssColor: '#f5a415',
+    cssLight: '#fcd34d',
     cssClass: COLOR_CONFIG.yellow.cssClass,
   },
   blue: {
     label: COLOR_CONFIG.blue.displayName,
     emoji: COLOR_CONFIG.blue.emoji,
-    cssColor: '#3742FA',
-    cssLight: '#70A1FF',
+    cssColor: '#3d7bfa',
+    cssLight: '#60a5fa',
     cssClass: COLOR_CONFIG.blue.cssClass,
   },
 };

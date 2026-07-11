@@ -763,10 +763,10 @@ function VideoChatInner() {
 /* ─── Styles ─────────────────────────────────────────────────────── */
 
 const videoChatStyles = `
-/* Toggle button — bottom right */
+/* Toggle button — top right (bottom is occupied by the dice HUD) */
 .videochat-toggle {
   position: fixed;
-  bottom: var(--gap-lg);
+  top: calc(var(--gap-sm) + env(safe-area-inset-top));
   right: var(--gap-md);
   width: 48px;
   height: 48px;
@@ -805,7 +805,7 @@ const videoChatStyles = `
 /* Panel */
 .videochat-panel {
   position: fixed;
-  bottom: calc(var(--gap-lg) + 56px);
+  top: calc(var(--gap-sm) + 56px + env(safe-area-inset-top));
   right: var(--gap-md);
   width: min(340px, 88vw);
   z-index: 80;
@@ -1110,7 +1110,7 @@ const videoChatStyles = `
     right: var(--gap-sm);
     left: var(--gap-sm);
     width: auto;
-    bottom: calc(var(--gap-md) + 56px);
+    top: calc(var(--gap-sm) + 56px + env(safe-area-inset-top));
   }
   .videochat-room-code-value {
     font-size: 1.4rem;

@@ -1,5 +1,5 @@
 import type { Color, GameState, Piece, Player } from './types';
-import { COLORS } from './types';
+import { COLORS, TEAMMATE } from './types';
 import {
   canPieceMove,
   calculateNewPosition,
@@ -8,11 +8,18 @@ import {
 } from './gameEngine';
 import { randomPick, STICKERS, CAPTURE_MESSAGES } from './stickers';
 
-const BOT_NAMES: Record<Color, string> = {
-  red: 'Bot Rojo 🤖',
-  green: 'Bot Verde 🤖',
-  yellow: 'Bot Amarillo 🤖',
-  blue: 'Bot Azul 🤖',
+export const BOT_NAMES: Record<Color, string> = {
+  red: 'Rex',
+  green: 'Kiwi',
+  yellow: 'Sol',
+  blue: 'Nube',
+};
+
+export const BOT_EMOJIS: Record<Color, string> = {
+  red: '🦖',
+  green: '🥝',
+  yellow: '🌞',
+  blue: '☁️',
 };
 
 /** Create bot players to fill missing slots (up to 4 total). */
@@ -27,7 +34,7 @@ export function createBotPlayers(existingPlayers: Player[]): Player[] {
         createId(),
         BOT_NAMES[color],
         color,
-        '🤖',
+        BOT_EMOJIS[color],
         true,
       ),
     );
@@ -118,6 +125,7 @@ function findCaptureMove(
     // Check if any opponent is at the new position
     for (const player of state.players) {
       if (player.color === currentPlayer.color) continue;
+      if (state.teamsMode && TEAMMATE[currentPlayer.color] === player.color) continue;
       for (const opponentPiece of player.pieces) {
         if (opponentPiece.position === newPos) {
           // Cannot capture on safe squares

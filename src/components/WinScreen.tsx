@@ -2,57 +2,53 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import type { Color } from '../game/types.ts';
-import { PLAYER_CONFIG } from '../game/types.ts';
+import { PLAYER_CONFIG, TEAMMATE } from '../game/types.ts';
+import { useGameStore } from '../store/gameStore.ts';
+import { useT } from '../i18n.ts';
+import PawnSVG from './PawnSVG.tsx';
 
 interface WinScreenProps {
   winnerColor: Color;
-  onPlayAgain: () => void;
 }
 
-export default function WinScreen({ winnerColor, onPlayAgain }: WinScreenProps) {
+export default function WinScreen({ winnerColor }: WinScreenProps) {
+  const t = useT();
   const config = PLAYER_CONFIG[winnerColor];
+  const players = useGameStore((s) => s.players);
+  const gameMode = useGameStore((s) => s.gameMode);
+  const playAgain = useGameStore((s) => s.playAgain);
+  const goHome = useGameStore((s) => s.goHome);
+
+  const isTeams = gameMode === 'teams';
+  const teammateColor = TEAMMATE[winnerColor];
+  const winnerPlayer = players.find((p) => p.color === winnerColor);
+  const teammatePlayer = players.find((p) => p.color === teammateColor);
+
+  const winnerColors = isTeams ? [winnerColor, teammateColor] : [winnerColor];
+  const title = isTeams
+    ? `${winnerPlayer?.name ?? ''} + ${teammatePlayer?.name ?? ''}`
+    : winnerPlayer?.name ?? config.label;
 
   useEffect(() => {
     // Fire confetti bursts
     const duration = 3000;
     const end = Date.now() + duration;
+    const colors = [config.cssColor, config.cssLight, '#FFD700', '#ffffff'];
 
     const frame = () => {
-      confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: [config.cssColor, config.cssLight, '#FFD700', '#ffffff'],
-      });
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: [config.cssColor, config.cssLight, '#FFD700', '#ffffff'],
-      });
-
+      confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors });
+      confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors });
       if (Date.now() < end) {
         requestAnimationFrame(frame);
       }
     };
 
     // Initial big burst
-    confetti({
-      particleCount: 100,
-      spread: 100,
-      origin: { y: 0.6 },
-      colors: [config.cssColor, config.cssLight, '#FFD700', '#ffffff'],
-    });
-
+    confetti({ particleCount: 120, spread: 100, origin: { y: 0.6 }, colors });
     frame();
 
     return () => confetti.reset();
   }, [winnerColor, config]);
-
-  // Parade emojis
-  const paradeEmojis = Array.from({ length: 8 }, () => config.emoji);
 
   return (
     <motion.div
@@ -61,21 +57,6 @@ export default function WinScreen({ winnerColor, onPlayAgain }: WinScreenProps) 
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Parade */}
-      {paradeEmojis.map((emoji, i) => (
-        <span
-          key={i}
-          className="win-parade-emoji"
-          style={{
-            animation: `parade 4s linear ${i * 0.5}s infinite`,
-            top: `${20 + (i % 3) * 25}%`,
-            fontSize: `${1.5 + (i % 3) * 0.5}rem`,
-          }}
-        >
-          {emoji}
-        </span>
-      ))}
-
       <motion.div
         className="win-content"
         initial={{ scale: 0.5, opacity: 0 }}
@@ -91,48 +72,72 @@ export default function WinScreen({ winnerColor, onPlayAgain }: WinScreenProps) 
           👑
         </motion.div>
 
-        <motion.div
-          className="win-emoji"
-          style={{ color: config.cssColor }}
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 12, delay: 0.7 }}
+        <div className="win-pawns">
+          {winnerColors.map((color, i) => (
+            <motion.div
+              key={color}
+              className="win-pawn"
+              initial={{ scale: 0, y: 30 }}
+              animate={{ scale: 1, y: [0, -12, 0] }}
+              transition={{
+                scale: { type: 'spring', stiffness: 250, damping: 14, delay: 0.6 + i * 0.15 },
+                y: { duration: 1.2, repeat: Infinity, delay: 0.8 + i * 0.2, ease: 'easeInOut' },
+              }}
+            >
+              <PawnSVG color={color} />
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.p
+          className="win-label"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
         >
-          {config.emoji}
-        </motion.div>
+          {isTeams ? t('teamWinner') : t('winner')}
+        </motion.p>
 
         <motion.h1
           className="win-title"
-          style={{ color: config.cssColor }}
+          style={{ color: config.cssLight }}
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.9 }}
         >
-          ¡GANASTE!
+          {title} <span className="win-wins">{t('wins')}</span>
         </motion.h1>
 
         <motion.div
           className="win-stars"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.3 }}
+          transition={{ delay: 1.2 }}
         >
-          ⭐ 🏆 ⭐ 🏆 ⭐
+          ⭐ 🏆 ⭐
         </motion.div>
 
-        <motion.button
-          className="btn btn-primary win-restart-btn"
-          onClick={onPlayAgain}
+        <motion.div
+          className="win-actions"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 1.5 }}
-          whileTap={{ scale: 0.9 }}
-          style={{
-            background: `linear-gradient(135deg, ${config.cssColor}, ${config.cssLight})`,
-          }}
+          transition={{ delay: 1.4 }}
         >
-          🔄 Jugar de nuevo
-        </motion.button>
+          <motion.button
+            className="btn btn-primary win-btn"
+            onClick={playAgain}
+            whileTap={{ scale: 0.94 }}
+          >
+            🔄 {t('playAgain')}
+          </motion.button>
+          <motion.button
+            className="btn btn-secondary win-btn"
+            onClick={goHome}
+            whileTap={{ scale: 0.94 }}
+          >
+            🏠 {t('mainMenu')}
+          </motion.button>
+        </motion.div>
       </motion.div>
 
       <style>{`
@@ -143,13 +148,8 @@ export default function WinScreen({ winnerColor, onPlayAgain }: WinScreenProps) 
           display: flex;
           align-items: center;
           justify-content: center;
-          background: radial-gradient(circle, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.95) 100%);
+          background: radial-gradient(circle, rgba(30, 15, 90, 0.9) 0%, rgba(15, 6, 50, 0.97) 100%);
           overflow: hidden;
-        }
-        .win-parade-emoji {
-          position: absolute;
-          pointer-events: none;
-          z-index: 1;
         }
         .win-content {
           position: relative;
@@ -157,34 +157,60 @@ export default function WinScreen({ winnerColor, onPlayAgain }: WinScreenProps) 
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: var(--gap-md);
+          gap: var(--gap-sm);
           text-align: center;
           padding: var(--gap-xl);
+          max-width: 92vw;
         }
         .win-crown {
-          font-size: 4rem;
+          font-size: 3.6rem;
           filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
         }
-        .win-emoji {
-          font-size: 5rem;
-          filter: drop-shadow(0 0 30px currentColor);
+        .win-pawns {
+          display: flex;
+          align-items: flex-end;
+          gap: 14px;
+        }
+        .win-pawn {
+          width: clamp(64px, 20vw, 96px);
+        }
+        .win-pawn svg {
+          width: 100%;
+          height: auto;
+          display: block;
+          filter: drop-shadow(0 0 24px rgba(255, 215, 0, 0.35));
+        }
+        .win-label {
+          font-size: 0.85rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          color: var(--color-text-muted);
         }
         .win-title {
-          font-size: clamp(2.5rem, 10vw, 4rem);
-          font-weight: 900;
-          letter-spacing: 4px;
-          text-transform: uppercase;
+          font-family: var(--font-display);
+          font-size: clamp(1.7rem, 8vw, 2.8rem);
+          font-weight: 800;
+          line-height: 1.15;
           animation: winner-glow 2s ease-in-out infinite;
+          word-break: break-word;
+        }
+        .win-wins {
+          color: #ffd65a;
         }
         .win-stars {
           font-size: 1.2rem;
           animation: float 3s ease-in-out infinite;
         }
-        .win-restart-btn {
-          margin-top: var(--gap-lg);
-          padding: 16px 40px;
-          font-size: 1.1rem;
-          min-height: 56px;
+        .win-actions {
+          margin-top: var(--gap-md);
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          width: min(300px, 80vw);
+        }
+        .win-btn {
+          width: 100%;
         }
       `}</style>
     </motion.div>

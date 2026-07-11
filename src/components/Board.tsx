@@ -1,7 +1,6 @@
 import { AnimatePresence } from 'framer-motion';
 import type { Piece as PieceType, Player, Color } from '../game/types.ts';
-import { PLAYER_CONFIG } from '../game/types.ts';
-import { isSafeSquare } from '../game/boardPath.ts';
+import { isSafeSquare, getSquareGridCoord, getHomeStretchGridCoord } from '../game/boardPath.ts';
 import Piece from './Piece.tsx';
 import './Board.css';
 
@@ -11,125 +10,95 @@ interface BoardProps {
   onPieceClick: (pieceId: string) => void;
 }
 
-// Pre-build the position mapping
-const MAIN_POSITIONS = (() => {
-  const p: Array<{ x: number; y: number }> = [];
+const COLORS_ORDER = ['red', 'green', 'yellow', 'blue'] as const;
 
-  // Bottom arm, left column, going up: (6,13) -> (6,9)
-  for (let r = 13; r >= 9; r--) p.push({ x: 6, y: r });
-  p.push({ x: 6, y: 8 }); // turn left
-  // Left arm, bottom row, going left: (5,8) -> (0,8)
-  for (let c = 5; c >= 0; c--) p.push({ x: c, y: 8 });
-  p.push({ x: 0, y: 7 }); // turn up
-  // Left arm, top row, going right: (0,6) -> (5,6)
-  for (let c = 0; c <= 5; c++) p.push({ x: c, y: 6 });
-  p.push({ x: 6, y: 6 }); // turn up
-  // Top arm, left column, going up: (6,5) -> (6,1)
-  for (let r = 5; r >= 1; r--) p.push({ x: 6, y: r });
-  p.push({ x: 6, y: 0 }); // turn right
-  p.push({ x: 7, y: 0 }); // top of top arm
-  p.push({ x: 8, y: 0 });
-  // Top arm, right column, going down: (8,1) -> (8,5)
-  for (let r = 1; r <= 5; r++) p.push({ x: 8, y: r });
-  p.push({ x: 8, y: 6 }); // turn right
-  // Right arm, top row, going right: (9,6) -> (14,6)
-  for (let c = 9; c <= 14; c++) p.push({ x: c, y: 6 });
-  p.push({ x: 14, y: 7 }); // turn down
-  // Right arm, bottom row, going left: (14,8) -> (9,8)
-  for (let c = 14; c >= 9; c--) p.push({ x: c, y: 8 });
-  p.push({ x: 8, y: 8 }); // turn down
-  // Bottom arm, right column, going down: (8,9) -> (8,13)
-  for (let r = 9; r <= 13; r++) p.push({ x: 8, y: r });
-  p.push({ x: 8, y: 14 }); // turn left
-  p.push({ x: 7, y: 14 }); // bottom of bottom arm
-
-  return p;
-})();
-
-const HOME_STRETCHES: Record<Color, Array<{ x: number; y: number }>> = {
-  red:    [{ x: 7, y: 1 }, { x: 7, y: 2 }, { x: 7, y: 3 }, { x: 7, y: 4 }, { x: 7, y: 5 }, { x: 7, y: 6 }],
-  green:  [{ x: 1, y: 7 }, { x: 2, y: 7 }, { x: 3, y: 7 }, { x: 4, y: 7 }, { x: 5, y: 7 }, { x: 6, y: 7 }],
-  yellow: [{ x: 7, y: 13 }, { x: 7, y: 12 }, { x: 7, y: 11 }, { x: 7, y: 10 }, { x: 7, y: 9 }, { x: 7, y: 8 }],
-  blue:   [{ x: 13, y: 7 }, { x: 12, y: 7 }, { x: 11, y: 7 }, { x: 10, y: 7 }, { x: 9, y: 7 }, { x: 8, y: 7 }],
-};
-
-const HOME_BASES: Record<Color, Array<{ x: number; y: number }>> = {
-  red:    [{ x: 2, y: 2 }, { x: 4, y: 2 }, { x: 2, y: 4 }, { x: 4, y: 4 }],
-  green:  [{ x: 2, y: 10 }, { x: 4, y: 10 }, { x: 2, y: 12 }, { x: 4, y: 12 }],
-  yellow: [{ x: 10, y: 10 }, { x: 12, y: 10 }, { x: 10, y: 12 }, { x: 12, y: 12 }],
-  blue:   [{ x: 10, y: 2 }, { x: 12, y: 2 }, { x: 10, y: 4 }, { x: 12, y: 4 }],
-};
-
-// Determine which squares are colored for each arm
+/** Entry square index per color (matches boardPath.ts / gameEngine). */
 const ENTRY_SQUARES: Record<Color, number> = { red: 0, green: 13, yellow: 26, blue: 39 };
+
+/** Direction of play at each entry square (for the entry arrow). */
+const ENTRY_ARROWS: Record<Color, string> = { red: '↓', green: '→', yellow: '↑', blue: '←' };
+
+/** Corner base regions: 6x6 blocks (grid units, 0-indexed). */
+const BASE_REGIONS: Record<Color, { x: number; y: number }> = {
+  red: { x: 0, y: 0 },      // top-left
+  blue: { x: 9, y: 0 },     // top-right
+  green: { x: 0, y: 9 },    // bottom-left
+  yellow: { x: 9, y: 9 },   // bottom-right
+};
+
+/** Waiting slots inside each base (in grid units; +0.5 cell added when centering). */
+const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {
+  red:    [{ x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 }, { x: 1.5, y: 3.5 }, { x: 3.5, y: 3.5 }],
+  blue:   [{ x: 10.5, y: 1.5 }, { x: 12.5, y: 1.5 }, { x: 10.5, y: 3.5 }, { x: 12.5, y: 3.5 }],
+  green:  [{ x: 1.5, y: 10.5 }, { x: 3.5, y: 10.5 }, { x: 1.5, y: 12.5 }, { x: 3.5, y: 12.5 }],
+  yellow: [{ x: 10.5, y: 10.5 }, { x: 12.5, y: 10.5 }, { x: 10.5, y: 12.5 }, { x: 12.5, y: 12.5 }],
+};
 
 // Stacking offsets for overlapping pieces (up to 4)
 const STACK_OFFSETS = [
   { dx: 0, dy: 0 },
-  { dx: 3, dy: -3 },
-  { dx: -3, dy: 3 },
-  { dx: 3, dy: 3 },
+  { dx: 4, dy: -3 },
+  { dx: -4, dy: 3 },
+  { dx: 4, dy: 3 },
 ];
 
-export default function Board({ pieces, currentPlayer, onPieceClick }: BoardProps) {
-  // Build a map of which board squares have color (entry points)
-  const coloredSquares = new Map<number, Color>();
-  for (const [color, sq] of Object.entries(ENTRY_SQUARES)) {
-    coloredSquares.set(sq, color as Color);
-    // Color the square before entry (safe square)
-    coloredSquares.set((sq + 51) % 52, color as Color);
-  }
+/** Grid coords for every main-path square, from the single source of truth. */
+const PATH_CELLS = Array.from({ length: 52 }, (_, i) => getSquareGridCoord(i));
 
-  // Calculate piece board coordinates
+export default function Board({ pieces, currentPlayer, onPieceClick }: BoardProps) {
+  const entryColorBySquare = new Map<number, Color>(
+    (Object.entries(ENTRY_SQUARES) as [Color, number][]).map(([color, sq]) => [sq, color]),
+  );
+
+  // Calculate piece board coordinates (grid units)
   const getPieceCoords = (piece: PieceType & { _color: Color }): { x: number; y: number } => {
     if (piece.position === -1) {
-      // Home base
-      const idx = parseInt(piece.id.slice(-1)) % 4;
-      return HOME_BASES[piece._color][idx];
+      const idx = parseInt(piece.id.slice(-1), 10) % 4;
+      return BASE_SLOTS[piece._color][idx];
+    }
+    if (piece.position >= 56) {
+      return { x: 7, y: 7 }; // reached the goal → center
     }
     if (piece.position >= 52) {
-      // Home stretch (52-56) or finished (57+)
-      if (piece.position >= 57) {
-        return { x: 7, y: 7 }; // finished → center goal
-      }
-      const hsIdx = piece.position - 52;
-      return HOME_STRETCHES[piece._color][hsIdx] ?? { x: 7, y: 7 };
+      const hs = getHomeStretchGridCoord(piece._color, piece.position - 52);
+      return { x: hs.col, y: hs.row };
     }
-    // On the main board (0-51)
-    const pos = MAIN_POSITIONS[piece.position];
-    return pos ?? { x: 7, y: 7 };
+    const pos = PATH_CELLS[piece.position];
+    return { x: pos.col, y: pos.row };
   };
 
-  // Pre-build sparse grid: only render path cells (not 225 empty ones)
-  const sparseGridCells = MAIN_POSITIONS.map((pos, pathIndex) => {
-    const color = coloredSquares.get(pathIndex);
+  // Main path cells
+  const pathCells = PATH_CELLS.map((pos, pathIndex) => {
+    const entryColor = entryColorBySquare.get(pathIndex);
     const safe = isSafeSquare(pathIndex);
     let className = 'board-square';
-    if (safe) className += ' board-square--safe';
-    if (color) className += ` board-square--${color}`;
-    else className += ' board-square--default';
+    if (entryColor) className += ` board-square--entry board-square--${entryColor}`;
+    if (safe && !entryColor) className += ' board-square--safe';
 
     return (
       <div
         key={`path-${pathIndex}`}
         className={className}
-        style={{
-          gridColumn: pos.x + 1,
-          gridRow: pos.y + 1,
-        }}
-      />
+        style={{ gridColumn: pos.col + 1, gridRow: pos.row + 1 }}
+      >
+        {entryColor && <span className="board-entry-arrow">{ENTRY_ARROWS[entryColor]}</span>}
+        {safe && !entryColor && <span className="board-safe-star">★</span>}
+      </div>
     );
   });
 
-  // Home stretch cells
-  const homeStretchCells = Object.entries(HOME_STRETCHES).flatMap(([color, squares]) =>
-    squares.map((s, idx) => (
-      <div
-        key={`hs-${color}-${idx}`}
-        className={`board-square board-square--home-stretch-${color}`}
-        style={{ gridColumn: s.x + 1, gridRow: s.y + 1 }}
-      />
-    ))
+  // Home stretch cells (5 per color, positions 52–55 + last step before goal)
+  const homeStretchCells = COLORS_ORDER.flatMap((color) =>
+    Array.from({ length: 5 }, (_, idx) => {
+      const c = getHomeStretchGridCoord(color, idx);
+      return (
+        <div
+          key={`hs-${color}-${idx}`}
+          className={`board-square board-square--hs board-square--hs-${color}`}
+          style={{ gridColumn: c.col + 1, gridRow: c.row + 1 }}
+        />
+      );
+    }),
   );
 
   // Group pieces by coordinate for stacking offsets
@@ -144,47 +113,54 @@ export default function Board({ pieces, currentPlayer, onPieceClick }: BoardProp
   return (
     <div className="board-container">
       <div className="board-grid">
-        {/* Render home bases as positioned overlays */}
-        {(['red', 'green', 'yellow', 'blue'] as const).map(color => {
-          const basePos = HOME_BASES[color];
-          const minX = Math.min(...basePos.map(p => p.x));
-          const minY = Math.min(...basePos.map(p => p.y));
-          const maxX = Math.max(...basePos.map(p => p.x));
-          const maxY = Math.max(...basePos.map(p => p.y));
-
+        {/* Corner home bases */}
+        {COLORS_ORDER.map((color) => {
+          const region = BASE_REGIONS[color];
           return (
             <div
               key={`base-${color}`}
               className={`home-base home-base--${color}`}
               style={{
-                position: 'absolute',
-                left: `${(minX / 15) * 100}%`,
-                top: `${(minY / 15) * 100}%`,
-                width: `${((maxX - minX + 1) / 15) * 100}%`,
-                height: `${((maxY - minY + 1) / 15) * 100}%`,
-                zIndex: 1,
+                left: `${(region.x / 15) * 100}%`,
+                top: `${(region.y / 15) * 100}%`,
               }}
             >
-              <span className="home-base-label">{PLAYER_CONFIG[color].label}</span>
+              <div className="home-base-pad">
+                {BASE_SLOTS[color].map((slot, i) => (
+                  <span
+                    key={i}
+                    className={`home-base-slot home-base-slot--${color}`}
+                    style={{
+                      left: `${((slot.x + 0.5 - region.x) / 6) * 100}%`,
+                      top: `${((slot.y + 0.5 - region.y) / 6) * 100}%`,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           );
         })}
 
-        {/* Sparse grid: only path + home stretch cells (was 15x15=225, now ~76) */}
-        {sparseGridCells}
+        {/* Path + home stretch cells */}
+        {pathCells}
         {homeStretchCells}
 
-        {/* Center goal */}
-        <div className="board-center" style={{ gridColumn: 8, gridRow: 8 }}>
-          🏁
+        {/* Center goal: classic 4-triangle finish */}
+        <div className="board-center">
+          <svg viewBox="0 0 30 30" className="board-center-svg" aria-hidden="true">
+            <polygon points="0,0 30,0 15,15" fill="var(--color-red)" stroke="#fff" strokeWidth="0.8" />
+            <polygon points="30,0 30,30 15,15" fill="var(--color-blue)" stroke="#fff" strokeWidth="0.8" />
+            <polygon points="0,30 30,30 15,15" fill="var(--color-yellow)" stroke="#fff" strokeWidth="0.8" />
+            <polygon points="0,0 0,30 15,15" fill="var(--color-green)" stroke="#fff" strokeWidth="0.8" />
+          </svg>
+          <span className="board-center-trophy">🏆</span>
         </div>
       </div>
 
       {/* Pieces overlay */}
       <div className="pieces-overlay">
         <AnimatePresence>
-          {pieces.map(piece => {
-            // Calculate stacking offset for overlapping pieces
+          {pieces.map((piece) => {
             const coords = getPieceCoords(piece);
             const key = `${coords.x},${coords.y}`;
             const group = pieceGroups.get(key) ?? [piece];
@@ -192,11 +168,10 @@ export default function Board({ pieces, currentPlayer, onPieceClick }: BoardProp
             const offset = STACK_OFFSETS[Math.min(stackIdx, STACK_OFFSETS.length - 1)];
             const pct = 100 / 15;
 
-            // Compute x/y with stacking offset in pixels
             const baseX = coords.x * pct + pct / 2;
             const baseY = coords.y * pct + pct / 2;
-            const xPx = `calc(${baseX}% - ${offset.dx}px)`;
-            const yPx = `calc(${baseY}% - ${offset.dy}px)`;
+            const xPx = `calc(${baseX}% + ${offset.dx}px)`;
+            const yPx = `calc(${baseY}% + ${offset.dy}px)`;
 
             const isCurrentPlayer = piece._playerId === currentPlayer?.id;
 

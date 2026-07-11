@@ -135,6 +135,11 @@ export function getHomeStretchPosition(color: Color, index: number): { x: number
   return cell(pos.col, pos.row);
 }
 
+/** Raw grid coordinates of a home stretch square (0–4). */
+export function getHomeStretchGridCoord(color: Color, index: number): { col: number; row: number } {
+  return HOME_STRETCH_PATHS[color][index];
+}
+
 /** Get the center position (home base target). */
 export function getCenterPosition(): { x: number; y: number } {
   return cell(7, 7);

@@ -4,41 +4,37 @@ import { STICKER_TABS, STICKER_GRID } from '../game/stickers.ts';
 import type { StickerCategory } from '../game/stickers.ts';
 
 interface StickerPickerProps {
+  isOpen: boolean;
+  onClose: () => void;
   onStickerSelect: (emoji: string) => void;
-  currentEmoji: string;
 }
 
-export default function StickerPicker({ onStickerSelect, currentEmoji }: StickerPickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+/** Bottom-sheet sticker panel (controlled from the game HUD). */
+export default function StickerPicker({ isOpen, onClose, onStickerSelect }: StickerPickerProps) {
   const [activeTab, setActiveTab] = useState<StickerCategory>('reacciones');
 
   const handleStickerClick = (emoji: string) => {
     onStickerSelect(emoji);
-    setIsOpen(false);
+    onClose();
   };
 
   return (
-    <>
-      {/* Floating button */}
-      <motion.button
-        className="sticker-fab"
-        onClick={() => setIsOpen(!isOpen)}
-        whileTap={{ scale: 0.9 }}
-        animate={isOpen ? { rotate: 45 } : { rotate: 0 }}
-        style={{ background: isOpen ? 'var(--color-yellow)' : 'var(--glass-bg)' }}
-      >
-        {isOpen ? '✕' : currentEmoji}
-      </motion.button>
-
-      {/* Panel */}
-      <AnimatePresence>
-        {isOpen && (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            className="sticker-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
           <motion.div
             className="sticker-panel glass"
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 34 }}
           >
             {/* Tabs */}
             <div className="sticker-tabs">
@@ -51,6 +47,7 @@ export default function StickerPicker({ onStickerSelect, currentEmoji }: Sticker
                   {tab.label}
                 </button>
               ))}
+              <button className="sticker-close" onClick={onClose} aria-label="✕">✕</button>
             </div>
 
             {/* Grid */}
@@ -71,44 +68,35 @@ export default function StickerPicker({ onStickerSelect, currentEmoji }: Sticker
               ))}
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </>
+      )}
 
       <style>{`
-        .sticker-fab {
+        .sticker-backdrop {
           position: fixed;
-          bottom: 20px;
-          right: 20px;
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          border: 1px solid var(--glass-border);
-          color: var(--color-text);
-          font-size: 1.5rem;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 100;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-          backdrop-filter: blur(var(--glass-blur));
-          transition: background 0.2s;
+          inset: 0;
+          background: rgba(10, 4, 40, 0.4);
+          z-index: 98;
         }
         .sticker-panel {
           position: fixed;
           bottom: 0;
-          left: 0;
-          right: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(560px, 100%);
           max-height: 50vh;
           border-radius: var(--radius-xl) var(--radius-xl) 0 0;
           padding: var(--gap-md);
+          padding-bottom: calc(var(--gap-md) + env(safe-area-inset-bottom));
           z-index: 99;
           display: flex;
           flex-direction: column;
           gap: var(--gap-md);
+          background: rgba(50, 34, 140, 0.92);
         }
         .sticker-tabs {
           display: flex;
+          align-items: center;
           gap: var(--gap-sm);
           border-bottom: 1px solid var(--color-border);
           padding-bottom: var(--gap-sm);
@@ -119,28 +107,40 @@ export default function StickerPicker({ onStickerSelect, currentEmoji }: Sticker
           border: none;
           background: transparent;
           color: var(--color-text-secondary);
-          font-family: inherit;
+          font-family: var(--font-display);
           font-size: 0.8rem;
-          font-weight: 700;
+          font-weight: 800;
           cursor: pointer;
           transition: all var(--transition-fast);
         }
         .sticker-tab--active {
-          background: rgba(255, 255, 255, 0.15);
+          background: rgba(255, 255, 255, 0.2);
           color: var(--color-text);
+        }
+        .sticker-close {
+          margin-left: auto;
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(255, 255, 255, 0.14);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          font-size: 0.75rem;
+          font-weight: 800;
         }
         .sticker-grid {
           display: grid;
           grid-template-columns: repeat(6, 1fr);
           gap: var(--gap-xs);
           overflow-y: auto;
-          padding-bottom: var(--gap-md);
+          padding-bottom: var(--gap-sm);
         }
         .sticker-item {
           aspect-ratio: 1;
           border: none;
           border-radius: var(--radius-md);
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.08);
           font-size: 1.8rem;
           cursor: pointer;
           display: flex;
@@ -149,9 +149,9 @@ export default function StickerPicker({ onStickerSelect, currentEmoji }: Sticker
           transition: background var(--transition-fast);
         }
         .sticker-item:hover {
-          background: rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.16);
         }
       `}</style>
-    </>
+    </AnimatePresence>
   );
 }

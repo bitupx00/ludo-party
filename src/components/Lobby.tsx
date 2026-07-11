@@ -1,391 +1,391 @@
-import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore.ts';
-import { PLAYER_CONFIG } from '../game/types.ts';
-
-const FUNNY_TIPS = [
-  'Recuerda: el 6 da turno extra 😉',
-  'Tranquilo, es solo un juego... 😏',
-  'El rojo siempre gana... si eres bueno 🤡',
-  'No te enojes, los bots también tienen sentimientos 🤖😢',
-  'Consejo: atrapa a tus amigos, que se frustren 💀',
-  '¡Parchís es para valientes! 💪🔥',
-  'Si pierdes, culpa al WiFi 📶😤',
-  'El que ríe último... ¡gana! 😂🏆',
-  'Los bots no saben que están jugando 🤫',
-  'Atrapar = poder volver a sacar 🎯',
-];
-
-function FloatingDice({ delay, emoji, duration }: { delay: number; emoji: string; duration: number }) {
-  return (
-    <motion.span
-      className="floating-dice"
-      initial={{ opacity: 0, y: '100vh' }}
-      animate={{
-        opacity: [0, 0.6, 0.4, 0],
-        y: ['-10vh', '-20vh', '-40vh', '-60vh'],
-        x: [0, 30, -20, 15],
-        rotate: [0, 180, 360, 540],
-      }}
-      transition={{
-        duration,
-        delay,
-        repeat: Infinity,
-        ease: 'linear',
-      }}
-      style={{
-        position: 'fixed',
-        fontSize: '2rem',
-        pointerEvents: 'none',
-        zIndex: 0,
-        left: `${Math.random() * 90 + 5}%`,
-      }}
-    >
-      {emoji}
-    </motion.span>
-  );
-}
+import type { Color, Player } from '../game/types.ts';
+import { COLORS, PLAYER_CONFIG } from '../game/types.ts';
+import { BOT_NAMES, BOT_EMOJIS } from '../game/aiPlayer.ts';
+import { useT } from '../i18n.ts';
+import PawnSVG from './PawnSVG.tsx';
 
 export default function Lobby() {
+  const t = useT();
   const [nameInput, setNameInput] = useState('');
-  const players = useGameStore(s => s.players);
-  const addPlayer = useGameStore(s => s.addPlayer);
-  const addBotPlayer = useGameStore(s => s.addBotPlayer);
-  const removePlayer = useGameStore(s => s.removePlayer);
-  const startGame = useGameStore(s => s.startGame);
-  const [tipIndex, setTipIndex] = useState(0);
+  const players = useGameStore((s) => s.players);
+  const gameMode = useGameStore((s) => s.gameMode);
+  const addPlayer = useGameStore((s) => s.addPlayer);
+  const addBotPlayer = useGameStore((s) => s.addBotPlayer);
+  const removePlayer = useGameStore((s) => s.removePlayer);
+  const startGame = useGameStore((s) => s.startGame);
+  const goHome = useGameStore((s) => s.goHome);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTipIndex(i => (i + 1) % FUNNY_TIPS.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
+  const playersByColor = new Map<Color, Player>(players.map((p) => [p.color, p]));
+  const humans = players.filter((p) => !p.isBot);
+  const nextFreeColor = COLORS.find((c) => !playersByColor.has(c));
+
+  const canAddHuman = nameInput.trim().length > 0 && players.length < 4
+    && !(gameMode === 'solo' && humans.length >= 1);
+  const canStart = gameMode === 'local' ? players.length >= 2 : humans.length >= 1;
 
   const handleAddPlayer = useCallback(() => {
-    if (nameInput.trim()) {
-      addPlayer(nameInput.trim());
-      setNameInput('');
-    }
+    if (!nameInput.trim()) return;
+    addPlayer(nameInput.trim());
+    setNameInput('');
   }, [nameInput, addPlayer]);
 
-  const canStart = players.length >= 2;
-  const canAddBots = players.length < 4;
-  const botSlots = 4 - players.length;
-  const diceEmojis = ['🎲', '🎲', '🎲', '🎯', '🎲', '🎲'];
+  const modeTitle = gameMode === 'solo' ? t('modeSolo') : gameMode === 'teams' ? t('modeTeams') : t('modeLocal');
+  const modeIcon = gameMode === 'solo' ? '🤖' : gameMode === 'teams' ? '🤝' : '👥';
 
-  // Add bots one by one (each click = 1 bot)
-  const handleAddBots = useCallback(() => {
-    addBotPlayer();
-  }, [addBotPlayer]);
+  const hint = !canStart
+    ? (gameMode === 'local' && players.length < 2 && humans.length >= 1 ? t('needTwo') : t('needName'))
+    : t('botsWillFill');
 
   return (
-    <div className="lobby">
-      {/* Floating background dice */}
-      {diceEmojis.map((emoji, i) => (
-        <FloatingDice
-          key={i}
-          emoji={emoji}
-          delay={i * 1.5}
-          duration={8 + i * 2}
-        />
-      ))}
+    <div className="screen lobby">
+      <div className="screen-inner lobby-inner">
+        {/* Header */}
+        <div className="lobby-header">
+          <button className="btn btn-secondary btn-icon" onClick={goHome} aria-label={t('back')}>
+            ‹
+          </button>
+          <h2 className="lobby-mode-title">
+            {modeIcon} {modeTitle}
+          </h2>
+          <span className="lobby-header-spacer" />
+        </div>
 
-      <div className="lobby-content">
-        {/* Title */}
-        <motion.h1
-          className="lobby-title"
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, type: 'spring' }}
-        >
-          🎲 LUDO PARTY 🎲
-        </motion.h1>
-
-        <motion.p
-          className="lobby-subtitle"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-        >
-          El juego de mesa más divertido 🔥
-        </motion.p>
-
-        {/* Add player input */}
+        {/* Name input */}
         <motion.div
           className="lobby-input-row"
-          initial={{ y: 20, opacity: 0 }}
+          initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
         >
           <input
             type="text"
             className="lobby-input"
-            placeholder="Tu nombre..."
+            placeholder={t('yourName')}
             value={nameInput}
-            onChange={e => setNameInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAddPlayer()}
-            maxLength={20}
-            disabled={players.length >= 4}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && canAddHuman && handleAddPlayer()}
+            maxLength={16}
+            disabled={players.length >= 4 || (gameMode === 'solo' && humans.length >= 1)}
           />
           <button
-            className="btn btn-primary btn-add"
+            className="btn btn-primary"
             onClick={handleAddPlayer}
-            disabled={!nameInput.trim() || players.length >= 4}
+            disabled={!canAddHuman}
           >
-            <span>➕</span> Añadir
+            ➕ {t('add')}
           </button>
         </motion.div>
 
-        {/* Player cards */}
-        <div className="lobby-players">
-          <AnimatePresence>
-            {players.map((player) => (
-              <motion.div
-                key={player.id}
-                className={`lobby-player-card glass`}
-                style={{ '--player-color': PLAYER_CONFIG[player.color].cssColor } as React.CSSProperties}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0, x: -100 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                whileHover={{ scale: 1.03 }}
-              >
-                <div className="player-card-left">
-                  <span className="player-card-emoji" style={{ fontSize: '2rem' }}>
-                    {PLAYER_CONFIG[player.color].emoji}
-                  </span>
-                  <div className="player-card-info">
-                    <span className="player-card-name">{player.name}</span>
-                    <span className="player-card-color" style={{ color: PLAYER_CONFIG[player.color].cssColor }}>
-                      ● {PLAYER_CONFIG[player.color].label}
-                    </span>
-                  </div>
-                </div>
-                <div className="player-card-right">
-                  {player.isBot && <span className="player-card-bot">🤖</span>}
-                  <button
-                    className="btn-remove"
-                    onClick={() => removePlayer(player.id)}
-                    aria-label="Eliminar jugador"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-
-          {players.length === 0 && (
-            <motion.div
-              className="lobby-empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-            >
-              🎲 Añade jugadores para empezar...
-            </motion.div>
+        {/* Seats */}
+        <div className={`lobby-seats ${gameMode === 'teams' ? 'lobby-seats--teams' : ''}`}>
+          {gameMode === 'teams' && (
+            <div className="lobby-team-labels">
+              <span className="lobby-team-label" style={{ color: 'var(--color-red-light)' }}>
+                🔥 {t('teamA')}
+              </span>
+              <span className="lobby-team-label" style={{ color: 'var(--color-green-light)' }}>
+                🌿 {t('teamB')}
+              </span>
+            </div>
           )}
+          <div className="lobby-seat-grid">
+            {COLORS.map((color) => {
+              const seated = playersByColor.get(color);
+              const willBeBot = !seated;
+              const isNextFree = color === nextFreeColor;
+
+              return (
+                <motion.div
+                  key={color}
+                  className={`lobby-seat ${seated ? 'lobby-seat--filled' : ''}`}
+                  style={{ '--seat-color': PLAYER_CONFIG[color].cssColor } as React.CSSProperties}
+                  layout
+                >
+                  <div className="lobby-seat-pawn">
+                    <PawnSVG color={color} shadow={false} />
+                  </div>
+                  <div className="lobby-seat-info">
+                    <AnimatePresence mode="wait">
+                      {seated ? (
+                        <motion.div
+                          key="filled"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="lobby-seat-player"
+                        >
+                          <span className="lobby-seat-name">
+                            {seated.emoji} {seated.name}
+                          </span>
+                          <span className="lobby-seat-tag">
+                            {seated.isBot ? `🤖 ${t('bot')}` : humans[0]?.id === seated.id ? `⭐ ${t('you')}` : PLAYER_CONFIG[color].label}
+                          </span>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="empty"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="lobby-seat-player"
+                        >
+                          <span className="lobby-seat-name lobby-seat-name--ghost">
+                            {willBeBot ? `${BOT_EMOJIS[color]} ${BOT_NAMES[color]}` : t('seatFree')}
+                          </span>
+                          <span className="lobby-seat-tag">🤖 {t('bot')}</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  {seated ? (
+                    <button
+                      className="lobby-seat-remove"
+                      onClick={() => removePlayer(seated.id)}
+                      aria-label="✕"
+                    >
+                      ✕
+                    </button>
+                  ) : (
+                    isNextFree && gameMode !== 'solo' && (
+                      <button
+                        className="lobby-seat-add-bot"
+                        onClick={addBotPlayer}
+                        aria-label={t('addBot')}
+                      >
+                        +🤖
+                      </button>
+                    )
+                  )}
+                  {gameMode === 'teams' && (
+                    <span
+                      className="lobby-seat-team-dot"
+                      style={{
+                        background: (color === 'red' || color === 'yellow')
+                          ? 'linear-gradient(135deg, var(--color-red), var(--color-yellow))'
+                          : 'linear-gradient(135deg, var(--color-green), var(--color-blue))',
+                      }}
+                    >
+                      {(color === 'red' || color === 'yellow') ? '🔥' : '🌿'}
+                    </span>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Action buttons */}
-        <motion.div
-          className="lobby-actions"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.6 }}
-        >
-          {canAddBots && (
-            <motion.button
-              className="btn btn-secondary"
-              onClick={handleAddBots}
-              whileTap={{ scale: 0.95 }}
-            >
-              🤖 Añadir bot ({botSlots} slot{botSlots !== 1 ? 's' : ''})
-            </motion.button>
-          )}
+        {gameMode === 'teams' && (
+          <p className="lobby-teams-note">
+            {PLAYER_CONFIG.red.emoji}+{PLAYER_CONFIG.yellow.emoji} vs {PLAYER_CONFIG.green.emoji}+{PLAYER_CONFIG.blue.emoji} · 2v2
+          </p>
+        )}
 
+        {/* Start */}
+        <div className="lobby-actions">
           <motion.button
-            className={`btn ${canStart ? 'btn-primary' : ''}`}
+            className="btn btn-green lobby-start"
             disabled={!canStart}
             onClick={startGame}
-            whileTap={canStart ? { scale: 0.95 } : {}}
-            style={!canStart ? { background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' } : {}}
+            whileTap={canStart ? { scale: 0.96 } : {}}
           >
-            🚀 ¡A JUGAR! {canStart ? `(${players.length} jugadores)` : 'necesitas 2+'}
+            🚀 {t('start')}
           </motion.button>
-        </motion.div>
-
-        {/* Funny tips */}
-        <motion.div
-          className="lobby-tips"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-        >
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={tipIndex}
-              initial={{ y: 10, opacity: 0 }}
-              animate={{ y: 0, opacity: 0.6 }}
-              exit={{ y: -10, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="lobby-tip"
-            >
-              💡 {FUNNY_TIPS[tipIndex]}
-            </motion.p>
-          </AnimatePresence>
-        </motion.div>
+          <p className="lobby-hint">{hint}</p>
+        </div>
       </div>
 
       <style>{`
         .lobby {
-          position: relative;
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
           justify-content: center;
-          padding: var(--gap-lg);
-          overflow: hidden;
-          background: radial-gradient(ellipse at top, rgba(55, 66, 250, 0.1) 0%, transparent 50%),
-                      radial-gradient(ellipse at bottom-right, rgba(255, 71, 87, 0.1) 0%, transparent 50%),
-                      var(--color-bg);
         }
-        .floating-dice {
-          position: fixed;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .lobby-content {
-          position: relative;
-          z-index: 1;
-          width: 100%;
+        .lobby-inner {
+          gap: var(--gap-md);
+          justify-content: center;
           max-width: 480px;
+        }
+        .lobby-header {
           display: flex;
-          flex-direction: column;
           align-items: center;
-          gap: var(--gap-lg);
+          gap: var(--gap-sm);
         }
-        .lobby-title {
-          font-size: clamp(2rem, 8vw, 3.5rem);
-          font-weight: 900;
-          text-align: center;
-          letter-spacing: -1px;
-          animation: title-bounce 2s ease-in-out infinite;
+        .lobby-header .btn-icon {
+          font-size: 1.6rem;
+          line-height: 1;
         }
-        .lobby-subtitle {
-          font-size: 1.1rem;
-          color: var(--color-text-secondary);
+        .lobby-mode-title {
+          flex: 1;
           text-align: center;
+          font-family: var(--font-display);
+          font-size: 1.35rem;
+          font-weight: 800;
+        }
+        .lobby-header-spacer {
+          width: 46px;
         }
         .lobby-input-row {
           display: flex;
-          width: 100%;
           gap: var(--gap-sm);
         }
         .lobby-input {
           flex: 1;
-          padding: 14px 18px;
-          border-radius: var(--radius-full);
-          border: 2px solid var(--glass-border);
-          background: var(--glass-bg);
-          backdrop-filter: blur(var(--glass-blur));
+          min-width: 0;
+          padding: 12px 18px;
+          border-radius: var(--radius-lg);
+          border: 2px solid rgba(255, 255, 255, 0.25);
+          background: rgba(255, 255, 255, 0.12);
           color: var(--color-text);
-          font-family: inherit;
+          font-family: var(--font-body);
           font-size: 1rem;
-          font-weight: 600;
+          font-weight: 700;
           outline: none;
           transition: border-color var(--transition-normal);
         }
         .lobby-input:focus {
-          border-color: var(--color-blue-light);
+          border-color: #ffd65a;
         }
         .lobby-input::placeholder {
           color: var(--color-text-muted);
         }
-        .btn-add {
-          white-space: nowrap;
+        .lobby-input:disabled {
+          opacity: 0.5;
         }
-        .lobby-players {
-          width: 100%;
+        .lobby-team-labels {
           display: flex;
-          flex-direction: column;
-          gap: var(--gap-sm);
-          min-height: 60px;
+          justify-content: space-around;
+          margin-bottom: 6px;
         }
-        .lobby-player-card {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 12px 16px;
-          border-left: 4px solid var(--player-color);
-        }
-        .player-card-left {
-          display: flex;
-          align-items: center;
-          gap: var(--gap-md);
-        }
-        .player-card-info {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .player-card-name {
-          font-size: 1rem;
-          font-weight: 700;
-        }
-        .player-card-color {
-          font-size: 0.75rem;
-          font-weight: 600;
+        .lobby-team-label {
+          font-family: var(--font-display);
+          font-size: 0.8rem;
+          font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
-        .player-card-right {
+        .lobby-seat-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+        .lobby-seat {
+          position: relative;
           display: flex;
           align-items: center;
-          gap: var(--gap-sm);
+          gap: 12px;
+          padding: 10px 14px;
+          border-radius: var(--radius-xl);
+          background: rgba(255, 255, 255, 0.08);
+          border: 2px solid rgba(255, 255, 255, 0.12);
+          transition: border-color var(--transition-normal), background var(--transition-normal);
         }
-        .player-card-bot {
-          font-size: 1.2rem;
+        .lobby-seat--filled {
+          background: rgba(255, 255, 255, 0.14);
+          border-color: var(--seat-color);
+          box-shadow: 0 0 14px color-mix(in srgb, var(--seat-color) 40%, transparent);
         }
-        .btn-remove {
+        .lobby-seat-pawn {
+          width: 34px;
+          flex-shrink: 0;
+        }
+        .lobby-seat-pawn svg {
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+        .lobby-seat-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .lobby-seat-player {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+        }
+        .lobby-seat-name {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 1rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .lobby-seat-name--ghost {
+          opacity: 0.55;
+        }
+        .lobby-seat-tag {
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: var(--color-text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .lobby-seat-remove {
           width: 32px;
           height: 32px;
+          flex-shrink: 0;
           border-radius: 50%;
           border: none;
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.14);
           color: var(--color-text-secondary);
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
           font-size: 0.8rem;
+          font-weight: 800;
+          transition: background var(--transition-fast);
+        }
+        .lobby-seat-remove:hover {
+          background: var(--color-red);
+          color: #fff;
+        }
+        .lobby-seat-add-bot {
+          flex-shrink: 0;
+          padding: 6px 12px;
+          border-radius: var(--radius-full);
+          border: 2px dashed rgba(255, 255, 255, 0.3);
+          background: transparent;
+          color: var(--color-text-secondary);
+          font-weight: 800;
+          font-size: 0.85rem;
+          cursor: pointer;
           transition: all var(--transition-fast);
         }
-        .btn-remove:hover {
-          background: var(--color-red);
-          color: white;
+        .lobby-seat-add-bot:hover {
+          background: rgba(255, 255, 255, 0.12);
+          border-style: solid;
         }
-        .lobby-empty {
+        .lobby-seat-team-dot {
+          position: absolute;
+          top: -7px;
+          left: 14px;
+          font-size: 0.7rem;
+          padding: 1px 7px;
+          border-radius: var(--radius-full);
+          border: 2px solid rgba(255, 255, 255, 0.6);
+          line-height: 1.2;
+        }
+        .lobby-teams-note {
           text-align: center;
-          color: var(--color-text-muted);
-          font-size: 0.9rem;
-          padding: var(--gap-md);
+          font-size: 0.85rem;
+          color: var(--color-text-secondary);
+          font-weight: 700;
         }
         .lobby-actions {
           display: flex;
           flex-direction: column;
-          gap: var(--gap-sm);
+          align-items: center;
+          gap: 8px;
+          margin-top: 4px;
+        }
+        .lobby-start {
           width: 100%;
+          font-size: 1.25rem;
+          min-height: 58px;
         }
-        .lobby-tips {
-          text-align: center;
-          min-height: 24px;
-        }
-        .lobby-tip {
-          font-size: 0.85rem;
+        .lobby-hint {
+          font-size: 0.8rem;
           color: var(--color-text-muted);
-          font-style: italic;
+          font-weight: 700;
+          text-align: center;
         }
       `}</style>
     </div>

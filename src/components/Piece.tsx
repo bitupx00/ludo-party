@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import type { Piece as PieceType, Color } from '../game/types.ts';
-import { PLAYER_CONFIG } from '../game/types.ts';
+import PawnSVG from './PawnSVG.tsx';
 
 interface PieceProps {
   piece: PieceType & { _color: Color; _playerId: string; _isMovable: boolean };
@@ -10,10 +10,9 @@ interface PieceProps {
   onClick: (pieceId: string) => void;
 }
 
-export default function Piece({ piece, x, y, isCurrentPlayer, onClick }: PieceProps) {
-  const config = PLAYER_CONFIG[piece._color];
-  const canMove = piece._isMovable && piece.position !== 56;
-  const isFinished = piece.position === 56;
+export default function Piece({ piece, x, y, onClick }: PieceProps) {
+  const isFinished = piece.position >= 56;
+  const canMove = piece._isMovable && !isFinished;
 
   const handleClick = () => {
     if (canMove) {
@@ -23,17 +22,10 @@ export default function Piece({ piece, x, y, isCurrentPlayer, onClick }: PiecePr
 
   return (
     <motion.div
-      className={`piece-slot`}
-      style={{
-        left: x,
-        top: y,
-      }}
+      className="piece-slot"
+      style={{ zIndex: canMove ? 20 : 10 }}
       initial={false}
-      animate={{
-        left: x,
-        top: y,
-        scale: canMove ? [1, 1.08, 1] : 1,
-      }}
+      animate={{ left: x, top: y }}
       transition={{
         type: 'spring',
         stiffness: 300,
@@ -41,19 +33,18 @@ export default function Piece({ piece, x, y, isCurrentPlayer, onClick }: PiecePr
         mass: 0.5,
       }}
     >
-      <motion.div
+      <motion.button
         className={[
           'piece',
-          `piece--${piece._color}`,
           canMove && 'piece--movable',
-          isCurrentPlayer && !canMove && 'piece--current',
           isFinished && 'piece--finished',
         ].filter(Boolean).join(' ')}
         onClick={handleClick}
-        whileTap={canMove ? { scale: 0.8 } : {}}
+        whileTap={canMove ? { scale: 0.85 } : {}}
+        aria-label={`${piece._color} piece`}
       >
-        {config.emoji}
-      </motion.div>
+        <PawnSVG color={piece._color} className="piece-svg" />
+      </motion.button>
     </motion.div>
   );
 }

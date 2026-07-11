@@ -1,0 +1,19 @@
+{
+  "name": "Ludo Party",
+  "short_name": "Ludo Party",
+  "description": "El parchís más divertido: stickers, memes, bots y partidas rápidas de 4 jugadores.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#4f3ed4",
+  "theme_color": "#4f3ed4",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameMessage, Player } from '../game/types.ts';
+import { useT } from '../i18n.ts';
 
 interface GameChatProps {
   messages: GameMessage[];
@@ -15,7 +16,8 @@ function formatTime(timestamp: number): string {
   return date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function GameChat({ messages, players, isOpen, onToggle, unreadCount }: GameChatProps) {
+export default function GameChat({ messages, players, isOpen, onToggle }: GameChatProps) {
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Build a playerId → player lookup
@@ -45,21 +47,7 @@ export default function GameChat({ messages, players, isOpen, onToggle, unreadCo
 
   return (
     <>
-      {/* Toggle button */}
-      <button className="chat-toggle glass" onClick={onToggle}>
-        <span>💬</span>
-        {unreadCount > 0 && (
-          <motion.span
-            className="chat-unread"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-          >
-            {unreadCount}
-          </motion.span>
-        )}
-      </button>
-
-      {/* Chat panel */}
+      {/* Chat panel (toggle lives in the game HUD) */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -70,7 +58,7 @@ export default function GameChat({ messages, players, isOpen, onToggle, unreadCo
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
             <div className="chat-header">
-              <span className="chat-header-title">💬 Chat del juego</span>
+              <span className="chat-header-title">💬 {t('chatTitle')}</span>
               <button className="chat-close" onClick={onToggle}>✕</button>
             </div>
 
@@ -120,42 +108,6 @@ export default function GameChat({ messages, players, isOpen, onToggle, unreadCo
       </AnimatePresence>
 
       <style>{`
-        .chat-toggle {
-          position: fixed;
-          top: var(--gap-md);
-          right: var(--gap-md);
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          border: none;
-          color: var(--color-text);
-          font-size: 1.3rem;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 50;
-          transition: all var(--transition-fast);
-        }
-        .chat-toggle:hover {
-          background: var(--color-surface-hover);
-        }
-        .chat-unread {
-          position: absolute;
-          top: -4px;
-          right: -4px;
-          min-width: 18px;
-          height: 18px;
-          border-radius: 9px;
-          background: var(--color-red);
-          color: white;
-          font-size: 0.65rem;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 4px;
-        }
         .chat-panel {
           position: fixed;
           top: 0;

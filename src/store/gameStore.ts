@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Color, Player, CaptureEffect, GameMessage } from '../game/types';
-import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS } from '../game/types';
+import type { Color, Player, CaptureEffect, GameMessage, GameMode } from '../game/types';
+import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER } from '../game/types';
 import {
   rollDice,
   getMovablePieces,
@@ -13,12 +13,19 @@ import {
   canPieceMove,
 } from '../game/gameEngine';
 import { getSquarePosition } from '../game/boardPath';
-import { createBotPlayers, chooseBotMove, getBotReaction } from '../game/aiPlayer';
+import { createBotPlayers, chooseBotMove, getBotReaction, BOT_NAMES, BOT_EMOJIS } from '../game/aiPlayer';
 import {
   NO_MOVE_MESSAGES,
   WIN_MESSAGES,
   randomPick,
 } from '../game/stickers';
+
+export type Screen = 'home' | 'lobby' | 'game';
+
+export interface Reaction {
+  emoji: string;
+  key: number;
+}
 
 interface GameStore {
   // State
@@ -31,11 +38,24 @@ interface GameStore {
   captureEffects: CaptureEffect[];
   turnCount: number;
   consecutiveSixes: number;
+  teamsMode?: boolean;
+
+  // Navigation / mode
+  screen: Screen;
+  gameMode: GameMode;
+  /** Incremented on every dice roll (human or bot) so the 3D dice can animate. */
+  rollSeq: number;
+  /** Latest quick reaction per player id (bubble next to avatar). */
+  reactions: Record<string, Reaction>;
 
   // Computed helpers (exposed for UI)
   currentPlayer: () => Player | undefined;
   movablePieceIds: () => string[];
   movablePieces: () => Player['pieces'];
+
+  // Navigation
+  openLobby: (mode: GameMode) => void;
+  goHome: () => void;
 
   // Lobby
   addPlayer: (name: string) => void;
@@ -49,21 +69,30 @@ interface GameStore {
 
   // Fun stuff
   addMessage: (text: string, sticker?: string) => void;
+  sendReaction: (emoji: string) => void;
   addCaptureEffect: (x: number, y: number, type: CaptureEffect['type']) => void;
   clearCaptureEffects: () => void;
 
-  // Internal
-  _botTimeout: ReturnType<typeof setTimeout> | null;
-
   // Reset
   resetGame: () => void;
+  playAgain: () => void;
 }
 
 let autoMoveTimeout: ReturnType<typeof setTimeout> | null = null;
 let botTurnTimeout: ReturnType<typeof setTimeout> | null = null;
 
+function clearTimers() {
+  if (autoMoveTimeout) { clearTimeout(autoMoveTimeout); autoMoveTimeout = null; }
+  if (botTurnTimeout) { clearTimeout(botTurnTimeout); botTurnTimeout = null; }
+}
+
 export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialState(),
+  teamsMode: false,
+  screen: 'home',
+  gameMode: 'solo',
+  rollSeq: 0,
+  reactions: {},
 
   // ─── Computed helpers ──────────────────────────────────────────────
   currentPlayer: () => {
@@ -96,6 +125,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
   },
 
+  // ─── Navigation ────────────────────────────────────────────────────
+  openLobby: (mode: GameMode) => {
+    clearTimers();
+    set({
+      ...createInitialState(),
+      screen: 'lobby',
+      gameMode: mode,
+      teamsMode: mode === 'teams',
+      reactions: {},
+    });
+  },
+
+  goHome: () => {
+    clearTimers();
+    set({
+      ...createInitialState(),
+      screen: 'home',
+      reactions: {},
+    });
+  },
+
   // ─── Lobby ─────────────────────────────────────────────────────────
   addPlayer: (name: string) => {
     const { players } = get();
@@ -125,18 +175,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const nextColor = COLORS.find((c) => !usedColors.has(c));
     if (!nextColor) return;
 
-    const botNames: Record<string, string> = {
-      red: 'Bot Rojo 🤖',
-      green: 'Bot Verde 🤖',
-      yellow: 'Bot Amarillo 🤖',
-      blue: 'Bot Azul 🤖',
-    };
-
     const botPlayer = createPlayer(
       createId(),
-      botNames[nextColor],
+      BOT_NAMES[nextColor],
       nextColor,
-      '🤖',
+      BOT_EMOJIS[nextColor],
       true,
     );
 
@@ -152,30 +195,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   startGame: () => {
-    const { players } = get();
-    if (players.length < 2) return;
+    const { players, gameMode } = get();
+    const humans = players.filter((p) => !p.isBot);
 
-    // Fill remaining slots with bots ONLY if needed
-    const humanPlayers = players.filter(p => !p.isBot);
-    const existingBots = players.filter(p => p.isBot);
-    const allPlayers = [...humanPlayers, ...existingBots];
+    // Solo/teams: 1 human is enough (bots fill the rest). Local: need 2+ players.
+    if (gameMode === 'local' && players.length < 2) return;
+    if (gameMode !== 'local' && humans.length < 1) return;
 
+    const allPlayers = [...players];
     if (allPlayers.length < 4) {
-      const additionalBots = createBotPlayers(allPlayers);
-      allPlayers.push(...additionalBots);
+      allPlayers.push(...createBotPlayers(allPlayers));
     }
 
-    // Shuffle starting order
-    const shuffled = [...allPlayers].sort(() => Math.random() - 0.5);
+    // Fixed turn order by color (red → green → yellow → blue) so teams alternate.
+    const ordered = [...allPlayers].sort(
+      (a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color),
+    );
 
     set({
-      players: shuffled,
+      players: ordered,
       currentPlayerIndex: 0,
+      screen: 'game',
       phase: 'rolling',
       diceValue: null,
       winner: null,
       turnCount: 1,
       consecutiveSixes: 0,
+      teamsMode: gameMode === 'teams',
+      reactions: {},
       messages: [
         {
           id: createId(),
@@ -209,6 +256,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       diceValue: value,
       phase: 'moving',
+      rollSeq: get().rollSeq + 1,
       messages: pushMessage(get().messages, {
           id: createId(),
           playerId: currentPlayer.id,
@@ -281,6 +329,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
+  sendReaction: (emoji: string) => {
+    const { players, currentPlayerIndex } = get();
+    // Attribute the reaction to the device holder: the current player if human,
+    // otherwise the first human at the table.
+    const current = players[currentPlayerIndex];
+    const target = current && !current.isBot
+      ? current
+      : players.find((p) => !p.isBot) ?? current;
+    if (!target) return;
+
+    set((s) => ({
+      reactions: { ...s.reactions, [target.id]: { emoji, key: Date.now() } },
+      messages: pushMessage(s.messages, {
+        id: createId(),
+        playerId: target.id,
+        text: emoji,
+        sticker: emoji,
+        timestamp: Date.now(),
+      }),
+    }));
+  },
+
   addCaptureEffect: (x: number, y: number, type: CaptureEffect['type']) => {
     const state = get();
     const newState = addCaptureEffectToState(state, x, y, type);
@@ -296,16 +366,60 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ captureEffects: [] });
   },
 
-  // Internal
-  _botTimeout: null,
-
   // ─── Reset ───────────────────────────────────────────────────────
   resetGame: () => {
-    if (autoMoveTimeout) { clearTimeout(autoMoveTimeout); autoMoveTimeout = null; }
-    if (botTurnTimeout) { clearTimeout(botTurnTimeout); botTurnTimeout = null; }
+    clearTimers();
     set({
       ...createInitialState(),
+      screen: 'home',
+      reactions: {},
     });
+  },
+
+  playAgain: () => {
+    clearTimers();
+    const { players, gameMode } = get();
+    if (players.length === 0) {
+      get().goHome();
+      return;
+    }
+
+    const fresh = players.map((p) => ({
+      ...p,
+      pieces: p.pieces.map((piece) => ({
+        ...piece,
+        position: -1,
+        isSafe: false,
+        capturedCount: 0,
+      })),
+    }));
+
+    set({
+      players: fresh,
+      currentPlayerIndex: 0,
+      screen: 'game',
+      phase: 'rolling',
+      diceValue: null,
+      winner: null,
+      turnCount: 1,
+      consecutiveSixes: 0,
+      teamsMode: gameMode === 'teams',
+      captureEffects: [],
+      reactions: {},
+      messages: [
+        {
+          id: createId(),
+          playerId: 'system',
+          text: '¡REVANCHA! 🔄🔥',
+          timestamp: Date.now(),
+        },
+      ],
+    });
+
+    const state = get();
+    if (state.players[state.currentPlayerIndex]?.isBot) {
+      scheduleBotTurn(set, get);
+    }
   },
 }));
 
@@ -409,6 +523,7 @@ function scheduleBotTurn(
     set({
       diceValue: value,
       phase: 'moving',
+      rollSeq: get().rollSeq + 1,
       messages: pushMessage(state.messages, {
           id: createId(),
           playerId: currentPlayer.id,
@@ -448,20 +563,27 @@ function scheduleBotTurn(
         setTimeout(() => {
           executeMove(set, get, chosen);
 
-          // Bot reaction after move
-          const current = get();
-          const reaction = getBotReaction();
-          set({
-            messages: pushMessage(current.messages, {
-                id: createId(),
-                playerId: currentPlayer.id,
-                text: reaction.text,
-                sticker: reaction.sticker,
-                timestamp: Date.now(),
-              }),
-          });
-        }, 800);
+          // Bot reaction after move (sometimes, with an avatar bubble)
+          if (Math.random() < 0.45) {
+            const current = get();
+            const reaction = getBotReaction();
+            const bubbleEmoji = reaction.sticker ?? '😏';
+            set({
+              reactions: {
+                ...current.reactions,
+                [currentPlayer.id]: { emoji: bubbleEmoji, key: Date.now() },
+              },
+              messages: pushMessage(current.messages, {
+                  id: createId(),
+                  playerId: currentPlayer.id,
+                  text: reaction.text,
+                  sticker: reaction.sticker,
+                  timestamp: Date.now(),
+                }),
+            });
+          }
+        }, 900);
       }
     }
-  }, 1200 + Math.random() * 800); // 1.2-2 second delay for natural feel
+  }, 1100 + Math.random() * 700); // ~1.1-1.8 second delay for natural feel
 }

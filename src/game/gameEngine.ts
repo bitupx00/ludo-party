@@ -1,5 +1,5 @@
 import type { Color, GameState, Piece, Player, GameMessage, CaptureEffect } from './types';
-import { COLOR_CONFIG, HOME_STRETCH_ENTRY } from './types';
+import { COLOR_CONFIG, HOME_STRETCH_ENTRY, TEAMMATE } from './types';
 import { getSquarePosition } from './boardPath';
 import { randomPick, CAPTURE_MESSAGES, ENTRY_MESSAGES, HOME_MESSAGES, SIX_MESSAGES } from './stickers';
 
@@ -116,6 +116,7 @@ export function checkCapture(state: GameState, piece: Piece): Piece | null {
   // Look for opponent pieces at the same position
   for (const player of state.players) {
     if (player.color === currentPlayer.color) continue;
+    if (state.teamsMode && TEAMMATE[currentPlayer.color] === player.color) continue;
     for (const opponentPiece of player.pieces) {
       if (opponentPiece.position === piece.position) {
         return opponentPiece;
