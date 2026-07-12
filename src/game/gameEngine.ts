@@ -105,9 +105,10 @@ export function calculateNewPosition(
 }
 
 /** Can a piece in home (position -1) enter the board with this dice roll?
- *  Ludo Club rule: only a 6 lets a piece leave the base. */
+ *  House rule: a 6 OR a 1 lets a piece leave the base (both are the
+ *  bonus numbers that also grant an extra roll). */
 export function canEnterBoard(piece: Piece, diceValue: number): boolean {
-  return piece.position === -1 && diceValue === 6;
+  return piece.position === -1 && (diceValue === 6 || diceValue === 1);
 }
 
 /** Check if a piece can make a valid move with the given dice value. */

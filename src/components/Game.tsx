@@ -14,8 +14,9 @@ import { PLAYER_CONFIG } from '../game/types.ts';
 import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useSoundStore, playSfx } from '../sound.ts';
-import { QUICK_GIFS, GIF_PREFIX } from '../game/gifs.ts';
-import { playMemeSound } from '../game/memeSounds.ts';
+import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf } from '../game/gifs.ts';
+import { isSoundReaction, soundIdOf, memeSoundById } from '../game/memeSounds.ts';
+import { useFavStore } from '../favorites.ts';
 import GifSticker from './GifSticker.tsx';
 import { useT } from '../i18n.ts';
 
@@ -143,23 +144,33 @@ export default function Game() {
     }
   }, [chatMessageCount, chatOpen]);
 
-  // Game-event meme sounds: the host picks one (≤1 per 2 turns) and every
-  // client plays it when the broadcast key changes.
-  const memeFx = useGameStore((s) => s.memeFx);
-  useEffect(() => {
-    if (memeFx) playMemeSound(memeFx.soundId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memeFx?.key]);
-
   const handlePieceClick = useCallback((pieceId: string) => {
     if (phase === 'moving') {
       selectPiece(pieceId);
     }
   }, [phase, selectPiece]);
 
+  // Quick bar: the user's FAVORITES (⭐ in the picker) first, and the most
+  // recent send last — falls back to a default gif set when empty.
+  const favs = useFavStore((s) => s.favs);
+  const recent = useFavStore((s) => s.recent);
+  const recordRecent = useFavStore((s) => s.recordRecent);
+  const quickItems = useMemo(() => {
+    const items = favs.slice(0, 6);
+    if (recent && !items.includes(recent)) items.push(recent);
+    return items.length > 0 ? items : QUICK_GIFS.map((id) => `${GIF_PREFIX}${id}`);
+  }, [favs, recent]);
+
+  const sendQuick = useCallback((payload: string) => {
+    playSfx('pop');
+    recordRecent(payload);
+    sendReaction(payload);
+  }, [recordRecent, sendReaction]);
+
   const handleStickerSelect = useCallback((emoji: string) => {
+    recordRecent(emoji);
     sendReaction(emoji);
-  }, [sendReaction]);
+  }, [recordRecent, sendReaction]);
 
   if (players.length === 0) return null;
 
@@ -303,15 +314,18 @@ export default function Game() {
           )}
 
           <div className="game-reactions">
-            {QUICK_GIFS.map((id) => (
+            {quickItems.map((payload) => (
               <motion.button
-                key={id}
+                key={payload}
                 className="game-reaction-btn"
-                onClick={() => { playSfx('pop'); sendReaction(`${GIF_PREFIX}${id}`); }}
+                onClick={() => sendQuick(payload)}
                 whileTap={{ scale: 0.8 }}
-                aria-label={id}
+                aria-label={payload}
+                title={isSoundReaction(payload) ? memeSoundById(soundIdOf(payload))?.name : undefined}
               >
-                <GifSticker id={id} size={27} />
+                {isGifReaction(payload)
+                  ? <GifSticker id={gifIdOf(payload)} size={27} />
+                  : <span className="game-reaction-snd">🔊</span>}
               </motion.button>
             ))}
             <motion.button
@@ -575,6 +589,10 @@ export default function Game() {
         .game-reaction-btn:hover {
           background: rgba(255, 255, 255, 0.2);
           transform: translateY(-2px);
+        }
+        .game-reaction-snd {
+          font-size: 0.95rem;
+          line-height: 1;
         }
         .game-reaction-btn--more {
           color: var(--color-text-secondary);

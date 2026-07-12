@@ -2,7 +2,7 @@
 
 .board-container {
   position: relative;
-  width: min(94vw, 50dvh, 540px);
+  width: min(98vw, 56dvh, 560px);
   aspect-ratio: 1;
   margin: 0 auto;
   flex-shrink: 0;
@@ -92,11 +92,16 @@
   pointer-events: none;
 }
 
+/* Pre-goal safe cells (Ludo Club): gray cell with a WHITE star */
+.board-square--safe {
+  background: #c9ced6;
+}
 .board-safe-star {
-  color: #c3cad4;
-  font-size: min(3.4vmin, 19px);
+  color: #ffffff;
+  font-size: min(3.6vmin, 20px);
   line-height: 1;
   pointer-events: none;
+  text-shadow: 0 1px 1px rgba(60, 70, 90, 0.35);
 }
 
 /* ── Home stretch (colored lanes to the center) ─────────────────── */
@@ -279,25 +284,7 @@
 /* Responsive tuning */
 @media (min-width: 768px) {
   .board-container {
-    width: min(88vw, 52dvh, 540px);
+    width: min(90vw, 58dvh, 560px);
   }
 }
 
-/* Meme speech bubble ("spoken" by a piece) */
-.meme-bubble {
-  position: absolute;
-  transform: translate(-50%, -135%);
-  z-index: 40;
-  background: #ffffff;
-  color: #241865;
-  border: 2px solid #241865;
-  border-radius: 14px 14px 14px 3px;
-  padding: 4px 10px;
-  font-family: var(--font-display);
-  font-size: min(2.9vmin, 13px);
-  font-weight: 800;
-  white-space: nowrap;
-  box-shadow: 0 4px 10px rgba(18, 8, 60, 0.35);
-  pointer-events: none;
-  animation: scale-pop 0.25s ease-out;
-}

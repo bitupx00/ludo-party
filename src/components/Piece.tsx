@@ -9,15 +9,17 @@ interface PieceProps {
   /** Waypoint keyframes (percent strings). Length 1 = direct placement. */
   xs: string[];
   ys: string[];
-  /** Stacking offset in px when several pieces share a cell. */
-  offset: { dx: number; dy: number };
+  /** Group layout when several pieces share a square (Ludo Club style):
+   *  fractional offsets of the piece's own box + a shrink factor, so
+   *  grouped pieces sit side by side instead of overlapping. */
+  layout: { fx: number; fy: number; scale: number };
   isCurrentPlayer: boolean;
   onClick: (pieceId: string) => void;
 }
 
 export const STEP_DURATION = 0.17; // seconds per cell
 
-export default function Piece({ piece, xs, ys, offset, onClick }: PieceProps) {
+export default function Piece({ piece, xs, ys, layout, onClick }: PieceProps) {
   const isFinished = piece.position >= 57;
   const canMove = piece._isMovable && !isFinished;
   const [traveling, setTraveling] = useState(false);
@@ -74,10 +76,16 @@ export default function Piece({ piece, xs, ys, offset, onClick }: PieceProps) {
       }
     >
       {/* Static layer owns the centering translate — framer animates scale on
-          the button below and would clobber a CSS transform there. */}
+          the button below and would clobber a CSS transform there. Group
+          layout shrinks the piece around its cell-anchor point (50%, 80%)
+          and nudges it by fractions of its own box → responsive. */}
       <div
         className="piece-offset"
-        style={{ transform: `translate(calc(-50% + ${offset.dx}px), calc(-80% + ${offset.dy}px))` }}
+        style={{
+          transform: `translate(calc(-50% + ${layout.fx * 100}%), calc(-80% + ${layout.fy * 100}%)) scale(${layout.scale})`,
+          transformOrigin: '50% 80%',
+          transition: 'transform 180ms ease',
+        }}
       >
         <motion.button
           className={[

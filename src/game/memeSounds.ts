@@ -138,22 +138,42 @@ export function memeSoundById(id: string): MemeSound | undefined {
 /* ─── Player ────────────────────────────────────────────────────────── */
 
 const cache = new Map<string, HTMLAudioElement>();
+let currentAudio: HTMLAudioElement | null = null;
+let stopTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Play a meme sound by id. Missing files fail silently (the clip pack
- *  is optional — see scripts/download-sounds.mjs). */
+/** Hard cap per clip — nothing plays longer than this. */
+const MAX_CLIP_MS = 5000;
+
+/** Play a meme sound by id. Rules:
+ *  - Only ONE clip at a time: a new sound (from any player) cuts off
+ *    whatever was still playing.
+ *  - Clips are capped at 5 seconds.
+ *  - Missing files fail silently (the pack is optional). */
 export function playMemeSound(id: string) {
   if (useSoundStore.getState().muted) return;
   if (!MEME_SOUNDS.some((s) => s.id === id)) return;
   try {
+    // Cut off the previous clip — one sound at a time, latest wins
+    if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+    if (currentAudio) {
+      try { currentAudio.pause(); currentAudio.currentTime = 0; } catch { /* noop */ }
+    }
     let audio = cache.get(id);
     if (!audio) {
       audio = new Audio(`/sfx/${id}.mp3`);
       audio.preload = 'auto';
       cache.set(id, audio);
     }
+    currentAudio = audio;
     audio.currentTime = 0;
     audio.volume = 0.85;
     void audio.play().catch(() => { /* file missing or autoplay blocked */ });
+    stopTimer = setTimeout(() => {
+      if (currentAudio === audio) {
+        try { audio.pause(); audio.currentTime = 0; } catch { /* noop */ }
+        currentAudio = null;
+      }
+    }, MAX_CLIP_MS);
   } catch {
     /* audio unavailable */
   }

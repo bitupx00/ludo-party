@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import type { Piece as PieceType, Player, Color } from '../game/types.ts';
 import { HOME_STRETCH_ENTRY, PLAYER_CONFIG } from '../game/types.ts';
@@ -12,7 +12,6 @@ import {
   centerSideColors,
 } from '../game/boardRotation.ts';
 import Piece, { STEP_DURATION } from './Piece.tsx';
-import { useGameStore } from '../store/gameStore.ts';
 import './Board.css';
 
 interface BoardProps {
@@ -36,13 +35,32 @@ const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {
   yellow: [{ x: 10.5, y: 10.5 }, { x: 12.5, y: 10.5 }, { x: 10.5, y: 12.5 }, { x: 12.5, y: 12.5 }],
 };
 
-// Stacking offsets (px) for overlapping pieces (up to 4)
-const STACK_OFFSETS = [
-  { dx: 0, dy: 0 },
-  { dx: 5, dy: -3 },
-  { dx: -5, dy: 3 },
-  { dx: 5, dy: 3 },
-];
+/** Ludo Club-style grouping for pieces sharing a square: instead of
+ *  overlapping, they SHRINK and arrange side by side (2 = pair, 3 =
+ *  triangle, 4 = 2x2 grid, 5+ = ring — the center goal can hold many).
+ *  Offsets are fractions of the piece's own box (translate %), so the
+ *  layout is fully responsive at any board size. */
+function groupLayout(n: number, idx: number): { fx: number; fy: number; scale: number } {
+  if (n <= 1) return { fx: 0, fy: 0, scale: 1 };
+  if (n === 2) {
+    const spots = [{ fx: -0.3, fy: 0.08 }, { fx: 0.3, fy: 0.08 }];
+    return { ...spots[idx % 2], scale: 0.72 };
+  }
+  if (n === 3) {
+    const spots = [{ fx: -0.34, fy: -0.12 }, { fx: 0.34, fy: -0.12 }, { fx: 0, fy: 0.24 }];
+    return { ...spots[idx % 3], scale: 0.62 };
+  }
+  if (n === 4) {
+    const spots = [
+      { fx: -0.33, fy: -0.2 }, { fx: 0.33, fy: -0.2 },
+      { fx: -0.33, fy: 0.24 }, { fx: 0.33, fy: 0.24 },
+    ];
+    return { ...spots[idx % 4], scale: 0.56 };
+  }
+  // 5+ (center goal): even ring around the middle
+  const angle = (idx / n) * Math.PI * 2 - Math.PI / 2;
+  return { fx: Math.cos(angle) * 0.55, fy: Math.sin(angle) * 0.45 + 0.05, scale: 0.5 };
+}
 
 const CELL = 100 / 15;
 
@@ -73,18 +91,6 @@ const CAPTURE_RELEASE_BUFFER_MS = 90;
 export default function Board({ pieces, currentPlayer, onPieceClick, perspective }: BoardProps) {
   const k = ROTATION_FOR_COLOR[perspective];
   const rot = (x: number, y: number) => rotateCell(x, y, k);
-
-  // Meme speech bubble: shows the sound's name as a comment "spoken" by
-  // the piece on the anchoring square (rotates with the perspective).
-  const memeFx = useGameStore((s) => s.memeFx);
-  const [memeVisible, setMemeVisible] = useState(false);
-  useEffect(() => {
-    if (!memeFx || memeFx.pos < 0) return;
-    setMemeVisible(true);
-    const t = setTimeout(() => setMemeVisible(false), 3000);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memeFx?.key]);
 
   /** Screen-percent center of a logical position for a given piece. */
   const coordsFor = (position: number, color: Color, pieceId: string): { x: number; y: number } => {
@@ -340,7 +346,7 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
             const key = `${c.x.toFixed(2)},${c.y.toFixed(2)}`;
             const group = pieceGroups.get(key) ?? [piece];
             const stackIdx = group.indexOf(piece);
-            const offset = STACK_OFFSETS[Math.min(stackIdx, STACK_OFFSETS.length - 1)];
+            const layout = groupLayout(group.length, Math.max(stackIdx, 0));
             const { xs, ys } = travelFor(piece);
             const isCurrentPlayer = piece._playerId === currentPlayer?.id;
 
@@ -350,23 +356,13 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
                 piece={piece}
                 xs={xs}
                 ys={ys}
-                offset={offset}
+                layout={layout}
                 isCurrentPlayer={isCurrentPlayer}
                 onClick={onPieceClick}
               />
             );
           })}
         </AnimatePresence>
-
-        {/* Meme speech bubble on the piece that "says" the sound */}
-        {memeVisible && memeFx && memeFx.pos >= 0 && (() => {
-          const c = coordsFor(Math.min(memeFx.pos, 57), memeFx.color, 'fx-0');
-          return (
-            <div className="meme-bubble" style={{ left: `${c.x}%`, top: `${c.y}%` }}>
-              🔊 {memeFx.text}
-            </div>
-          );
-        })()}
       </div>
     </div>
   );

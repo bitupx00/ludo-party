@@ -244,7 +244,7 @@ export function t(key: TKey): string {
 export const TIPS: Record<Lang, string[]> = {
   es: [
     'Recuerda: el 6 y el 1 dan turno extra 😉',
-    'Saca un 6 para salir de la base 🚀',
+    'El 6 y el 1 sacan fichas de la base 🚀',
     '¡Capturar da tirada extra! 🎯🎲',
     'Llegar a meta también da otra tirada 🏁🎁',
     'Tres tiradas extra seguidas = pierdes el turno 😱',
@@ -254,7 +254,7 @@ export const TIPS: Record<Lang, string[]> = {
   ],
   en: [
     'Remember: a 6 or a 1 gives an extra turn 😉',
-    'Roll a 6 to leave your base 🚀',
+    'A 6 or a 1 gets a piece out of base 🚀',
     'Capturing grants an extra roll! 🎯🎲',
     'Reaching the goal also grants a roll 🏁🎁',
     'Three bonus rolls in a row = lose your turn 😱',
