@@ -980,9 +980,35 @@ interface MemeCandidate {
   color: Color;
 }
 
-/** Host picks ONE fitting meme (random among the turn's occasions) and
- *  broadcasts it. Cadence: at most one every 2 full turns, except forced
- *  events (game start, team win). Guests never fire — they mirror. */
+/** How significant each occasion is — the sound ALWAYS matches the most
+ *  significant thing that happened in the move, never a random lesser
+ *  one (e.g. a capture must sound like a capture, not like "an enemy is
+ *  nearby"). Same-priority kinds are perspectives of the SAME occasion
+ *  (killer voice vs victim voice) and one is picked at random. */
+const MEME_PRIORITY: Record<MemeEventKind, number> = {
+  teamWin: 0,
+  gameStart: 0,
+  goal: 1,
+  kill: 2,
+  death: 2,
+  allyKill: 2,
+  allyDeath: 2,
+  escape: 3,
+  passMover: 4,
+  passSurvivor: 4,
+  allyNoKill: 4,
+  block: 5,
+  enemyEntry: 6,
+  ownStack: 7,
+  homeLane: 8,
+  enemyNear: 9,
+};
+
+/** Fires the move's meme sound AUTOMATICALLY on the engine-running device
+ *  (host in online games — no player chooses anything) and broadcasts it.
+ *  The occasion is picked by significance (MEME_PRIORITY); the specific
+ *  clip is random within that occasion's pool. Cadence: at most one every
+ *  2 full turns, except forced events (game start, team win). */
 function maybeFireMeme(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
   get: () => GameStore,
@@ -997,7 +1023,10 @@ function maybeFireMeme(
   // the post-advance counter — bonus rolls would otherwise skew it.
   const turn = turnRef ?? s.turnCount;
   if (!force && turn - lastMemeTurn < 2) return;
-  const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  // Most significant occasion wins; random only among its perspectives.
+  const best = Math.min(...candidates.map((c) => MEME_PRIORITY[c.kind]));
+  const top = candidates.filter((c) => MEME_PRIORITY[c.kind] === best);
+  const chosen = top[Math.floor(Math.random() * top.length)];
   const soundId = pickFromPool(chosen.kind);
   if (!force) lastMemeTurn = turn;
   set({
