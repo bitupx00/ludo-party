@@ -99,6 +99,12 @@
   pointer-events: none;
 }
 
+/* Ludo Club: the star 8 squares past each entry is tinted that color */
+.board-safe-star--red    { color: var(--color-red); }
+.board-safe-star--blue   { color: var(--color-blue); }
+.board-safe-star--yellow { color: var(--color-yellow); }
+.board-safe-star--green  { color: var(--color-green); }
+
 /* ── Home stretch (colored lanes to the center) ─────────────────── */
 .board-square--hs {
   box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.55);

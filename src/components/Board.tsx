@@ -27,6 +27,10 @@ const COLORS_ORDER = ['red', 'green', 'yellow', 'blue'] as const;
 /** Entry square index per color (matches boardPath.ts / gameEngine). */
 const ENTRY_SQUARES: Record<Color, number> = { red: 0, blue: 13, yellow: 26, green: 39 };
 
+/** Ludo Club: the safe star 8 squares past each entry is tinted with that
+ *  entry's color (the remaining stars stay neutral gray). */
+const COLORED_STAR_SQUARES: Record<number, Color> = { 8: 'red', 21: 'blue', 34: 'yellow', 47: 'green' };
+
 /** Waiting slots inside each base, in UNROTATED grid units. */
 const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {
   red:    [{ x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 }, { x: 1.5, y: 3.5 }, { x: 3.5, y: 3.5 }],
@@ -228,7 +232,16 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
         style={{ gridColumn: r.x + 1, gridRow: r.y + 1 }}
       >
         {arrow && <span className="board-entry-arrow">{arrow}</span>}
-        {safe && !entryColor && <span className="board-safe-star">★</span>}
+        {safe && !entryColor && (
+          <span
+            className={[
+              'board-safe-star',
+              COLORED_STAR_SQUARES[pathIndex] && `board-safe-star--${COLORED_STAR_SQUARES[pathIndex]}`,
+            ].filter(Boolean).join(' ')}
+          >
+            ★
+          </span>
+        )}
       </div>
     );
   });
