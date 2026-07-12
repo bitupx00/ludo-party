@@ -146,7 +146,7 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
           right: 0;
           margin: 0 auto;
           width: min(560px, 100%);
-          max-height: 54vh;
+          max-height: 62vh;
           border-radius: var(--radius-xl) var(--radius-xl) 0 0;
           padding: var(--gap-md);
           padding-bottom: calc(var(--gap-md) + env(safe-area-inset-bottom));
@@ -194,8 +194,11 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
         .sticker-grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
+          grid-auto-rows: max-content;
+          align-content: start;
           gap: var(--gap-sm);
           overflow-y: auto;
+          min-height: 0;
           padding-bottom: var(--gap-sm);
         }
         .sticker-item {
@@ -224,20 +227,30 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
         .sticker-sounds {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 6px;
+          /* Rows keep their natural height and the LIST scrolls — without
+             this the grid squashes all 48 rows into the panel height and
+             every title gets clipped by the next one. */
+          grid-auto-rows: max-content;
+          align-content: start;
+          gap: 7px;
           overflow-y: auto;
+          min-height: 0;
           padding-bottom: var(--gap-sm);
         }
         .sticker-sound {
+          min-height: 40px;
+          display: flex;
+          align-items: center;
           text-align: left;
-          padding: 9px 12px;
+          padding: 8px 12px;
           border: none;
           border-radius: var(--radius-lg);
           background: rgba(255, 255, 255, 0.1);
           color: var(--color-text);
           font-family: var(--font-body);
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           font-weight: 700;
+          line-height: 1.2;
           cursor: pointer;
           white-space: nowrap;
           overflow: hidden;
@@ -252,8 +265,10 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
           flex-direction: column;
           gap: 6px;
           overflow-y: auto;
+          min-height: 0;
           padding-bottom: var(--gap-sm);
         }
+        .sticker-phrase { flex-shrink: 0; }
         .sticker-phrase {
           text-align: left;
           padding: 10px 16px;
