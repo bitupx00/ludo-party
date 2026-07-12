@@ -20,6 +20,10 @@ import { useFavStore } from '../favorites.ts';
 import GifSticker from './GifSticker.tsx';
 import { useT } from '../i18n.ts';
 
+/** How long the 3D dice spin animation takes to visually settle (see
+ *  Dice3D's 950ms settle timer) — inputs stay locked until then. */
+const DICE_SETTLE_MS = 1000;
+
 export default function Game() {
   const t = useT();
   const phase = useGameStore((s) => s.phase);
@@ -53,6 +57,18 @@ export default function Game() {
 
   const currentPlayer = players[currentPlayerIndex];
   const isBot = currentPlayer?.isBot ?? false;
+
+  // Dice reveal gate: after every roll the 3D dice takes ~950ms to settle on
+  // its face. Until then NOTHING may leak the result — no movable rings, no
+  // piece taps, no status banners, no mini-dice value. Without this gate a
+  // player could move (or see) the outcome before the dice visually lands.
+  const [diceSettled, setDiceSettled] = useState(true);
+  useEffect(() => {
+    if (rollSeq === 0) return;
+    setDiceSettled(false);
+    const timer = setTimeout(() => setDiceSettled(true), DICE_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [rollSeq]);
   // Whose turn controls this device: online → only your own player;
   // local modes → any human (shared device).
   const myTurn = onlineRole === 'none'
@@ -107,9 +123,9 @@ export default function Game() {
   // doesn't change on a roll, and depending only on it froze the game
   // whenever the player had 2+ movable pieces (none became clickable).
   const movableIds = useMemo(
-    () => (myTurn ? movablePieceIds() : []),
+    () => (myTurn && diceSettled ? movablePieceIds() : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [players, diceValue, phase, currentPlayerIndex, myTurn, movablePieceIds],
+    [players, diceValue, phase, currentPlayerIndex, myTurn, diceSettled, movablePieceIds],
   );
 
   // Flatten all pieces with their parent color and player
@@ -145,10 +161,10 @@ export default function Game() {
   }, [chatMessageCount, chatOpen]);
 
   const handlePieceClick = useCallback((pieceId: string) => {
-    if (phase === 'moving') {
+    if (phase === 'moving' && diceSettled) {
       selectPiece(pieceId);
     }
-  }, [phase, selectPiece]);
+  }, [phase, diceSettled, selectPiece]);
 
   // Quick bar: the user's FAVORITES (⭐ in the picker) first, and the most
   // recent send last — falls back to a default gif set when empty.
@@ -220,8 +236,8 @@ export default function Game() {
         reaction={reactions[player.id]}
         align={align}
         showTeamBadge={teamsMode === true}
-        diceValue={showTurnDice ? (phase === 'moving' ? diceValue : null) : undefined}
-        diceRolling={showTurnDice && phase === 'rolling'}
+        diceValue={showTurnDice ? (phase === 'moving' && diceSettled ? diceValue : null) : undefined}
+        diceRolling={showTurnDice && (phase === 'rolling' || (phase === 'moving' && !diceSettled))}
       />
     );
   };
@@ -279,7 +295,7 @@ export default function Game() {
         {/* Status line: extra turn / tap hint */}
         <div className="game-status-slot">
           <AnimatePresence mode="wait">
-            {(diceValue === 6 || diceValue === 1) && phase === 'moving' && consecutiveSixes >= 2 ? (
+            {!diceSettled ? null : (diceValue === 6 || diceValue === 1) && phase === 'moving' && consecutiveSixes >= 2 ? (
               <motion.div
                 key="cancelled"
                 className="game-status game-status--danger"

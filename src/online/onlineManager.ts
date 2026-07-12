@@ -191,6 +191,8 @@ function stopTimers() {
 
 function destroySession() {
   stopTimers();
+  if (broadcastCooldown) { clearTimeout(broadcastCooldown); broadcastCooldown = null; }
+  broadcastDirty = false;
   if (unsubscribeStore) { unsubscribeStore(); unsubscribeStore = null; }
   for (const { conn } of guestConns.values()) {
     try { conn.close(); } catch { /* noop */ }
@@ -205,10 +207,17 @@ function destroySession() {
 
 /* ─── Snapshots ────────────────────────────────────────────────────── */
 
+/** Chat/narration entries mirrored per snapshot. The full local history is
+ *  100 — resending all of it on EVERY state change made each snapshot
+ *  several KB, and on slow links the data channel's send buffer backed up
+ *  until moves arrived seconds late (players saw the game "hang"). */
+const SNAPSHOT_MESSAGE_LIMIT = 40;
+
 function currentSnapshot(): GameSnapshot {
   const s = useGameStore.getState();
   const snap = {} as Record<string, unknown>;
   for (const key of SNAPSHOT_KEYS) snap[key] = s[key];
+  snap.messages = s.messages.slice(-SNAPSHOT_MESSAGE_LIMIT);
   return snap as unknown as GameSnapshot;
 }
 
@@ -224,6 +233,32 @@ function broadcastState() {
       try { conn.send(msg); } catch { /* peer gone; close event will clean up */ }
     }
   }
+}
+
+/* Broadcast throttle: bursts of store updates (timers, effects, points,
+ * messages all set()ing within a few ms of each other) used to emit one
+ * full snapshot EACH. On congested mobile links those snapshots queue up
+ * in the WebRTC buffer and every later action (rolls, moves) arrives
+ * seconds late. Leading+trailing throttle: send immediately, then coalesce
+ * everything that happens in the next 80ms into ONE trailing snapshot —
+ * state stays perfectly consistent (snapshots are full-state). */
+const BROADCAST_THROTTLE_MS = 80;
+let broadcastCooldown: ReturnType<typeof setTimeout> | null = null;
+let broadcastDirty = false;
+
+function scheduleBroadcast() {
+  if (broadcastCooldown) {
+    broadcastDirty = true;
+    return;
+  }
+  broadcastState();
+  broadcastCooldown = setTimeout(() => {
+    broadcastCooldown = null;
+    if (broadcastDirty) {
+      broadcastDirty = false;
+      scheduleBroadcast();
+    }
+  }, BROADCAST_THROTTLE_MS);
 }
 
 /** Host: the current peerId↔playerId roster (self + every seated guest). */
@@ -271,14 +306,15 @@ export function hostRoom(code: string): Promise<void> {
     peer = p;
 
     p.on('open', () => {
-      // Broadcast every store change to connected guests (microtask-batched)
+      // Broadcast every store change to connected guests (microtask-batched
+      // within a tick, throttled across ticks — see scheduleBroadcast)
       let pending = false;
       unsubscribeStore = useGameStore.subscribe(() => {
         if (pending) return;
         pending = true;
         queueMicrotask(() => {
           pending = false;
-          broadcastState();
+          scheduleBroadcast();
         });
       });
 
@@ -402,15 +438,30 @@ export function joinRoom(code: string, name: string): Promise<void> {
   return joinRoomInternal(code, name);
 }
 
+function checkHostStaleness() {
+  if (!hostConn || leftVoluntarily) return;
+  if (Date.now() - lastPingFromHost > STALE_LINK_MS) {
+    // Host went silent — assume the link is dead and rebuild it.
+    scheduleGuestReconnect();
+  }
+}
+
+// Phones freeze JS timers while the screen is locked / the app is
+// backgrounded, so a dead link is only discovered on return. Checking the
+// moment the tab becomes visible again starts the reconnect immediately
+// instead of after the next (throttled) watchdog tick.
+let visListenerOn = false;
+function onVisibilityCheck() {
+  if (document.visibilityState === 'visible') checkHostStaleness();
+}
+
 function startGuestWatch() {
   if (guestWatchTimer) clearInterval(guestWatchTimer);
-  guestWatchTimer = setInterval(() => {
-    if (!hostConn || leftVoluntarily) return;
-    if (Date.now() - lastPingFromHost > STALE_LINK_MS) {
-      // Host went silent — assume the link is dead and rebuild it.
-      scheduleGuestReconnect();
-    }
-  }, 4000);
+  guestWatchTimer = setInterval(checkHostStaleness, 4000);
+  if (!visListenerOn) {
+    visListenerOn = true;
+    document.addEventListener('visibilitychange', onVisibilityCheck);
+  }
 }
 
 function scheduleGuestReconnect() {

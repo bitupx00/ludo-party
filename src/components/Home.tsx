@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore.ts';
 import type { GameMode } from '../game/types.ts';
 import { useT, useLangStore, TIPS } from '../i18n.ts';
-import PawnSVG from './PawnSVG.tsx';
 import ProfileCard from './ProfileCard.tsx';
 
 const MODES: Array<{ mode: GameMode; icon: string; titleKey: 'modeSolo' | 'modeLocal' | 'modeTeams' | 'modeOnline'; descKey: 'modeSoloDesc' | 'modeLocalDesc' | 'modeTeamsDesc' | 'modeOnlineDesc'; accent: string }> = [
@@ -65,26 +64,19 @@ export default function Home() {
             alt="LudoPata'S"
             draggable={false}
           />
-          <p className="home-tagline">{t('tagline')}</p>
         </motion.div>
 
-        {/* Pawn parade */}
+        {/* Brand wordmark + tagline */}
         <motion.div
-          className="home-pawns"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }}
+          className="home-brand-block"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2, type: 'spring', stiffness: 260, damping: 20 }}
         >
-          {(['red', 'green', 'yellow', 'blue'] as const).map((color, i) => (
-            <motion.div
-              key={color}
-              className="home-pawn"
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
-            >
-              <PawnSVG color={color} />
-            </motion.div>
-          ))}
+          <h1 className="home-brand">
+            Ludo<span className="home-brand-accent">Pata&#39;S</span>
+          </h1>
+          <p className="home-tagline">{t('tagline')}</p>
         </motion.div>
 
         {/* Online error (e.g. host closed the room) */}
@@ -198,18 +190,22 @@ export default function Home() {
           color: var(--color-text-secondary);
           font-weight: 700;
         }
-        .home-pawns {
-          display: flex;
-          align-items: flex-end;
-          gap: 10px;
+        .home-brand-block {
+          text-align: center;
         }
-        .home-pawn {
-          width: clamp(38px, 11vw, 52px);
+        .home-brand {
+          font-family: var(--font-display);
+          font-size: clamp(2.2rem, 10vw, 3rem);
+          font-weight: 800;
+          letter-spacing: 0.5px;
+          line-height: 1;
+          color: #fff;
+          text-shadow:
+            0 3px 0 rgba(40, 20, 120, 0.9),
+            0 8px 20px rgba(18, 8, 60, 0.5);
         }
-        .home-pawn svg {
-          width: 100%;
-          height: auto;
-          display: block;
+        .home-brand-accent {
+          color: #ffd65a;
         }
         .home-online-error {
           font-size: 0.85rem;

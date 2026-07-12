@@ -3,6 +3,9 @@ import { motion } from 'framer-motion';
 import type { Piece as PieceType, Color } from '../game/types.ts';
 import PawnSVG from './PawnSVG.tsx';
 import { playSfx } from '../sound.ts';
+import { STEP_DURATION } from '../game/anim.ts';
+
+export { STEP_DURATION };
 
 interface PieceProps {
   piece: PieceType & { _color: Color; _playerId: string; _isMovable: boolean };
@@ -13,13 +16,14 @@ interface PieceProps {
    *  fractional offsets of the piece's own box + a shrink factor, so
    *  grouped pieces sit side by side instead of overlapping. */
   layout: { fx: number; fy: number; scale: number };
+  /** Seconds per travel cell — normal moves use STEP_DURATION; a captured
+   *  piece's backward run to base uses a much faster step. */
+  stepDuration?: number;
   isCurrentPlayer: boolean;
   onClick: (pieceId: string) => void;
 }
 
-export const STEP_DURATION = 0.17; // seconds per cell
-
-export default function Piece({ piece, xs, ys, layout, onClick }: PieceProps) {
+export default function Piece({ piece, xs, ys, layout, stepDuration = STEP_DURATION, onClick }: PieceProps) {
   const isFinished = piece.position >= 57;
   const canMove = piece._isMovable && !isFinished;
   const [traveling, setTraveling] = useState(false);
@@ -27,11 +31,14 @@ export default function Piece({ piece, xs, ys, layout, onClick }: PieceProps) {
 
   const steps = xs.length - 1;
 
-  // Movement sound: one tick per cell while traveling
+  // Movement sound: one tick per cell while traveling. Fast backward runs
+  // (captured piece flying home) only tick every few cells — a click per
+  // 50ms cell would be machine-gun noise.
   useEffect(() => {
     if (steps < 1) return;
     setTraveling(true);
     playSfx('move');
+    const tickEvery = stepDuration < 0.1 ? 4 : 1;
     let count = 1;
     tickTimer.current = setInterval(() => {
       if (count >= steps) {
@@ -39,12 +46,12 @@ export default function Piece({ piece, xs, ys, layout, onClick }: PieceProps) {
         return;
       }
       count++;
-      playSfx('move');
-    }, STEP_DURATION * 1000);
+      if (count % tickEvery === 0) playSfx('move');
+    }, stepDuration * 1000);
     const settle = setTimeout(() => {
       setTraveling(false);
       playSfx('land');
-    }, steps * STEP_DURATION * 1000 + 60);
+    }, steps * stepDuration * 1000 + 60);
     return () => {
       if (tickTimer.current) clearInterval(tickTimer.current);
       clearTimeout(settle);
@@ -71,7 +78,7 @@ export default function Piece({ piece, xs, ys, layout, onClick }: PieceProps) {
       }}
       transition={
         isKeyframed
-          ? { duration: steps * STEP_DURATION, ease: 'easeInOut' }
+          ? { duration: steps * stepDuration, ease: stepDuration < 0.1 ? 'linear' : 'easeInOut' }
           : { type: 'spring', stiffness: 260, damping: 22, mass: 0.6 }
       }
     >

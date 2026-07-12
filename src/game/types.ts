@@ -66,6 +66,11 @@ export interface CaptureEffect {
   type: 'capture' | 'safe' | 'home' | 'win';
   /** Meme-toast text, e.g. "💥 Ana eliminó a Beto" (who did what to whom). */
   label?: string;
+  /** Local ms to wait before SHOWING the effect (toast + sfx): the mover's
+   *  travel animation duration, so the announcement never precedes the
+   *  piece visibly arriving. Each client applies it from when the effect
+   *  reaches them (no cross-device clock math). */
+  delay?: number;
 }
 
 export const COLORS: Color[] = ['red', 'green', 'yellow', 'blue'];

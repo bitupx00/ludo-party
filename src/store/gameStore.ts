@@ -28,7 +28,8 @@ import {
 } from '../online/onlineManager';
 import { startAvSession, stopAvSession } from '../online/avManager';
 import { ensureProfile } from '../profile';
-import { playSfx, vibrate } from '../sound';
+import { playSfx } from '../sound';
+import { STEP_DURATION } from '../game/anim';
 import {
   NO_MOVE_MESSAGES,
   WIN_MESSAGES,
@@ -935,13 +936,15 @@ function doRoll(
       scheduleBotTurn(set, get);
     }, 1500);
   } else if (movable.length === 1) {
-    // Auto-select the only movable piece after a short delay
+    // Auto-select the only movable piece after a short delay — always AFTER
+    // the dice reveal animation (~1000ms) so the move never starts before
+    // the player has seen what they rolled.
     if (autoMoveTimeout) clearTimeout(autoMoveTimeout);
     autoMoveTimeout = setTimeout(() => {
       const current = get();
       if (current.phase !== 'moving') return;
       executeMove(set, get, movable[0].id);
-    }, 1200);
+    }, 1400);
   }
 }
 
@@ -979,22 +982,31 @@ function executeMove(
   }
   const reachedHome = movedAfter != null && movedAfter.position === 57 && movedBefore.position !== 57;
 
-  // Visual + audio effects
+  // How long the mover's cell-by-cell travel animation takes: effects
+  // (toast + sfx) wait for it so nothing announces the outcome before the
+  // piece visibly lands. Base exits fly directly (no travel).
+  const travelMs = movedBefore.position < 0 ? 0 : diceValue * STEP_DURATION * 1000;
+
+  // Visual + audio effects (sfx/vibration play in CaptureOverlay on reveal,
+  // so guests hear them too — not just the host device)
   if (captured && movedAfter && movedAfter.position >= 0 && movedAfter.position < 52) {
     const pos = getSquarePosition(movedAfter.position);
     newState = addCaptureEffectToState(newState, pos.x, pos.y, 'capture');
     // Meme-style toast: WHO killed WHOM (rendered by CaptureOverlay)
     const fx = newState.captureEffects[newState.captureEffects.length - 1];
-    if (fx) fx.label = `💥 ${mover.name} eliminó a ${victim?.name ?? '???'}`;
-    playSfx('capture');
-    vibrate([40, 30, 70]);
+    if (fx) {
+      fx.label = `💥 ${mover.name} eliminó a ${victim?.name ?? '???'}`;
+      fx.delay = travelMs;
+    }
   }
   if (reachedHome && newState.phase !== 'finished') {
     const pos = getSquarePosition(COLOR_CONFIG[state.players[currentPlayerIndex].color].entryIndex);
     newState = addCaptureEffectToState(newState, pos.x, pos.y, 'home');
     const fx = newState.captureEffects[newState.captureEffects.length - 1];
-    if (fx) fx.label = `🏁 ${mover.name} llegó a la meta`;
-    playSfx('home');
+    if (fx) {
+      fx.label = `🏁 ${mover.name} llegó a la meta`;
+      fx.delay = travelMs;
+    }
   }
 
   // Check for win
@@ -1003,7 +1015,10 @@ function executeMove(
     const winPos = getSquarePosition(COLOR_CONFIG[newState.winner as Color].entryIndex);
     newState = addCaptureEffectToState(newState, winPos.x, winPos.y, 'win');
     const winFx = newState.captureEffects[newState.captureEffects.length - 1];
-    if (winFx) winFx.label = `🏆 ¡${winnerPlayer?.name ?? ''} GANA la partida!`;
+    if (winFx) {
+      winFx.label = `🏆 ¡${winnerPlayer?.name ?? ''} GANA la partida!`;
+      winFx.delay = movedBefore.position < 0 ? 0 : diceValue * STEP_DURATION * 1000;
+    }
     set({
       ...newState,
       messages: pushMessage(newState.messages, {
@@ -1102,7 +1117,7 @@ function scheduleBotTurn(
         }, 800);
       }, 600);
     } else {
-      // Bot chooses a piece
+      // Bot chooses a piece (after the dice reveal animation finishes)
       const chosen = chooseBotMove({ ...get(), diceValue: value }, value);
       if (chosen) {
         setTimeout(() => {
@@ -1128,7 +1143,7 @@ function scheduleBotTurn(
                 }),
             });
           }
-        }, 900);
+        }, 1250);
       }
     }
   }, 1100 + Math.random() * 700); // ~1.1-1.8 second delay for natural feel

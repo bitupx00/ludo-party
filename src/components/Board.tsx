@@ -11,7 +11,8 @@ import {
   arrowFor,
   centerSideColors,
 } from '../game/boardRotation.ts';
-import Piece, { STEP_DURATION } from './Piece.tsx';
+import Piece from './Piece.tsx';
+import { STEP_DURATION, RETURN_STEP_DURATION } from '../game/anim.ts';
 import './Board.css';
 
 interface BoardProps {
@@ -122,6 +123,10 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
   // so we detect that transition here, freeze the piece at its last board
   // position for the capturer's travel duration, then release it.
   const captureHolds = useRef<Map<string, number>>(new Map()); // pieceId -> frozen board position
+  // After the hold releases, the captured piece doesn't teleport to base:
+  // it RUNS BACKWARD along the main track to its own entry square and then
+  // hops into its yard (Ludo Club style). This records where the run starts.
+  const captureReturns = useRef<Map<string, number>>(new Map()); // pieceId -> board pos the run starts from
   const [, releaseTick] = useReducer((c: number) => c + 1, 0);
 
   for (const piece of pieces) {
@@ -144,6 +149,8 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
     const releaseMs = moverSteps * STEP_DURATION * 1000 + CAPTURE_RELEASE_BUFFER_MS;
     setTimeout(() => {
       captureHolds.current.delete(piece.id);
+      // Kick off the backward run home from the square it was captured on
+      captureReturns.current.set(piece.id, prevPos);
       // Resync prevPositions to the TRUE (base) position now, in the same
       // tick as the release. Without this, the next render's detection
       // loop would still see the stale pre-capture prevPos (since the
@@ -166,6 +173,7 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
     for (const p of pieces) {
       if (captureHolds.current.has(p.id)) continue; // keep the pre-capture position until released
       map.set(p.id, p.position);
+      if (p.position >= 0) captureReturns.current.delete(p.id); // back on the board: stale run data
     }
   });
 
@@ -181,10 +189,10 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
   // and making Framer abandon the cell-by-cell walk partway through.
   // Returning the SAME cached array reference for the life of a given
   // position keeps the piece's `animate` prop stable across those renders.
-  const travelCache = useRef<Map<string, { forPosition: number; xs: string[]; ys: string[] }>>(new Map());
+  const travelCache = useRef<Map<string, { forPosition: number; xs: string[]; ys: string[]; stepDuration: number }>>(new Map());
 
   /** Build the travel waypoints (percent coords) from prev → current position. */
-  const travelFor = (piece: PieceType & { _color: Color }): { xs: string[]; ys: string[] } => {
+  const travelFor = (piece: PieceType & { _color: Color }): { xs: string[]; ys: string[]; stepDuration: number } => {
     const cached = travelCache.current.get(piece.id);
     if (cached && cached.forPosition === piece.position) {
       return cached;
@@ -192,11 +200,37 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
 
     const target = coordsFor(piece.position, piece._color, piece.id);
     const prev = prevPositions.current.get(piece.id);
-    const direct = { forPosition: piece.position, xs: [`${target.x}%`], ys: [`${target.y}%`] };
+    const direct = { forPosition: piece.position, xs: [`${target.x}%`], ys: [`${target.y}%`], stepDuration: STEP_DURATION };
+
+    // Captured piece released from its hold: fast backward run along the
+    // main track to its own entry square, then into the yard (Ludo Club).
+    if (piece.position === -1) {
+      const runFrom = captureReturns.current.get(piece.id);
+      if (runFrom !== undefined && runFrom >= 0 && runFrom < 52) {
+        captureReturns.current.delete(piece.id);
+        const entry = ENTRY_SQUARES[piece._color];
+        const seq: number[] = [runFrom];
+        let p = runFrom;
+        for (let guard = 0; guard < 52 && p !== entry; guard++) {
+          p = (p + 51) % 52; // one square backward around the ring
+          seq.push(p);
+        }
+        const points = seq.map((s) => coordsFor(s, piece._color, piece.id));
+        points.push(target); // final hop into the base slot
+        const result = {
+          forPosition: piece.position,
+          xs: points.map((pt) => `${pt.x}%`),
+          ys: points.map((pt) => `${pt.y}%`),
+          stepDuration: RETURN_STEP_DURATION,
+        };
+        travelCache.current.set(piece.id, result);
+        return result;
+      }
+    }
 
     if (
       prev === undefined || prev === piece.position ||
-      prev < 0 || piece.position < 0 // base exits/captures fly directly
+      prev < 0 || piece.position < 0 // base exits fly directly
     ) {
       travelCache.current.set(piece.id, direct);
       return direct;
@@ -218,6 +252,7 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
       forPosition: piece.position,
       xs: points.map((pt) => `${pt.x}%`),
       ys: points.map((pt) => `${pt.y}%`),
+      stepDuration: STEP_DURATION,
     };
     travelCache.current.set(piece.id, result);
     return result;
@@ -359,7 +394,7 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
             const group = pieceGroups.get(key) ?? [piece];
             const stackIdx = group.indexOf(piece);
             const layout = groupLayout(group.length, Math.max(stackIdx, 0));
-            const { xs, ys } = travelFor(piece);
+            const { xs, ys, stepDuration } = travelFor(piece);
             const isCurrentPlayer = piece._playerId === currentPlayer?.id;
 
             return (
@@ -369,6 +404,7 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
                 xs={xs}
                 ys={ys}
                 layout={layout}
+                stepDuration={stepDuration}
                 isCurrentPlayer={isCurrentPlayer}
                 onClick={onPieceClick}
               />

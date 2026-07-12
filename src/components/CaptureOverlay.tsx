@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CaptureEffect } from '../game/types.ts';
+import { playSfx, vibrate } from '../sound.ts';
 // CRITICAL: without this import the overlay renders UNSTYLED — a plain
 // in-flow div whose ±350px particle bursts blow the page open sideways,
 // visibly shoving the whole board every time a piece reaches the goal
@@ -81,13 +82,40 @@ function EffectParticles({ type }: { type: string }) {
 
 export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayProps) {
   const [visible, setVisible] = useState(false);
+  // The effect currently REVEALED (after its delay) — the raw store effect
+  // is created the instant the move resolves, but the toast/sfx must wait
+  // for the mover's travel animation so nothing announces the outcome
+  // before the piece visibly lands on the square.
+  const [shown, setShown] = useState<CaptureEffect | null>(null);
+  const revealedIds = useRef<Set<string>>(new Set());
 
-  // Only show recent effects (stale ones can reappear via online snapshots)
-  const fresh = effects.filter((e) => Date.now() - e.timestamp < 3000);
+  // Only consider recent effects (stale ones can reappear via online snapshots)
+  const fresh = effects.filter((e) => Date.now() - e.timestamp < 6000);
   const latestEffect = fresh.length > 0 ? fresh[fresh.length - 1] : null;
 
   useEffect(() => {
-    if (latestEffect) {
+    if (!latestEffect || revealedIds.current.has(latestEffect.id)) return;
+    revealedIds.current.add(latestEffect.id);
+    // Delay counts from when the effect reaches THIS client (host: move
+    // time; guest: snapshot receipt — matching their own piece animation).
+    const wait = Math.max(0, latestEffect.delay ?? 0);
+    const reveal = setTimeout(() => {
+      setShown(latestEffect);
+      // Reveal sound plays on EVERY device (host and guests alike)
+      if (latestEffect.type === 'capture') {
+        playSfx('capture');
+        vibrate([40, 30, 70]);
+      } else if (latestEffect.type === 'win') {
+        playSfx('win');
+      } else {
+        playSfx('home');
+      }
+    }, wait);
+    return () => clearTimeout(reveal);
+  }, [latestEffect]);
+
+  useEffect(() => {
+    if (shown) {
       setVisible(true);
       const timeout = setTimeout(() => {
         setVisible(false);
@@ -95,7 +123,7 @@ export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayPro
       }, 2500);
       return () => clearTimeout(timeout);
     }
-  }, [latestEffect, onDismiss]);
+  }, [shown, onDismiss]);
 
   // Map effect type to a visual effect type for particles
   const effectTypeMap: Record<string, string> = {
@@ -107,7 +135,7 @@ export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayPro
 
   return (
     <AnimatePresence>
-      {visible && latestEffect && (
+      {visible && shown && (
         <motion.div
           className="capture-overlay"
           initial={{ opacity: 0 }}
@@ -115,11 +143,11 @@ export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayPro
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {latestEffect.gifUrl.includes('lightning') && (
+          {shown.gifUrl.includes('lightning') && (
             <div className="capture-lightning" />
           )}
 
-          <EffectParticles type={effectTypeMap[latestEffect.type] ?? 'fire-burst'} />
+          <EffectParticles type={effectTypeMap[shown.type] ?? 'fire-burst'} />
 
           {/* Meme-notification toast: says WHO did WHAT to WHOM */}
           <motion.div
@@ -128,8 +156,8 @@ export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayPro
             animate={{ scale: 1, rotate: 0, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.1 }}
           >
-            {latestEffect.label
-              ?? (latestEffect.type === 'capture' ? '💥 ¡CAPTURA!' : latestEffect.type === 'win' ? '🏆 ¡VICTORIA!' : '⭐ ¡BIEN!')}
+            {shown.label
+              ?? (shown.type === 'capture' ? '💥 ¡CAPTURA!' : shown.type === 'win' ? '🏆 ¡VICTORIA!' : '⭐ ¡BIEN!')}
           </motion.div>
         </motion.div>
       )}
