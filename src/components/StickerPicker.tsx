@@ -91,7 +91,7 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: i * 0.03 }}
                   >
-                    <GifSticker id={gif.id} size={44} />
+                    <GifSticker id={gif.id} size={54} />
                     <span className="sticker-item-label">{gif.label}</span>
                   </motion.button>
                 ))}

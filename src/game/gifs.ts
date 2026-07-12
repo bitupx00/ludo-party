@@ -16,9 +16,32 @@ export interface GifDef {
   label: string;
   /** Funny sound played (on EVERY client) when the sticker lands. */
   sfx: SfxName;
+  /** Real animated image file (bundled in public/gifs). Entries without
+   *  one render the built-in vector animation from GifSticker.tsx. */
+  img?: string;
 }
 
-export const GIFS: GifDef[] = [
+/** REAL animated GIFs (Google Noto Animated Emoji, CC BY 4.0 — bundled
+ *  locally as downscaled animated WebP so they load instantly offline). */
+const REAL_GIFS: GifDef[] = [
+  { id: 'jaja', label: 'JAJAJA', sfx: 'laugh', img: '/gifs/jaja.webp' },
+  { id: 'rofl', label: 'LOL', sfx: 'laugh', img: '/gifs/rofl.webp' },
+  { id: 'llora', label: 'BUAAA', sfx: 'sadTrombone', img: '/gifs/llora.webp' },
+  { id: 'rabia', label: '#$%!', sfx: 'angryBuzz', img: '/gifs/rabia.webp' },
+  { id: 'grito', label: 'AAAH', sfx: 'scream', img: '/gifs/grito.webp' },
+  { id: 'craneo', label: 'MUERTO', sfx: 'spooky', img: '/gifs/craneo.webp' },
+  { id: 'aplausos', label: 'BRAVO', sfx: 'clap', img: '/gifs/aplausos.webp' },
+  { id: 'fueguito', label: 'ON FIRE', sfx: 'whoosh', img: '/gifs/fueguito.webp' },
+  { id: 'popo', label: 'POPÓ', sfx: 'fart', img: '/gifs/popo.webp' },
+  { id: 'fiesta', label: 'FIESTA', sfx: 'party', img: '/gifs/fiesta.webp' },
+  { id: 'confeti', label: 'YEEE', sfx: 'party', img: '/gifs/confeti.webp' },
+  { id: 'payaso', label: 'PAYASO', sfx: 'clown', img: '/gifs/payaso.webp' },
+  { id: 'diablito', label: 'DIABLO', sfx: 'evil', img: '/gifs/diablito.webp' },
+  { id: 'amor', label: 'AMOR', sfx: 'kiss', img: '/gifs/amor.webp' },
+];
+
+/** Built-in vector stickers (zero-asset fallback set). */
+const VECTOR_GIFS: GifDef[] = [
   { id: 'risa', label: 'JAJAJA', sfx: 'laugh' },
   { id: 'llanto', label: 'BUAAA', sfx: 'sadTrombone' },
   { id: 'furia', label: 'GRRR', sfx: 'angryBuzz' },
@@ -31,10 +54,13 @@ export const GIFS: GifDef[] = [
   { id: 'corazon', label: 'LOVE', sfx: 'kiss' },
 ];
 
+/** Every sticker offered in the picker — real GIFs first. */
+export const GIFS: GifDef[] = [...REAL_GIFS, ...VECTOR_GIFS];
+
 export const GIF_PREFIX = 'gif:';
 
-/** The 6 quick-access gifs shown in the HUD row. */
-export const QUICK_GIFS = ['risa', 'llanto', 'furia', 'fuego', 'calavera', 'aplauso'];
+/** The 6 quick-access gifs shown in the HUD row (real ones). */
+export const QUICK_GIFS = ['jaja', 'llora', 'rabia', 'fueguito', 'craneo', 'aplausos'];
 
 export function isGifReaction(value: string): boolean {
   return value.startsWith(GIF_PREFIX);

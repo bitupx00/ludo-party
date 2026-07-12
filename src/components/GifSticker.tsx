@@ -1,7 +1,12 @@
+import { gifById } from '../game/gifs.ts';
+
 /**
- * Animated GIF-style stickers, drawn as pure SVG + CSS keyframes.
- * They loop like GIFs but weigh ~nothing, scale to any size and need no
- * downloads. One component renders any sticker by id (see game/gifs.ts).
+ * Animated GIF-style stickers. Two kinds, one component:
+ * - REAL animated images (Noto Animated Emoji, bundled as downscaled
+ *   animated WebP in public/gifs) — rendered as a plain <img>.
+ * - Vector stickers drawn as pure SVG + CSS keyframes (zero assets).
+ * Which one renders is decided by the sticker's registry entry
+ * (game/gifs.ts): entries with `img` use the real file.
  */
 
 interface GifStickerProps {
@@ -167,6 +172,21 @@ const RENDERERS: Record<string, (p: { s: number }) => React.JSX.Element> = {
 };
 
 export default function GifSticker({ id, size = 40 }: GifStickerProps) {
+  // Real animated image sticker (bundled webp)
+  const def = gifById(id);
+  if (def?.img) {
+    return (
+      <img
+        src={def.img}
+        width={size}
+        height={size}
+        alt={def.label}
+        draggable={false}
+        style={{ display: 'block', width: size, height: size, objectFit: 'contain' }}
+      />
+    );
+  }
+
   const Renderer = RENDERERS[id];
   if (!Renderer) return null;
   return (

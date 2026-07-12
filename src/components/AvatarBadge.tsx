@@ -153,7 +153,7 @@ export default function AvatarBadge({
               transition={{ type: 'spring', stiffness: 500, damping: 22 }}
             >
               {isGifReaction(reaction.emoji)
-                ? <GifSticker id={gifIdOf(reaction.emoji)} size={42} />
+                ? <GifSticker id={gifIdOf(reaction.emoji)} size={58} />
                 : reaction.emoji}
             </motion.div>
           )}
@@ -286,9 +286,9 @@ export default function AvatarBadge({
           border-radius: 17px 17px 4px 17px;
         }
         .avatar-reaction-bubble--gif {
-          min-width: 52px;
-          height: 52px;
-          top: -26px;
+          min-width: 70px;
+          height: 70px;
+          top: -38px;
         }
         .avatar-badge-dice {
           position: absolute;

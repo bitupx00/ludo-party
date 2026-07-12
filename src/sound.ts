@@ -89,7 +89,8 @@ export type SfxName =
   | 'click' | 'chat' | 'pop' | 'join' | 'leave' | 'six'
   // Funny gif-sticker sounds
   | 'laugh' | 'sadTrombone' | 'angryBuzz' | 'whoosh' | 'spooky'
-  | 'clap' | 'boom' | 'fart' | 'airhorn' | 'kiss';
+  | 'clap' | 'boom' | 'fart' | 'airhorn' | 'kiss'
+  | 'party' | 'scream' | 'clown' | 'evil';
 
 const SFX: Record<SfxName, () => void> = {
   dice: () => {
@@ -174,6 +175,32 @@ const SFX: Record<SfxName, () => void> = {
     tone(900, 0.06, { type: 'sine', gain: 0.12, glideTo: 380 });
     tone(1320, 0.14, { type: 'triangle', when: 0.08, gain: 0.08 });
     tone(1760, 0.18, { type: 'sine', when: 0.14, gain: 0.06 });
+  },
+  // Party fanfare + confetti pops
+  party: () => {
+    [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, { type: 'triangle', when: i * 0.09, gain: 0.11 }));
+    for (let i = 0; i < 5; i++) {
+      tone(500 + Math.random() * 700, 0.05, { type: 'sine', when: 0.15 + i * 0.09, gain: 0.07, glideTo: 1400 });
+    }
+  },
+  // Cartoon scream: rising shriek + wobble
+  scream: () => {
+    tone(400, 0.45, { type: 'sawtooth', gain: 0.09, glideTo: 1150 });
+    tone(405, 0.45, { type: 'square', gain: 0.05, glideTo: 1180 });
+    tone(1150, 0.2, { type: 'sawtooth', when: 0.45, gain: 0.07, glideTo: 900 });
+  },
+  // Clown bicycle horn: honk honk!
+  clown: () => {
+    [0, 0.24].forEach((when) => {
+      tone(310, 0.16, { type: 'sawtooth', when, gain: 0.12, glideTo: 240 });
+      tone(620, 0.16, { type: 'square', when, gain: 0.05, glideTo: 480 });
+    });
+  },
+  // Low evil laugh: slow descending "mua-ha-ha"
+  evil: () => {
+    [180, 165, 150, 135].forEach((f, i) =>
+      tone(f, 0.18, { type: 'sawtooth', when: i * 0.2, gain: 0.11, glideTo: f * 0.85 }));
+    tone(90, 0.7, { type: 'triangle', gain: 0.06, glideTo: 60 });
   },
 };
 

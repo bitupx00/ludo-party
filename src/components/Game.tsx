@@ -302,7 +302,7 @@ export default function Game() {
                 whileTap={{ scale: 0.8 }}
                 aria-label={id}
               >
-                <GifSticker id={id} size={24} />
+                <GifSticker id={id} size={27} />
               </motion.button>
             ))}
             <motion.button

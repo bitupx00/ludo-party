@@ -1,0 +1,4 @@
+The animated stickers in this folder are from Google's Noto Animated Emoji
+(https://googlefonts.github.io/noto-emoji-animation/), licensed under
+CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+They were downscaled to 144px animated WebP for bundling with Ludo Party.

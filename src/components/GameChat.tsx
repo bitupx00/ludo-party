@@ -110,7 +110,7 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
                         {msg.sticker ? (
                           <span className="chat-sticker">
                             {isGifReaction(msg.sticker)
-                              ? <GifSticker id={gifIdOf(msg.sticker)} size={48} />
+                              ? <GifSticker id={gifIdOf(msg.sticker)} size={72} />
                               : msg.sticker}
                           </span>
                         ) : (
