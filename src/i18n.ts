@@ -34,7 +34,7 @@ export const useLangStore = create<LangStore>((set, get) => ({
 }));
 
 const es = {
-  appName: 'Ludo Party',
+  appName: "LudoPata'S",
   tagline: 'El parchís más divertido del universo',
   chooseMode: 'Elige cómo jugar',
   modeSolo: 'Jugar vs Bots',
@@ -130,7 +130,7 @@ const es = {
 };
 
 const en: typeof es = {
-  appName: 'Ludo Party',
+  appName: "LudoPata'S",
   tagline: 'The funniest ludo game in the universe',
   chooseMode: 'Choose how to play',
   modeSolo: 'Play vs Bots',

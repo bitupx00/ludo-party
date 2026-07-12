@@ -59,10 +59,12 @@ export default function Home() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 18 }}
         >
-          <div className="home-dice-emoji">🎲</div>
-          <h1 className="home-title">
-            LUDO<span className="home-title-accent">PARTY</span>
-          </h1>
+          <img
+            className="home-logo-img"
+            src="/logo.webp"
+            alt="LudoPata'S"
+            draggable={false}
+          />
           <p className="home-tagline">{t('tagline')}</p>
         </motion.div>
 
@@ -175,24 +177,20 @@ export default function Home() {
         .home-logo {
           text-align: center;
         }
-        .home-dice-emoji {
-          font-size: 3.2rem;
-          animation: float 3s ease-in-out infinite;
-          filter: drop-shadow(0 6px 10px rgba(18, 8, 60, 0.4));
-        }
-        .home-title {
-          font-family: var(--font-display);
-          font-size: clamp(2.6rem, 12vw, 3.6rem);
-          font-weight: 800;
-          letter-spacing: 1px;
-          line-height: 1;
-          color: #fff;
-          text-shadow:
-            0 3px 0 rgba(40, 20, 120, 0.9),
-            0 8px 20px rgba(18, 8, 60, 0.5);
-        }
-        .home-title-accent {
-          color: #ffd65a;
+        .home-logo-img {
+          width: clamp(170px, 46vw, 230px);
+          aspect-ratio: 1;
+          display: block;
+          margin: 0 auto;
+          border-radius: 26px;
+          border: 3px solid rgba(255, 214, 90, 0.65);
+          box-shadow:
+            0 14px 30px rgba(18, 8, 60, 0.55),
+            0 4px 10px rgba(18, 8, 60, 0.4),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+          animation: float 3.4s ease-in-out infinite;
+          user-select: none;
+          -webkit-user-drag: none;
         }
         .home-tagline {
           margin-top: 8px;

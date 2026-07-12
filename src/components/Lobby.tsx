@@ -87,10 +87,10 @@ export default function Lobby() {
   const handleShareRoom = useCallback(async () => {
     if (!roomCode) return;
     const url = `${window.location.origin}/?room=${roomCode}`;
-    const text = `🎲 ¡Únete a mi partida de Ludo Party! Código: ${roomCode}`;
+    const text = `🎲 ¡Únete a mi partida de LudoPata'S! Código: ${roomCode}`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Ludo Party 🎲', text, url });
+        await navigator.share({ title: "LudoPata'S 🎲", text, url });
         return;
       } catch {
         /* user dismissed the sheet — fall through to copy */
