@@ -66,18 +66,15 @@ export default function Home() {
           />
         </motion.div>
 
-        {/* Brand wordmark + tagline */}
-        <motion.div
-          className="home-brand-block"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, type: 'spring', stiffness: 260, damping: 20 }}
+        {/* Tagline */}
+        <motion.p
+          className="home-tagline"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
         >
-          <h1 className="home-brand">
-            Ludo<span className="home-brand-accent">Pata&#39;S</span>
-          </h1>
-          <p className="home-tagline">{t('tagline')}</p>
-        </motion.div>
+          {t('tagline')}
+        </motion.p>
 
         {/* Online error (e.g. host closed the room) */}
         {onlineError && (
@@ -189,23 +186,6 @@ export default function Home() {
           font-size: 0.95rem;
           color: var(--color-text-secondary);
           font-weight: 700;
-        }
-        .home-brand-block {
-          text-align: center;
-        }
-        .home-brand {
-          font-family: var(--font-display);
-          font-size: clamp(2.2rem, 10vw, 3rem);
-          font-weight: 800;
-          letter-spacing: 0.5px;
-          line-height: 1;
-          color: #fff;
-          text-shadow:
-            0 3px 0 rgba(40, 20, 120, 0.9),
-            0 8px 20px rgba(18, 8, 60, 0.5);
-        }
-        .home-brand-accent {
-          color: #ffd65a;
         }
         .home-online-error {
           font-size: 0.85rem;
