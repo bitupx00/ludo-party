@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Color, Player, CaptureEffect, GameMessage, GameMode } from '../game/types';
-import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER, ONLINE_SEAT_ORDER } from '../game/types';
+import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER, ONLINE_SEAT_ORDER, HOME_STRETCH_ENTRY, TEAMMATE } from '../game/types';
 import {
   rollDice,
   rollLuckyDice,
@@ -28,6 +28,7 @@ import {
 } from '../online/onlineManager';
 import { startAvSession, stopAvSession } from '../online/avManager';
 import { ensureProfile } from '../profile';
+import { pickFromPool, memeSoundById, type MemeEventKind } from '../game/memeSounds';
 import { playSfx, vibrate } from '../sound';
 import {
   NO_MOVE_MESSAGES,
@@ -63,6 +64,7 @@ export const SNAPSHOT_KEYS = [
   'gameMode',
   'rollSeq',
   'reactions',
+  'memeFx',
 ] as const;
 
 export type GameSnapshot = Pick<GameStore, (typeof SNAPSHOT_KEYS)[number]>;
@@ -87,6 +89,9 @@ interface GameStore {
   rollSeq: number;
   /** Latest quick reaction per player id (bubble next to avatar). */
   reactions: Record<string, Reaction>;
+  /** Latest game-event meme sound (host-picked, max 1 per 2 turns).
+   *  Plays on every client; pos/color anchor the piece speech bubble. */
+  memeFx: { key: number; soundId: string; text: string; pos: number; color: Color } | null;
 
   // Online multiplayer
   onlineRole: OnlineRole;
@@ -172,6 +177,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameMode: 'solo',
   rollSeq: 0,
   reactions: {},
+  memeFx: null,
   onlineRole: 'none',
   roomCode: null,
   localPlayerId: null,
@@ -219,6 +225,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameMode: mode,
       teamsMode: mode === 'teams',
       reactions: {},
+      memeFx: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -236,6 +243,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...createInitialState(),
       screen: 'home',
       reactions: {},
+      memeFx: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -431,6 +439,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...createInitialState(),
       screen: 'home',
       reactions: {},
+      memeFx: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -558,6 +567,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       (a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color),
     );
 
+    resetMemeCadence();
     set({
       players: ordered,
       currentPlayerIndex: 0,
@@ -569,6 +579,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       consecutiveSixes: 0,
       teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       reactions: {},
+      memeFx: null,
       messages: [
         {
           id: createId(),
@@ -581,6 +592,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     // Start bot turns if first player is a bot
+    // Host greeting for the whole room (not subject to the meme cadence)
+    maybeFireMeme(set, get, [{ kind: 'gameStart', pos: -1, color: ordered[0]?.color ?? 'red' }], true);
+
     const state = get();
     if (state.players[state.currentPlayerIndex]?.isBot) {
       scheduleBotTurn(set, get);
@@ -703,6 +717,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...createInitialState(),
       screen: 'home',
       reactions: {},
+      memeFx: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -744,6 +759,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       captureEffects: [],
       reactions: {},
+      memeFx: null,
       messages: [
         {
           id: createId(),
@@ -754,6 +770,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         },
       ],
     });
+
+    resetMemeCadence();
+    maybeFireMeme(set, get, [{ kind: 'gameStart', pos: -1, color: fresh[0]?.color ?? 'red' }], true);
 
     const state = get();
     if (state.players[state.currentPlayerIndex]?.isBot) {
@@ -945,6 +964,67 @@ function doRoll(
   }
 }
 
+/* ─── Meme sound engine (host-authoritative, ≤1 per 2 full turns) ──── */
+
+let lastMemeTurn = -99;
+
+/** Reset the meme cadence at the start of every match. */
+function resetMemeCadence() {
+  lastMemeTurn = -99;
+}
+
+interface MemeCandidate {
+  kind: MemeEventKind;
+  /** Board position anchoring the speech bubble (-1 = sound only). */
+  pos: number;
+  color: Color;
+}
+
+/** Host picks ONE fitting meme (random among the turn's occasions) and
+ *  broadcasts it. Cadence: at most one every 2 full turns, except forced
+ *  events (game start, team win). Guests never fire — they mirror. */
+function maybeFireMeme(
+  set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  get: () => GameStore,
+  candidates: MemeCandidate[],
+  force = false,
+  turnRef?: number,
+) {
+  if (candidates.length === 0) return;
+  const s = get();
+  if (s.onlineRole === 'guest') return;
+  // Cadence is anchored to the turn the move HAPPENED on (turnRef), not
+  // the post-advance counter — bonus rolls would otherwise skew it.
+  const turn = turnRef ?? s.turnCount;
+  if (!force && turn - lastMemeTurn < 2) return;
+  const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  const soundId = pickFromPool(chosen.kind);
+  if (!force) lastMemeTurn = turn;
+  set({
+    memeFx: {
+      key: Date.now() + Math.random(),
+      soundId,
+      text: memeSoundById(soundId)?.name ?? '',
+      pos: chosen.pos,
+      color: chosen.color,
+    },
+  });
+}
+
+/** Successor along a color's route (mirror of the board's step logic). */
+function nextRoutePos(pos: number, color: Color): number {
+  if (pos >= 52) return pos + 1;
+  if (pos === HOME_STRETCH_ENTRY[color]) return 52;
+  return (pos + 1) % 52;
+}
+
+/** Are two seated players enemies (teams-aware)? */
+function areEnemies(a: Player, b: Player, teamsMode: boolean | undefined): boolean {
+  if (a.id === b.id) return false;
+  if (teamsMode && TEAMMATE[a.color] === b.color) return false;
+  return true;
+}
+
 function executeMove(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
   get: () => GameStore,
@@ -963,13 +1043,18 @@ function executeMove(
 
   // Structural event detection (no message sniffing):
   // capture = an opponent piece that was on the board is now back at base
+  const mover = state.players[currentPlayerIndex];
   let captured = false;
+  let victim: Player | null = null;
   for (let i = 0; i < state.players.length; i++) {
     if (i === currentPlayerIndex) continue;
     const before = state.players[i].pieces;
     const after = newState.players[i].pieces;
     for (let j = 0; j < before.length; j++) {
-      if (before[j].position >= 0 && after[j].position === -1) captured = true;
+      if (before[j].position >= 0 && after[j].position === -1) {
+        captured = true;
+        victim = state.players[i];
+      }
     }
   }
   const reachedHome = movedAfter != null && movedAfter.position === 57 && movedBefore.position !== 57;
@@ -978,20 +1063,104 @@ function executeMove(
   if (captured && movedAfter && movedAfter.position >= 0 && movedAfter.position < 52) {
     const pos = getSquarePosition(movedAfter.position);
     newState = addCaptureEffectToState(newState, pos.x, pos.y, 'capture');
+    // Meme-style toast: WHO killed WHOM (rendered by CaptureOverlay)
+    const fx = newState.captureEffects[newState.captureEffects.length - 1];
+    if (fx) fx.label = `💥 ${mover.name} eliminó a ${victim?.name ?? '???'}`;
     playSfx('capture');
     vibrate([40, 30, 70]);
   }
   if (reachedHome && newState.phase !== 'finished') {
     const pos = getSquarePosition(COLOR_CONFIG[state.players[currentPlayerIndex].color].entryIndex);
     newState = addCaptureEffectToState(newState, pos.x, pos.y, 'home');
+    const fx = newState.captureEffects[newState.captureEffects.length - 1];
+    if (fx) fx.label = `🏁 ${mover.name} llegó a la meta`;
     playSfx('home');
   }
+
+  // ── Meme sound occasions for this move (host picks ONE, ≤1/2 turns) ──
+  const memeCands: MemeCandidate[] = [];
+  {
+    const teams = state.teamsMode === true;
+    const from = movedBefore.position;
+    const to = movedAfter?.position ?? -2;
+
+    // Ring squares walked over (excluding the landing square)
+    const passedSquares: number[] = [];
+    if (from >= 0 && to >= 0) {
+      let p = from;
+      for (let guard = 0; guard < 8 && p !== to; guard++) {
+        p = nextRoutePos(p, mover.color);
+        if (p !== to && p < 52) passedSquares.push(p);
+      }
+    }
+    // Enemy pieces that were passed over and survived
+    const passedEnemies: { pos: number; color: Color }[] = [];
+    for (const op of state.players) {
+      if (!areEnemies(mover, op, teams)) continue;
+      for (const pc of op.pieces) {
+        if (pc.position >= 0 && pc.position < 52 && passedSquares.includes(pc.position)) {
+          passedEnemies.push({ pos: pc.position, color: op.color });
+        }
+      }
+    }
+
+    if (captured && victim && movedAfter) {
+      memeCands.push({ kind: 'kill', pos: movedAfter.position, color: mover.color });
+      memeCands.push({ kind: 'death', pos: movedAfter.position, color: victim.color });
+      if (teams) {
+        memeCands.push({ kind: 'allyKill', pos: movedAfter.position, color: mover.color });
+        memeCands.push({ kind: 'allyDeath', pos: movedAfter.position, color: victim.color });
+      }
+    } else if (passedEnemies.length > 0 && movedAfter) {
+      memeCands.push({ kind: 'passMover', pos: movedAfter.position, color: mover.color });
+      memeCands.push({ kind: 'passSurvivor', pos: passedEnemies[0].pos, color: passedEnemies[0].color });
+      if (teams) memeCands.push({ kind: 'allyNoKill', pos: movedAfter.position, color: mover.color });
+      if (diceValue === 6) memeCands.push({ kind: 'escape', pos: movedAfter.position, color: mover.color });
+    }
+
+    if (movedAfter && to >= 0 && to < 52) {
+      // Landed stacking on a piece of my own color
+      const ownStack = newState.players[currentPlayerIndex].pieces
+        .some((pc) => pc.id !== pieceId && pc.position === to);
+      if (ownStack) memeCands.push({ kind: 'ownStack', pos: to, color: mover.color });
+
+      // Landed where enemies remain alive (safe square or wall — no kill)
+      if (!captured) {
+        const enemiesHere = newState.players.some((op) =>
+          areEnemies(mover, op, teams) && op.pieces.some((pc) => pc.position === to));
+        if (enemiesHere) memeCands.push({ kind: 'block', pos: to, color: mover.color });
+      }
+
+      // Landed exactly on a seated enemy's entry square
+      const entryOwner = newState.players.find((op) =>
+        areEnemies(mover, op, teams) && COLOR_CONFIG[op.color].entryIndex === to);
+      if (entryOwner) memeCands.push({ kind: 'enemyEntry', pos: to, color: mover.color });
+
+      // An enemy piece sits within 3 ring squares BEHIND my landing square
+      const enemyNear = newState.players.some((op) =>
+        areEnemies(mover, op, teams) && op.pieces.some((pc) => {
+          if (pc.position < 0 || pc.position >= 52) return false;
+          const d = (to - pc.position + 52) % 52;
+          return d >= 1 && d <= 3;
+        }));
+      if (enemyNear) memeCands.push({ kind: 'enemyNear', pos: to, color: mover.color });
+    }
+
+    if (reachedHome && movedAfter) memeCands.push({ kind: 'goal', pos: 57, color: mover.color });
+    if (movedAfter && from < 52 && to >= 52 && to < 57) {
+      memeCands.push({ kind: 'homeLane', pos: to, color: mover.color });
+    }
+  }
+  // NOTE: fired AFTER the state sets below — newState/advanced were cloned
+  // from a pre-meme snapshot and would clobber memeFx back to null.
 
   // Check for win
   if (newState.phase === 'finished' && newState.winner) {
     const winnerPlayer = newState.players.find((p) => p.color === newState.winner);
     const winPos = getSquarePosition(COLOR_CONFIG[newState.winner as Color].entryIndex);
     newState = addCaptureEffectToState(newState, winPos.x, winPos.y, 'win');
+    const winFx = newState.captureEffects[newState.captureEffects.length - 1];
+    if (winFx) winFx.label = `🏆 ¡${winnerPlayer?.name ?? ''} GANA la partida!`;
     set({
       ...newState,
       messages: pushMessage(newState.messages, {
@@ -1002,6 +1171,9 @@ function executeMove(
           kind: 'system',
         }),
     });
+    if (state.teamsMode === true) {
+      maybeFireMeme(set, get, [{ kind: 'teamWin', pos: -1, color: newState.winner as Color }], true);
+    }
     return;
   }
 
@@ -1021,6 +1193,7 @@ function executeMove(
     };
   }
   set(advanced);
+  maybeFireMeme(set, get, memeCands, false, state.turnCount);
 
   // Schedule bot turn if next player is a bot
   scheduleBotTurn(set, get);

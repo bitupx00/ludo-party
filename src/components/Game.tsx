@@ -15,6 +15,7 @@ import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useSoundStore, playSfx } from '../sound.ts';
 import { QUICK_GIFS, GIF_PREFIX } from '../game/gifs.ts';
+import { playMemeSound } from '../game/memeSounds.ts';
 import GifSticker from './GifSticker.tsx';
 import { useT } from '../i18n.ts';
 
@@ -141,6 +142,14 @@ export default function Game() {
       setUnreadCount(0);
     }
   }, [chatMessageCount, chatOpen]);
+
+  // Game-event meme sounds: the host picks one (≤1 per 2 turns) and every
+  // client plays it when the broadcast key changes.
+  const memeFx = useGameStore((s) => s.memeFx);
+  useEffect(() => {
+    if (memeFx) playMemeSound(memeFx.soundId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memeFx?.key]);
 
   const handlePieceClick = useCallback((pieceId: string) => {
     if (phase === 'moving') {

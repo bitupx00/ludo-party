@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import type { Piece as PieceType, Player, Color } from '../game/types.ts';
 import { HOME_STRETCH_ENTRY, PLAYER_CONFIG } from '../game/types.ts';
@@ -12,6 +12,7 @@ import {
   centerSideColors,
 } from '../game/boardRotation.ts';
 import Piece, { STEP_DURATION } from './Piece.tsx';
+import { useGameStore } from '../store/gameStore.ts';
 import './Board.css';
 
 interface BoardProps {
@@ -72,6 +73,18 @@ const CAPTURE_RELEASE_BUFFER_MS = 90;
 export default function Board({ pieces, currentPlayer, onPieceClick, perspective }: BoardProps) {
   const k = ROTATION_FOR_COLOR[perspective];
   const rot = (x: number, y: number) => rotateCell(x, y, k);
+
+  // Meme speech bubble: shows the sound's name as a comment "spoken" by
+  // the piece on the anchoring square (rotates with the perspective).
+  const memeFx = useGameStore((s) => s.memeFx);
+  const [memeVisible, setMemeVisible] = useState(false);
+  useEffect(() => {
+    if (!memeFx || memeFx.pos < 0) return;
+    setMemeVisible(true);
+    const t = setTimeout(() => setMemeVisible(false), 3000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memeFx?.key]);
 
   /** Screen-percent center of a logical position for a given piece. */
   const coordsFor = (position: number, color: Color, pieceId: string): { x: number; y: number } => {
@@ -344,6 +357,16 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
             );
           })}
         </AnimatePresence>
+
+        {/* Meme speech bubble on the piece that "says" the sound */}
+        {memeVisible && memeFx && memeFx.pos >= 0 && (() => {
+          const c = coordsFor(Math.min(memeFx.pos, 57), memeFx.color, 'fx-0');
+          return (
+            <div className="meme-bubble" style={{ left: `${c.x}%`, top: `${c.y}%` }}>
+              🔊 {memeFx.text}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

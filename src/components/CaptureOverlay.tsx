@@ -121,18 +121,15 @@ export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayPro
 
           <EffectParticles type={effectTypeMap[latestEffect.type] ?? 'fire-burst'} />
 
+          {/* Meme-notification toast: says WHO did WHAT to WHOM */}
           <motion.div
-            className="capture-text"
-            initial={{ scale: 0, rotate: -10 }}
-            animate={{ scale: 1, rotate: 0 }}
+            className="capture-toast"
+            initial={{ scale: 0, rotate: -6, y: -14 }}
+            animate={{ scale: 1, rotate: 0, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.1 }}
           >
-            <span className="capture-emojis">
-              {latestEffect.type === 'capture' ? '💥💥💥' : latestEffect.type === 'win' ? '🏆🏆🏆' : '⭐⭐⭐'}
-            </span>
-            <span className="capture-sub">
-              {latestEffect.type === 'capture' ? '💀💀💀' : latestEffect.type === 'win' ? '🎉🎉🎉' : '✨✨✨'}
-            </span>
+            {latestEffect.label
+              ?? (latestEffect.type === 'capture' ? '💥 ¡CAPTURA!' : latestEffect.type === 'win' ? '🏆 ¡VICTORIA!' : '⭐ ¡BIEN!')}
           </motion.div>
         </motion.div>
       )}

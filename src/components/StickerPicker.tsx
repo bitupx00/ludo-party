@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QUICK_PHRASES } from '../game/stickers.ts';
 import { GIFS, GIF_PREFIX } from '../game/gifs.ts';
+import { MEME_SOUNDS, SND_PREFIX } from '../game/memeSounds.ts';
 import GifSticker from './GifSticker.tsx';
 
 interface StickerPickerProps {
@@ -15,7 +16,7 @@ interface StickerPickerProps {
 
 /** Bottom-sheet panel with animated GIF stickers + quick phrases. */
 export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhraseSelect }: StickerPickerProps) {
-  const [activeTab, setActiveTab] = useState<'gifs' | 'frases'>('gifs');
+  const [activeTab, setActiveTab] = useState<'gifs' | 'sonidos' | 'frases'>('gifs');
 
   const handleGifClick = (id: string) => {
     onStickerSelect(`${GIF_PREFIX}${id}`);
@@ -24,6 +25,11 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
 
   const handlePhraseClick = (text: string) => {
     onPhraseSelect(text);
+    onClose();
+  };
+
+  const handleSoundClick = (id: string) => {
+    onStickerSelect(`${SND_PREFIX}${id}`);
     onClose();
   };
 
@@ -54,6 +60,12 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
                 🎬 GIFs
               </button>
               <button
+                className={`sticker-tab ${activeTab === 'sonidos' ? 'sticker-tab--active' : ''}`}
+                onClick={() => setActiveTab('sonidos')}
+              >
+                🔊 Sonidos
+              </button>
+              <button
                 className={`sticker-tab ${activeTab === 'frases' ? 'sticker-tab--active' : ''}`}
                 onClick={() => setActiveTab('frases')}
               >
@@ -62,7 +74,23 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
               <button className="sticker-close" onClick={onClose} aria-label="✕">✕</button>
             </div>
 
-            {activeTab === 'frases' ? (
+            {activeTab === 'sonidos' ? (
+              <div className="sticker-sounds">
+                {MEME_SOUNDS.map((snd, i) => (
+                  <motion.button
+                    key={snd.id}
+                    className="sticker-sound"
+                    onClick={() => handleSoundClick(snd.id)}
+                    whileTap={{ scale: 0.94 }}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.015, 0.4) }}
+                  >
+                    🔊 {snd.name}
+                  </motion.button>
+                ))}
+              </div>
+            ) : activeTab === 'frases' ? (
               <div className="sticker-phrases">
                 {QUICK_PHRASES.map((phrase, i) => (
                   <motion.button
@@ -192,6 +220,32 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
           font-weight: 800;
           letter-spacing: 0.5px;
           color: var(--color-text-secondary);
+        }
+        .sticker-sounds {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 6px;
+          overflow-y: auto;
+          padding-bottom: var(--gap-sm);
+        }
+        .sticker-sound {
+          text-align: left;
+          padding: 9px 12px;
+          border: none;
+          border-radius: var(--radius-lg);
+          background: rgba(255, 255, 255, 0.1);
+          color: var(--color-text);
+          font-family: var(--font-body);
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          transition: background var(--transition-fast);
+        }
+        .sticker-sound:hover {
+          background: rgba(255, 255, 255, 0.18);
         }
         .sticker-phrases {
           display: flex;

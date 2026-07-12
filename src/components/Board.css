@@ -282,3 +282,22 @@
     width: min(88vw, 52dvh, 540px);
   }
 }
+
+/* Meme speech bubble ("spoken" by a piece) */
+.meme-bubble {
+  position: absolute;
+  transform: translate(-50%, -135%);
+  z-index: 40;
+  background: #ffffff;
+  color: #241865;
+  border: 2px solid #241865;
+  border-radius: 14px 14px 14px 3px;
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-size: min(2.9vmin, 13px);
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(18, 8, 60, 0.35);
+  pointer-events: none;
+  animation: scale-pop 0.25s ease-out;
+}

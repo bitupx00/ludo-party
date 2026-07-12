@@ -7,6 +7,7 @@ import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
 import { MiniDice } from './Dice3D.tsx';
 import { isGifReaction, gifIdOf, gifById } from '../game/gifs.ts';
+import { isSoundReaction, soundIdOf, memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import GifSticker from './GifSticker.tsx';
 import { playSfx } from '../sound.ts';
 
@@ -101,6 +102,8 @@ export default function AvatarBadge({
     if (isGifReaction(reaction.emoji)) {
       const gif = gifById(gifIdOf(reaction.emoji));
       if (gif) playSfx(gif.sfx);
+    } else if (isSoundReaction(reaction.emoji)) {
+      playMemeSound(soundIdOf(reaction.emoji));
     }
     const timer = setTimeout(() => setBubbleVisible(false), REACTION_VISIBLE_MS);
     return () => clearTimeout(timer);
@@ -154,7 +157,9 @@ export default function AvatarBadge({
             >
               {isGifReaction(reaction.emoji)
                 ? <GifSticker id={gifIdOf(reaction.emoji)} size={58} />
-                : reaction.emoji}
+                : isSoundReaction(reaction.emoji)
+                  ? <span className="avatar-snd">🔊 {memeSoundById(soundIdOf(reaction.emoji))?.name ?? ''}</span>
+                  : reaction.emoji}
             </motion.div>
           )}
         </AnimatePresence>
@@ -284,6 +289,17 @@ export default function AvatarBadge({
           right: auto;
           left: -12px;
           border-radius: 17px 17px 4px 17px;
+        }
+        .avatar-snd {
+          font-size: 0.68rem;
+          font-weight: 800;
+          font-family: var(--font-display);
+          color: #241865;
+          white-space: nowrap;
+          max-width: 150px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          padding: 0 4px;
         }
         .avatar-reaction-bubble--gif {
           min-width: 70px;

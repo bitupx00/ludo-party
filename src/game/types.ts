@@ -64,6 +64,8 @@ export interface CaptureEffect {
   gifUrl: string;
   timestamp: number;
   type: 'capture' | 'safe' | 'home' | 'win';
+  /** Meme-toast text, e.g. "💥 Ana eliminó a Beto" (who did what to whom). */
+  label?: string;
 }
 
 export const COLORS: Color[] = ['red', 'green', 'yellow', 'blue'];
