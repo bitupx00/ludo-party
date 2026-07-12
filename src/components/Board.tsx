@@ -247,7 +247,19 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
         style={{ gridColumn: r.x + 1, gridRow: r.y + 1 }}
       >
         {arrow && <span className="board-entry-arrow">{arrow}</span>}
-        {safe && !entryColor && <span className="board-safe-star">★</span>}
+        {safe && !entryColor && (
+          /* SVG star that FILLS the cell — points reaching the edges
+             (Ludo Club), white fill with a golden edge. */
+          <svg className="board-safe-star" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 1 L14.7 8.28 L22.46 8.6 L16.37 13.42 L18.47 20.9 L12 16.6 L5.53 20.9 L7.63 13.42 L1.54 8.6 L9.3 8.28 Z"
+              fill="#ffffff"
+              stroke="#e3a812"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
       </div>
     );
   });
