@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore.ts';
 import Board from './Board.tsx';
@@ -14,7 +14,7 @@ import { PLAYER_CONFIG } from '../game/types.ts';
 import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useSoundStore, playSfx } from '../sound.ts';
-import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf } from '../game/gifs.ts';
+import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf, gifById } from '../game/gifs.ts';
 import { isSoundReaction, soundIdOf, memeSoundById } from '../game/memeSounds.ts';
 import { useFavStore } from '../favorites.ts';
 import GifSticker from './GifSticker.tsx';
@@ -167,6 +167,33 @@ export default function Game() {
     sendReaction(payload);
   }, [recordRecent, sendReaction]);
 
+  // Long-press on a quick-bar item shows WHICH sound/gif it is (tooltip)
+  // instead of sending it — release hides it shortly after.
+  const [tipFor, setTipFor] = useState<string | null>(null);
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = useRef(false);
+  const quickLabel = useCallback((payload: string) => {
+    if (isSoundReaction(payload)) return `🔊 ${memeSoundById(soundIdOf(payload))?.name ?? ''}`;
+    if (isGifReaction(payload)) return gifById(gifIdOf(payload))?.label ?? '';
+    return payload;
+  }, []);
+  const quickPressStart = useCallback((payload: string) => {
+    longPressed.current = false;
+    if (tipTimer.current) clearTimeout(tipTimer.current);
+    tipTimer.current = setTimeout(() => {
+      longPressed.current = true;
+      setTipFor(payload);
+    }, 380);
+  }, []);
+  const quickPressEnd = useCallback(() => {
+    if (tipTimer.current) { clearTimeout(tipTimer.current); tipTimer.current = null; }
+    setTimeout(() => setTipFor(null), 1100);
+  }, []);
+  const quickClick = useCallback((payload: string) => {
+    if (longPressed.current) { longPressed.current = false; return; } // long-press = only peek
+    sendQuick(payload);
+  }, [sendQuick]);
+
   const handleStickerSelect = useCallback((emoji: string) => {
     recordRecent(emoji);
     sendReaction(emoji);
@@ -318,14 +345,21 @@ export default function Game() {
               <motion.button
                 key={payload}
                 className="game-reaction-btn"
-                onClick={() => sendQuick(payload)}
+                onClick={() => quickClick(payload)}
+                onPointerDown={() => quickPressStart(payload)}
+                onPointerUp={quickPressEnd}
+                onPointerLeave={quickPressEnd}
+                onContextMenu={(e) => e.preventDefault()}
                 whileTap={{ scale: 0.8 }}
                 aria-label={payload}
-                title={isSoundReaction(payload) ? memeSoundById(soundIdOf(payload))?.name : undefined}
+                title={quickLabel(payload)}
               >
                 {isGifReaction(payload)
                   ? <GifSticker id={gifIdOf(payload)} size={27} />
                   : <span className="game-reaction-snd">🔊</span>}
+                {tipFor === payload && (
+                  <span className="game-reaction-tip">{quickLabel(payload)}</span>
+                )}
               </motion.button>
             ))}
             <motion.button
@@ -573,6 +607,7 @@ export default function Game() {
           gap: 6px;
         }
         .game-reaction-btn {
+          position: relative;
           width: 38px;
           height: 38px;
           border-radius: 50%;
@@ -593,6 +628,25 @@ export default function Game() {
         .game-reaction-snd {
           font-size: 0.95rem;
           line-height: 1;
+        }
+        .game-reaction-tip {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 50%;
+          translate: -50% 0;
+          z-index: 60;
+          background: #ffffff;
+          color: #241865;
+          border: 2px solid #241865;
+          border-radius: 12px;
+          padding: 5px 12px;
+          font-family: var(--font-display);
+          font-size: 0.75rem;
+          font-weight: 800;
+          white-space: nowrap;
+          box-shadow: 0 6px 14px rgba(18, 8, 60, 0.35);
+          pointer-events: none;
+          animation: scale-pop 0.18s ease-out;
         }
         .game-reaction-btn--more {
           color: var(--color-text-secondary);
