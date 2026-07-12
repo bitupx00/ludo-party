@@ -16,14 +16,13 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
   const t = useT();
   const config = PLAYER_CONFIG[winnerColor];
   const players = useGameStore((s) => s.players);
-  const gameMode = useGameStore((s) => s.gameMode);
   const onlineRole = useGameStore((s) => s.onlineRole);
   const playAgain = useGameStore((s) => s.playAgain);
   const goHome = useGameStore((s) => s.goHome);
   const canRestart = onlineRole !== 'guest';
 
   const localPlayerId = useGameStore((s) => s.localPlayerId);
-  const isTeams = gameMode === 'teams';
+  const isTeams = useGameStore.getState().teamsMode === true;
   const teammateColor = TEAMMATE[winnerColor];
   const winnerPlayer = players.find((p) => p.color === winnerColor);
   const teammatePlayer = players.find((p) => p.color === teammateColor);

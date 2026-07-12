@@ -27,6 +27,8 @@ export default function Lobby() {
   const [storedTicket] = useState(getStoredTicket);
   const players = useGameStore((s) => s.players);
   const gameMode = useGameStore((s) => s.gameMode);
+  const teamsMode = useGameStore((s) => s.teamsMode);
+  const setTeamsMode = useGameStore((s) => s.setTeamsMode);
   const onlineRole = useGameStore((s) => s.onlineRole);
   const roomCode = useGameStore((s) => s.roomCode);
   const localPlayerId = useGameStore((s) => s.localPlayerId);
@@ -52,10 +54,14 @@ export default function Lobby() {
   // modes → the last human added moves (pick right after adding).
   const canPickSeat = isOnline ? onlineRole !== 'none' && !!localPlayerId : humans.length >= 1;
 
+  // 2v2 team play — local mode or the online toggle — is HUMANS ONLY.
+  const isTeamsGame = gameMode === 'teams' || (isOnline && teamsMode === true);
+
   const canAddHuman = !isOnline && nameInput.trim().length > 0 && players.length < 4
     && !(gameMode === 'solo' && humans.length >= 1);
   const canStart = !isGuest && (
-    gameMode === 'local' ? players.length >= 2
+    isTeamsGame ? humans.length >= 4
+      : gameMode === 'local' ? players.length >= 2
       : gameMode === 'online' ? humans.length >= 2
       : humans.length >= 1
   );
@@ -107,11 +113,15 @@ export default function Lobby() {
 
   const hint = isGuest
     ? t('waitingHost')
-    : isOnline
-      ? (humans.length < 2 ? t('needTwo') : t('waitingPlayers'))
-      : !canStart
-        ? (gameMode === 'local' && players.length < 2 && humans.length >= 1 ? t('needTwo') : t('needName'))
-        : t('botsWillFill');
+    : isTeamsGame && humans.length < 4
+      ? t('needFourTeams')
+      : isOnline
+        ? (humans.length < 2 ? t('needTwo') : t('waitingPlayers'))
+        : !canStart
+          ? (gameMode === 'local' && players.length < 2 && humans.length >= 1 ? t('needTwo') : t('needName'))
+          : gameMode === 'teams'
+            ? t('needFourTeams')
+            : t('botsWillFill');
 
   return (
     <div className="screen lobby">
@@ -218,6 +228,17 @@ export default function Lobby() {
           </motion.div>
         )}
 
+        {/* Online 2v2 toggle: host flips it, guests see it mirrored */}
+        {isOnline && onlineRole !== 'none' && (
+          <button
+            className={`lobby-teams-toggle ${teamsMode ? 'lobby-teams-toggle--on' : ''}`}
+            onClick={() => setTeamsMode(!teamsMode)}
+            disabled={isGuest}
+          >
+            🤝 {t('modeTeams')} · {teamsMode ? 'ON' : 'OFF'}
+          </button>
+        )}
+
         {/* Name input (local modes) */}
         {!isOnline && (
         <motion.div
@@ -247,8 +268,8 @@ export default function Lobby() {
 
         {/* Seats */}
         {!onlineSetup && (
-        <div className={`lobby-seats ${gameMode === 'teams' ? 'lobby-seats--teams' : ''}`}>
-          {gameMode === 'teams' && (
+        <div className={`lobby-seats ${isTeamsGame ? 'lobby-seats--teams' : ''}`}>
+          {isTeamsGame && (
             <div className="lobby-team-labels">
               <span className="lobby-team-label" style={{ color: 'var(--color-red-light)' }}>
                 🔥 {t('teamA')}
@@ -261,7 +282,7 @@ export default function Lobby() {
           <div className="lobby-seat-grid">
             {COLORS.map((color) => {
               const seated = playersByColor.get(color);
-              const willBeBot = !seated && !isOnline;
+              const willBeBot = !seated && !isOnline && gameMode !== 'teams';
               const isNextFree = color === nextFreeColor;
 
               return (
@@ -334,7 +355,7 @@ export default function Lobby() {
                           👇 {t('sitHere')}
                         </button>
                       )}
-                      {isNextFree && gameMode !== 'solo' && !isOnline && !isGuest && (
+                      {isNextFree && gameMode !== 'solo' && gameMode !== 'teams' && !isOnline && !isGuest && (
                         <button
                           className="lobby-seat-add-bot"
                           onClick={addBotPlayer}
@@ -345,7 +366,7 @@ export default function Lobby() {
                       )}
                     </span>
                   )}
-                  {gameMode === 'teams' && (
+                  {isTeamsGame && (
                     <span
                       className="lobby-seat-team-dot"
                       style={{
@@ -364,7 +385,7 @@ export default function Lobby() {
         </div>
         )}
 
-        {gameMode === 'teams' && (
+        {isTeamsGame && (
           <p className="lobby-teams-note">
             {PLAYER_CONFIG.red.emoji}+{PLAYER_CONFIG.yellow.emoji} vs {PLAYER_CONFIG.green.emoji}+{PLAYER_CONFIG.blue.emoji} · 2v2
           </p>
@@ -666,6 +687,28 @@ export default function Lobby() {
           border-radius: var(--radius-full);
           border: 2px solid rgba(255, 255, 255, 0.6);
           line-height: 1.2;
+        }
+        .lobby-teams-toggle {
+          width: 100%;
+          padding: 10px 16px;
+          border-radius: var(--radius-lg);
+          border: 2px solid rgba(255, 255, 255, 0.25);
+          background: rgba(255, 255, 255, 0.1);
+          color: var(--color-text-secondary);
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+        .lobby-teams-toggle--on {
+          border-color: rgba(38, 193, 101, 0.7);
+          background: rgba(38, 193, 101, 0.18);
+          color: var(--color-text);
+        }
+        .lobby-teams-toggle:disabled {
+          cursor: default;
+          opacity: 0.85;
         }
         .lobby-teams-note {
           text-align: center;

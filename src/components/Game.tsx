@@ -27,7 +27,7 @@ export default function Game() {
   const rollSeq = useGameStore((s) => s.rollSeq);
   const winner = useGameStore((s) => s.winner);
   const consecutiveSixes = useGameStore((s) => s.consecutiveSixes);
-  const gameMode = useGameStore((s) => s.gameMode);
+  const teamsMode = useGameStore((s) => s.teamsMode);
   const captureEffects = useGameStore((s) => s.captureEffects);
   const messages = useGameStore((s) => s.messages);
   const reactions = useGameStore((s) => s.reactions);
@@ -172,7 +172,7 @@ export default function Game() {
         finishedCount={finished}
         reaction={reactions[player.id]}
         align={align}
-        showTeamBadge={gameMode === 'teams'}
+        showTeamBadge={teamsMode === true}
         diceValue={showTurnDice ? (phase === 'moving' ? diceValue : null) : undefined}
         diceRolling={showTurnDice && phase === 'rolling'}
       />

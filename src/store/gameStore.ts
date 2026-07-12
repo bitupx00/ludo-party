@@ -133,6 +133,9 @@ interface GameStore {
    *  device's own player (guests go through the host); local modes: moves
    *  the most recently added human. */
   changeSeat: (color: Color) => void;
+  /** Host (online lobby): toggle 2v2 team play for the room. Requires 4
+   *  human players to start; syncs to guests via the snapshot. */
+  setTeamsMode: (on: boolean) => void;
   startGame: () => void;
 
   // Gameplay
@@ -521,6 +524,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ players: players.map((p) => (p.id === target.id ? { ...p, color } : p)) });
   },
 
+  setTeamsMode: (on: boolean) => {
+    const { screen, gameMode, onlineRole } = get();
+    if (screen !== 'lobby' || gameMode !== 'online') return;
+    if (onlineRole !== 'host') return; // guests just mirror the snapshot
+    set({ teamsMode: on });
+  },
+
   startGame: () => {
     const { players, gameMode, onlineRole } = get();
     const humans = players.filter((p) => !p.isBot);
@@ -528,14 +538,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Online: only the host starts the game
     if (onlineRole === 'guest') return;
 
-    // Solo/teams: 1 human is enough (bots fill the rest). Local: need 2+ players.
+    // Solo: 1 human is enough (bots fill the rest). Local: need 2+ players.
     // Online: always human-only — needs 2+ real players, remaining seats stay empty.
+    // Teams 2v2 (local mode or online toggle): HUMANS ONLY, all 4 seats.
+    const isTeamsGame = gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true);
+    if (isTeamsGame && humans.length < 4) return;
     if (gameMode === 'local' && players.length < 2) return;
     if (gameMode === 'online' && humans.length < 2) return;
     if (gameMode !== 'local' && gameMode !== 'online' && humans.length < 1) return;
 
     const allPlayers = [...players];
-    if (gameMode !== 'online' && allPlayers.length < 4) {
+    if (gameMode !== 'online' && gameMode !== 'teams' && allPlayers.length < 4) {
       allPlayers.push(...createBotPlayers(allPlayers));
     }
 
@@ -554,7 +567,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       winner: null,
       turnCount: 1,
       consecutiveSixes: 0,
-      teamsMode: gameMode === 'teams',
+      teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       reactions: {},
       messages: [
         {
@@ -728,7 +741,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       winner: null,
       turnCount: 1,
       consecutiveSixes: 0,
-      teamsMode: gameMode === 'teams',
+      teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       captureEffects: [],
       reactions: {},
       messages: [
