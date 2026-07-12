@@ -74,22 +74,13 @@
   justify-content: center;
 }
 
-.board-square--entry {
-  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
-}
-/* Flat, saturated color cells (no gradients) — Ludo Club look */
-.board-square--red    { background: var(--color-red); }
-.board-square--green  { background: var(--color-green); }
-.board-square--yellow { background: var(--color-yellow); }
-.board-square--blue   { background: var(--color-blue); }
-
-.board-entry-arrow {
-  color: rgba(255, 255, 255, 0.95);
-  font-size: min(3.4vmin, 18px);
+/* Colored chevron at each arm tip pointing into its home lane (Ludo King) */
+.board-tip-chevron {
+  font-size: min(4.6vmin, 26px);
   font-weight: 900;
   line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 
 .board-safe-star {
@@ -97,6 +88,12 @@
   font-size: min(3.4vmin, 19px);
   line-height: 1;
   pointer-events: none;
+}
+
+/* Start squares: white cell + the owner's colored star (Ludo King) */
+.board-safe-star--colored {
+  font-size: min(3.8vmin, 21px);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
 }
 
 /* ── Home stretch (colored lanes to the center) ─────────────────── */
@@ -125,13 +122,6 @@
   inset: 0;
   width: 100%;
   height: 100%;
-}
-
-.board-center-trophy {
-  position: relative;
-  font-size: min(4.6vmin, 26px);
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
-  animation: float 3s ease-in-out infinite;
 }
 
 /* ── Pieces overlay ─────────────────────────────────────────────── */
@@ -261,8 +251,7 @@
 @media (prefers-reduced-motion: reduce) {
   .piece--movable::before,
   .piece--movable .piece-svg,
-  .piece--traveling .piece-svg,
-  .board-center-trophy {
+  .piece--traveling .piece-svg {
     animation: none;
   }
 }

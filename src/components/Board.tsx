@@ -25,14 +25,15 @@ interface BoardProps {
 const COLORS_ORDER = ['red', 'green', 'yellow', 'blue'] as const;
 
 /** Entry square index per color (matches boardPath.ts / gameEngine). */
-const ENTRY_SQUARES: Record<Color, number> = { red: 0, blue: 13, yellow: 26, green: 39 };
+const ENTRY_SQUARES: Record<Color, number> = { blue: 0, red: 13, green: 26, yellow: 39 };
 
-/** Waiting slots inside each base, in UNROTATED grid units. */
+/** Waiting slots inside each base, in UNROTATED grid units.
+ *  Ludo King corners: blue TL, red TR, yellow BL, green BR. */
 const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {
-  red:    [{ x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 }, { x: 1.5, y: 3.5 }, { x: 3.5, y: 3.5 }],
-  blue:   [{ x: 10.5, y: 1.5 }, { x: 12.5, y: 1.5 }, { x: 10.5, y: 3.5 }, { x: 12.5, y: 3.5 }],
-  green:  [{ x: 1.5, y: 10.5 }, { x: 3.5, y: 10.5 }, { x: 1.5, y: 12.5 }, { x: 3.5, y: 12.5 }],
-  yellow: [{ x: 10.5, y: 10.5 }, { x: 12.5, y: 10.5 }, { x: 10.5, y: 12.5 }, { x: 12.5, y: 12.5 }],
+  blue:   [{ x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 }, { x: 1.5, y: 3.5 }, { x: 3.5, y: 3.5 }],
+  red:    [{ x: 10.5, y: 1.5 }, { x: 12.5, y: 1.5 }, { x: 10.5, y: 3.5 }, { x: 12.5, y: 3.5 }],
+  yellow: [{ x: 1.5, y: 10.5 }, { x: 3.5, y: 10.5 }, { x: 1.5, y: 12.5 }, { x: 3.5, y: 12.5 }],
+  green:  [{ x: 10.5, y: 10.5 }, { x: 12.5, y: 10.5 }, { x: 10.5, y: 12.5 }, { x: 12.5, y: 12.5 }],
 };
 
 // Stacking offsets (px) for overlapping pieces (up to 4)
@@ -205,20 +206,27 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
   };
 
   // ── Static cells ──────────────────────────────────────────────────
+  // Ludo King look: start squares are WHITE with a COLORED star; the arm-tip
+  // cell before each home lane shows a colored chevron pointing into the lane.
+  const CHEVRON: Record<string, string> = { '→': '❯', '←': '❮', '↓': '⌄', '↑': '⌃' };
+
   const pathCells = PATH_CELLS.map((pos, pathIndex) => {
     const entryColor = (Object.entries(ENTRY_SQUARES) as [Color, number][])
+      .find(([, sq]) => sq === pathIndex)?.[0];
+    const tipColor = (Object.entries(HOME_STRETCH_ENTRY) as [Color, number][])
       .find(([, sq]) => sq === pathIndex)?.[0];
     const safe = isSafeSquare(pathIndex);
     const r = rot(pos.col, pos.row);
 
     let className = 'board-square';
-    if (entryColor) className += ` board-square--entry board-square--${entryColor}`;
-    if (safe && !entryColor) className += ' board-square--safe';
+    if (entryColor) className += ' board-square--start';
+    else if (safe) className += ' board-square--safe';
 
-    let arrow: string | null = null;
-    if (entryColor) {
-      const next = PATH_CELLS[(pathIndex + 1) % 52];
-      arrow = arrowFor(r, rot(next.col, next.row));
+    let chevron: string | null = null;
+    if (tipColor) {
+      const hs0 = getHomeStretchGridCoord(tipColor, 0);
+      const dir = arrowFor(r, rot(hs0.col, hs0.row));
+      chevron = CHEVRON[dir] ?? dir;
     }
 
     return (
@@ -227,8 +235,17 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
         className={className}
         style={{ gridColumn: r.x + 1, gridRow: r.y + 1 }}
       >
-        {arrow && <span className="board-entry-arrow">{arrow}</span>}
-        {safe && !entryColor && <span className="board-safe-star">★</span>}
+        {chevron && (
+          <span className="board-tip-chevron" style={{ color: PLAYER_CONFIG[tipColor!].cssColor }}>
+            {chevron}
+          </span>
+        )}
+        {entryColor && (
+          <span className="board-safe-star board-safe-star--colored" style={{ color: PLAYER_CONFIG[entryColor].cssColor }}>
+            ★
+          </span>
+        )}
+        {safe && !entryColor && !tipColor && <span className="board-safe-star">★</span>}
       </div>
     );
   });
@@ -315,7 +332,6 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
             <polygon points="0,30 30,30 15,15" fill={PLAYER_CONFIG[bottomC].cssColor} stroke="#fff" strokeWidth="0.8" />
             <polygon points="0,0 0,30 15,15" fill={PLAYER_CONFIG[leftC].cssColor} stroke="#fff" strokeWidth="0.8" />
           </svg>
-          <span className="board-center-trophy">🏆</span>
         </div>
       </div>
 

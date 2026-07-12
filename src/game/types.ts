@@ -80,7 +80,7 @@ export const COLOR_CONFIG: Record<Color, {
   displayName: string;
 }> = {
   red: {
-    entryIndex: 0,
+    entryIndex: 13,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -89,7 +89,7 @@ export const COLOR_CONFIG: Record<Color, {
     displayName: 'Rojo',
   },
   green: {
-    entryIndex: 39,
+    entryIndex: 26,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -98,7 +98,7 @@ export const COLOR_CONFIG: Record<Color, {
     displayName: 'Verde',
   },
   yellow: {
-    entryIndex: 26,
+    entryIndex: 39,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -107,7 +107,7 @@ export const COLOR_CONFIG: Record<Color, {
     displayName: 'Amarillo',
   },
   blue: {
-    entryIndex: 13,
+    entryIndex: 0,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -118,17 +118,17 @@ export const COLOR_CONFIG: Record<Color, {
 };
 
 /** Last board square (0-51) from which rolling 1+ enters the home stretch.
- *  Ludo Club convention: each color travels 50 ring squares from its entry
+ *  Ludo King convention: each color travels 50 ring squares from its entry
  *  and turns into its own arm's center lane at the arm tip.
- *  Red (entry=0): HS_entry = 50 — left tip (0,7)
- *  Blue (entry=13): HS_entry = 11 — top tip (7,0)
- *  Yellow (entry=26): HS_entry = 24 — right tip (14,7)
- *  Green (entry=39): HS_entry = 37 — bottom tip (7,14) */
+ *  Blue (entry=0, base TL): HS_entry = 50 — left tip (0,7)
+ *  Red (entry=13, base TR): HS_entry = 11 — top tip (7,0)
+ *  Green (entry=26, base BR): HS_entry = 24 — right tip (14,7)
+ *  Yellow (entry=39, base BL): HS_entry = 37 — bottom tip (7,14) */
 export const HOME_STRETCH_ENTRY: Record<Color, number> = {
-  red: 50,
-  green: 37,
-  yellow: 24,
-  blue: 11,
+  red: 11,
+  green: 24,
+  yellow: 37,
+  blue: 50,
 };
 
 export const AVATAR_EMOJIS = [
