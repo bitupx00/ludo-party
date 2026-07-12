@@ -30,7 +30,8 @@
   width: 40%;
   height: 40%;
   z-index: 1;
-  padding: 7%;
+  /* Ludo Club: generous colored margin around a smaller centered white pad */
+  padding: 11.5%;
 }
 
 .home-base-pad {
@@ -38,8 +39,8 @@
   width: 100%;
   height: 100%;
   background: #ffffff;
-  border-radius: 14%;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.12);
+  border-radius: 18%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 
 .home-base-slot {
@@ -74,32 +75,45 @@
   justify-content: center;
 }
 
-.board-square--entry {
-  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
-}
-/* Flat, saturated color cells (no gradients) — Ludo Club look */
-.board-square--red    { background: var(--color-red); }
-.board-square--green  { background: var(--color-green); }
-.board-square--yellow { background: var(--color-yellow); }
-.board-square--blue   { background: var(--color-blue); }
-
+/* Ludo Club: bold COLORED chevron on a white cell at each arm tip,
+   pointing into that color's home lane */
 .board-entry-arrow {
-  color: rgba(255, 255, 255, 0.95);
-  font-size: min(3.4vmin, 18px);
-  font-weight: 900;
-  line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 74%;
+  height: 74%;
   pointer-events: none;
 }
 
+.board-chevron-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.board-entry-arrow--red    { color: var(--color-red); }
+.board-entry-arrow--blue   { color: var(--color-blue); }
+.board-entry-arrow--yellow { color: var(--color-yellow); }
+.board-entry-arrow--green  { color: var(--color-green); }
+
+/* Chunky solid stars (SVG) — gray on regular safe cells */
 .board-safe-star {
-  color: #c3cad4;
-  font-size: min(3.4vmin, 19px);
-  line-height: 1;
+  color: #b9c1cc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 78%;
+  height: 78%;
   pointer-events: none;
 }
 
-/* Ludo Club: the star 8 squares past each entry is tinted that color */
+.board-star-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Ludo Club: each color's ENTRY square shows a star in that color */
 .board-safe-star--red    { color: var(--color-red); }
 .board-safe-star--blue   { color: var(--color-blue); }
 .board-safe-star--yellow { color: var(--color-yellow); }

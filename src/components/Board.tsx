@@ -24,12 +24,13 @@ interface BoardProps {
 
 const COLORS_ORDER = ['red', 'green', 'yellow', 'blue'] as const;
 
-/** Entry square index per color (matches boardPath.ts / gameEngine). */
-const ENTRY_SQUARES: Record<Color, number> = { red: 0, blue: 13, yellow: 26, green: 39 };
+/** Ludo Club: each color's ENTRY square is a white cell with a COLORED star
+ *  (the other safe squares get a neutral gray star). */
+const ENTRY_STAR_COLOR: Record<number, Color> = { 0: 'red', 13: 'blue', 26: 'yellow', 39: 'green' };
 
-/** Ludo Club: the safe star 8 squares past each entry is tinted with that
- *  entry's color (the remaining stars stay neutral gray). */
-const COLORED_STAR_SQUARES: Record<number, Color> = { 8: 'red', 21: 'blue', 34: 'yellow', 47: 'green' };
+/** Ludo Club: the main-path square at each arm's tip (the home-lane entrance)
+ *  shows a bold COLORED chevron pointing into that color's home lane. */
+const LANE_ENTRANCE_SQUARES: Record<number, Color> = { 50: 'red', 11: 'blue', 24: 'yellow', 37: 'green' };
 
 /** Waiting slots inside each base, in UNROTATED grid units. */
 const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {
@@ -210,19 +211,19 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
 
   // ── Static cells ──────────────────────────────────────────────────
   const pathCells = PATH_CELLS.map((pos, pathIndex) => {
-    const entryColor = (Object.entries(ENTRY_SQUARES) as [Color, number][])
-      .find(([, sq]) => sq === pathIndex)?.[0];
     const safe = isSafeSquare(pathIndex);
+    const entryStar = ENTRY_STAR_COLOR[pathIndex];
+    const laneColor = LANE_ENTRANCE_SQUARES[pathIndex];
     const r = rot(pos.col, pos.row);
 
     let className = 'board-square';
-    if (entryColor) className += ` board-square--entry board-square--${entryColor}`;
-    if (safe && !entryColor) className += ' board-square--safe';
+    if (safe) className += ' board-square--safe';
 
+    // Colored chevron at each arm tip pointing into that color's home lane
     let arrow: string | null = null;
-    if (entryColor) {
-      const next = PATH_CELLS[(pathIndex + 1) % 52];
-      arrow = arrowFor(r, rot(next.col, next.row));
+    if (laneColor) {
+      const hs0 = getHomeStretchGridCoord(laneColor, 0);
+      arrow = arrowFor(r, rot(hs0.col, hs0.row));
     }
 
     return (
@@ -231,15 +232,35 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
         className={className}
         style={{ gridColumn: r.x + 1, gridRow: r.y + 1 }}
       >
-        {arrow && <span className="board-entry-arrow">{arrow}</span>}
-        {safe && !entryColor && (
+        {laneColor && arrow && (
           <span
-            className={[
-              'board-safe-star',
-              COLORED_STAR_SQUARES[pathIndex] && `board-safe-star--${COLORED_STAR_SQUARES[pathIndex]}`,
-            ].filter(Boolean).join(' ')}
+            className={`board-entry-arrow board-entry-arrow--${laneColor}`}
+            style={{ rotate: { '→': '0deg', '↓': '90deg', '←': '180deg', '↑': '270deg' }[arrow] }}
           >
-            ★
+            {/* Chunky rounded chevron (Ludo Club), pointing right pre-rotation */}
+            <svg viewBox="0 0 24 24" className="board-chevron-svg" aria-hidden="true">
+              <path
+                d="M8 4.5L16 12L8 19.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        )}
+        {safe && (
+          <span className={`board-safe-star${entryStar ? ` board-safe-star--${entryStar}` : ''}`}>
+            <svg viewBox="0 0 24 24" className="board-star-svg" aria-hidden="true">
+              <path
+                d="M12 1.8l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.6l-6.2 3.3L7 14 2 9.1l6.9-1z"
+                fill="currentColor"
+                stroke="rgba(255,255,255,0.9)"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+              />
+            </svg>
           </span>
         )}
       </div>
@@ -328,7 +349,6 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
             <polygon points="0,30 30,30 15,15" fill={PLAYER_CONFIG[bottomC].cssColor} stroke="#fff" strokeWidth="0.8" />
             <polygon points="0,0 0,30 15,15" fill={PLAYER_CONFIG[leftC].cssColor} stroke="#fff" strokeWidth="0.8" />
           </svg>
-          <span className="board-center-trophy">🏆</span>
         </div>
       </div>
 
