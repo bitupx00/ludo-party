@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Home from './components/Home.tsx';
 import Lobby from './components/Lobby.tsx';
 import Game from './components/Game.tsx';
+import RankingScreen from './components/RankingScreen.tsx';
 import { useGameStore } from './store/gameStore.ts';
 import './index.css';
 
@@ -15,6 +16,7 @@ const SCREENS = {
   home: Home,
   lobby: Lobby,
   game: Game,
+  ranking: RankingScreen,
 } as const;
 
 export default function App() {

@@ -29,7 +29,8 @@ import { loadProfile } from '../profile';
 /* ─── Protocol ────────────────────────────────────────────────────── */
 
 export type GuestAction =
-  | { a: 'roll'; lucky?: number } // lucky = bought lucky-dice number (host validates the cost)
+  | { a: 'roll' }
+  | { a: 'buy'; lucky: number } // arm a lucky dice for the next own roll (host validates cost)
   | { a: 'select'; pieceId: string }
   | { a: 'seat'; color: Color } // lobby color pick (host validates it's free)
   | { a: 'reaction'; emoji: string }

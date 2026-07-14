@@ -17,6 +17,7 @@ export default function Home() {
   const lang = useLangStore((s) => s.lang);
   const toggleLang = useLangStore((s) => s.toggleLang);
   const openLobby = useGameStore((s) => s.openLobby);
+  const openRanking = useGameStore((s) => s.openRanking);
   const onlineError = useGameStore((s) => s.onlineError);
   const [tipIndex, setTipIndex] = useState(0);
 
@@ -48,6 +49,11 @@ export default function Home() {
       {/* Language toggle */}
       <button className="home-lang" onClick={toggleLang} aria-label="Language">
         {lang === 'es' ? '🇪🇸 ES' : '🇬🇧 EN'}
+      </button>
+
+      {/* Local ranking */}
+      <button className="home-rank" onClick={openRanking} aria-label={t('ranking')} title={t('ranking')}>
+        🏆
       </button>
 
       <div className="screen-inner home-inner">
@@ -146,6 +152,20 @@ export default function Home() {
           justify-content: center;
           gap: var(--gap-lg);
           max-width: 440px;
+        }
+        .home-rank {
+          position: absolute;
+          top: calc(60px + env(safe-area-inset-top));
+          right: 14px;
+          width: 44px;
+          height: 40px;
+          border-radius: var(--radius-full);
+          border: 2px solid rgba(255, 214, 90, 0.4);
+          background: rgba(255, 214, 90, 0.12);
+          font-size: 1.05rem;
+          cursor: pointer;
+          z-index: 5;
+          backdrop-filter: blur(8px);
         }
         .home-lang {
           position: absolute;

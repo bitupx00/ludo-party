@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import type { Color, Player, CaptureEffect, GameMessage, GameMode } from '../game/types';
-import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER, ONLINE_SEAT_ORDER } from '../game/types';
+import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER, ONLINE_SEAT_ORDER, HOME_STRETCH_ENTRY } from '../game/types';
 import {
   rollDice,
   rollLuckyDice,
   earnsPoint,
   isBonusRoll,
   LUCKY_DICE_COST,
+  luckyCost,
   getMovablePieces,
   movePiece,
   advanceTurn,
@@ -30,6 +31,8 @@ import { startAvSession, stopAvSession } from '../online/avManager';
 import { ensureProfile } from '../profile';
 import { playSfx } from '../sound';
 import { STEP_DURATION } from '../game/anim';
+import { buildMemeFx, MEME_FIRE_CHANCE, type MemeFx } from '../game/memeFx';
+import type { MemeEventKind } from '../game/memeSounds';
 import {
   NO_MOVE_MESSAGES,
   WIN_MESSAGES,
@@ -39,7 +42,7 @@ import {
   randomPick,
 } from '../game/stickers';
 
-export type Screen = 'home' | 'lobby' | 'game';
+export type Screen = 'home' | 'lobby' | 'game' | 'ranking';
 
 export type OnlineRole = 'none' | 'host' | 'guest';
 
@@ -64,6 +67,7 @@ export const SNAPSHOT_KEYS = [
   'gameMode',
   'rollSeq',
   'reactions',
+  'memeFx',
 ] as const;
 
 export type GameSnapshot = Pick<GameStore, (typeof SNAPSHOT_KEYS)[number]>;
@@ -88,6 +92,9 @@ interface GameStore {
   rollSeq: number;
   /** Latest quick reaction per player id (bubble next to avatar). */
   reactions: Record<string, Reaction>;
+  /** System occasion effect (sound + gif on the piece involved), decided
+   *  host-side with a 40% chance per occasion. Synced to guests. */
+  memeFx: MemeFx | null;
 
   // Online multiplayer
   onlineRole: OnlineRole;
@@ -108,6 +115,8 @@ interface GameStore {
   // Navigation
   openLobby: (mode: GameMode) => void;
   goHome: () => void;
+  /** Open the local ranking screen (from home only). */
+  openRanking: () => void;
 
   // Online multiplayer
   createOnlineRoom: (hostName: string) => Promise<void>;
@@ -141,9 +150,10 @@ interface GameStore {
 
   // Gameplay
   roll: () => void;
-  /** Roll using a bought lucky dice (points shop): 50% the chosen number,
-   *  50% a lower one. Cost is validated/deducted host-side. */
-  rollLucky: (n: number) => void;
+  /** Buy a lucky dice at ANY moment of the game: it arms for the buyer's
+   *  next own roll (50% the chosen number, 50% a lower one). The price
+   *  escalates +1 ⭐ per purchase; validated/deducted host-side. */
+  buyLucky: (n: number) => void;
   selectPiece: (pieceId: string) => void;
 
   // Fun stuff
@@ -173,6 +183,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameMode: 'solo',
   rollSeq: 0,
   reactions: {},
+  memeFx: null,
   onlineRole: 'none',
   roomCode: null,
   localPlayerId: null,
@@ -220,6 +231,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameMode: mode,
       teamsMode: mode === 'teams',
       reactions: {},
+      memeFx: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -227,6 +239,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       onlineConnecting: false,
       onlineReconnecting: false,
     });
+  },
+
+  openRanking: () => {
+    if (get().screen !== 'home') return;
+    set({ screen: 'ranking' });
   },
 
   goHome: () => {
@@ -237,6 +254,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...createInitialState(),
       screen: 'home',
       reactions: {},
+      memeFx: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -315,7 +333,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!player) return;
 
     if (action.a === 'reaction' && action.emoji) {
+      // Sounds are system-only now — old clients' snd: reactions are dropped
+      if (action.emoji.startsWith('snd:')) return;
       reactionFromPlayer(set, get, player, action.emoji.slice(0, 20));
+      return;
+    }
+    if (action.a === 'buy' && action.lucky !== undefined) {
+      // Not turn-bound: a lucky dice can be bought at any moment
+      if (state.screen !== 'game' || state.phase === 'finished') return;
+      applyLuckyPurchase(set, get, playerId, action.lucky);
       return;
     }
     if (action.a === 'chat' && action.text) {
@@ -334,8 +360,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!current || current.id !== playerId) return;
 
     if (action.a === 'roll') {
-      // lucky: doRoll validates the points cost itself (host-authoritative)
-      doRoll(set, get, action.lucky);
+      doRoll(set, get);
     } else if (action.a === 'select' && action.pieceId) {
       if (state.phase !== 'moving' || state.diceValue === null) return;
       if (isBonusRoll(state.diceValue) && state.consecutiveSixes >= 2) return; // third bonus roll: cancelled
@@ -432,6 +457,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...createInitialState(),
       screen: 'home',
       reactions: {},
+      memeFx: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -554,10 +580,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Fixed turn order by color (red → green → yellow → blue) so teams alternate.
-    // Shop points are a persistent wallet — they carry across matches.
-    const ordered = [...allPlayers].sort(
-      (a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color),
-    );
+    // Shop points are a persistent wallet — they carry across matches; the
+    // per-match fields (kills, price escalation, armed dice) reset here.
+    const ordered = [...allPlayers]
+      .sort((a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color))
+      .map((p) => ({ ...p, kills: 0, luckyBuys: 0, pendingLucky: null }));
 
     set({
       players: ordered,
@@ -570,6 +597,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       consecutiveSixes: 0,
       teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       reactions: {},
+      memeFx: null,
           messages: [
         {
           id: createId(),
@@ -580,6 +608,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
         },
       ],
     });
+
+    // Match-opener meme (same 40% chance as every occasion). Fired a beat
+    // AFTER the screen switch so the game screen is mounted and hears it.
+    setTimeout(() => {
+      const s = get();
+      if (s.screen !== 'game' || s.phase === 'finished') return;
+      if (Math.random() < MEME_FIRE_CHANCE) {
+        set({ memeFx: buildMemeFx('gameStart', s.memeFx?.key ?? 0, { position: 57, color: 'red' }, 0) });
+      }
+    }, 900);
 
     // Start bot turns if first player is a bot
     const state = get();
@@ -606,23 +644,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     doRoll(set, get);
   },
 
-  rollLucky: (n: number) => {
-    const { phase, currentPlayerIndex, players, onlineRole, localPlayerId } = get();
-    if (phase !== 'rolling') return;
+  buyLucky: (n: number) => {
+    const { screen, phase, onlineRole } = get();
+    if (screen !== 'game' || phase === 'finished') return;
     if (LUCKY_DICE_COST[n] === undefined) return;
 
-    const currentPlayer = players[currentPlayerIndex];
-    if (!currentPlayer || currentPlayer.isBot) return;
-    if ((currentPlayer.points ?? 0) < LUCKY_DICE_COST[n]) return;
-
-    // Online: only the owner of the current turn may roll
+    // Guests ask the host (host validates points/pending); any moment is
+    // fine — the dice arms for the buyer's NEXT own roll.
     if (onlineRole === 'guest') {
-      if (currentPlayer.id === localPlayerId) sendActionToHost({ a: 'roll', lucky: n });
+      sendActionToHost({ a: 'buy', lucky: n });
       return;
     }
-    if (onlineRole === 'host' && currentPlayer.id !== localPlayerId) return;
-
-    doRoll(set, get, n);
+    const buyer = deviceHolder(get());
+    if (!buyer || buyer.isBot) return;
+    applyLuckyPurchase(set, get, buyer.id, n);
   },
 
   selectPiece: (pieceId: string) => {
@@ -704,6 +739,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...createInitialState(),
       screen: 'home',
       reactions: {},
+      memeFx: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -725,6 +761,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const fresh = players.map((p) => ({
       ...p,
+      kills: 0,
+      luckyBuys: 0,
+      pendingLucky: null,
       pieces: p.pieces.map((piece) => ({
         ...piece,
         position: -1,
@@ -745,6 +784,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       captureEffects: [],
       reactions: {},
+      memeFx: null,
           messages: [
         {
           id: createId(),
@@ -821,6 +861,98 @@ function chatFromPlayer(
   }));
 }
 
+/** Main-track squares strictly BETWEEN from and to along a color's route
+ *  (excludes the landing square) — used to detect "passed an enemy". */
+function routeSquaresBetween(from: number, to: number, color: Color): number[] {
+  if (from < 0 || from >= 52) return [];
+  const squares: number[] = [];
+  let p = from;
+  for (let guard = 0; guard < 8 && p !== to; guard++) {
+    p = p >= 52 ? p + 1 : p === HOME_STRETCH_ENTRY[color] ? 52 : (p + 1) % 52;
+    if (p !== to && p >= 0 && p < 52) squares.push(p);
+  }
+  return squares;
+}
+
+/** Detect the most significant meme occasion of a resolved move. Returns
+ *  the occasion plus where to anchor the gif (logical board position). */
+function detectMemeOccasion(args: {
+  state: GameStore;
+  mover: Player;
+  movedBefore: { position: number };
+  movedAfter: { position: number };
+  diceValue: number;
+  captured: boolean;
+  victim: Player | null;
+  reachedHome: boolean;
+  isWin: boolean;
+}): { kind: MemeEventKind; position: number; color: Color } | null {
+  const { state, mover, movedBefore, movedAfter, diceValue, captured, victim, reachedHome, isWin } = args;
+  const landed = movedAfter.position;
+
+  if (isWin) return { kind: 'teamWin', position: 57, color: mover.color };
+  if (reachedHome) return { kind: 'goal', position: 57, color: mover.color };
+  if (captured) {
+    // Randomly let the killer brag or the victim cry
+    return Math.random() < 0.5
+      ? { kind: 'kill', position: landed, color: mover.color }
+      : { kind: 'death', position: landed, color: victim?.color ?? mover.color };
+  }
+
+  // Enemies on squares the piece walked OVER (not the landing square)
+  const isEnemy = (p: Player) =>
+    p.color !== mover.color && !(state.teamsMode && TEAMMATE_SAFE[mover.color] === p.color);
+  const walked = new Set(routeSquaresBetween(movedBefore.position, landed, mover.color));
+  let passedSquare = -1;
+  for (const p of state.players) {
+    if (!isEnemy(p)) continue;
+    for (const piece of p.pieces) {
+      if (walked.has(piece.position)) { passedSquare = piece.position; break; }
+    }
+  }
+
+  if (diceValue === 6 && passedSquare >= 0) {
+    return { kind: 'escape', position: landed, color: mover.color };
+  }
+
+  if (landed >= 0 && landed < 52) {
+    // Landed on an enemy color's entry square
+    const entries: Array<[Color, number]> = [['red', 0], ['blue', 13], ['yellow', 26], ['green', 39]];
+    const enemyEntry = entries.find(([c, sq]) => sq === landed && c !== mover.color);
+    if (enemyEntry) return { kind: 'enemyEntry', position: landed, color: mover.color };
+
+    // Sharing the landing square: with enemies (uncapturable = block) or
+    // with own pieces (stack)
+    let enemyOnSquare = false;
+    let ownOnSquare = false;
+    for (const p of state.players) {
+      for (const piece of p.pieces) {
+        if (piece.position !== landed) continue;
+        if (p.color === mover.color) ownOnSquare = true;
+        else if (isEnemy(p)) enemyOnSquare = true;
+      }
+    }
+    if (enemyOnSquare) return { kind: 'block', position: landed, color: mover.color };
+    if (ownOnSquare) return { kind: 'ownStack', position: landed, color: mover.color };
+  }
+
+  if (movedBefore.position >= 0 && movedBefore.position < 52 && landed >= 52 && landed < 57) {
+    return { kind: 'homeLane', position: landed, color: mover.color };
+  }
+
+  if (passedSquare >= 0) {
+    return Math.random() < 0.5
+      ? { kind: 'passMover', position: landed, color: mover.color }
+      : { kind: 'passSurvivor', position: passedSquare, color: mover.color };
+  }
+
+  return null;
+}
+
+/** Teams pairing (duplicated tiny map to avoid importing TEAMMATE here
+ *  twice — red+yellow vs green+blue). */
+const TEAMMATE_SAFE: Record<Color, Color> = { red: 'yellow', yellow: 'red', green: 'blue', blue: 'green' };
+
 /** Ludo Club rule: the THIRD consecutive six cancels the play entirely —
  *  no piece moves, the turn passes to the next player. */
 function cancelThirdSix(
@@ -851,6 +983,34 @@ function cancelThirdSix(
   }, 1600);
 }
 
+/** Validate and apply a lucky-dice purchase (host-authoritative): deducts
+ *  the escalated cost, bumps the escalation counter and ARMS the dice for
+ *  the buyer's next own roll. One armed dice at a time. */
+function applyLuckyPurchase(
+  set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  get: () => GameStore,
+  playerId: string,
+  n: number,
+) {
+  const player = get().players.find((p) => p.id === playerId);
+  if (!player || player.isBot) return;
+  if (player.pendingLucky) return; // already armed — use it first
+  const cost = luckyCost(n, player);
+  if ((player.points ?? 0) < cost) return;
+  set((s) => ({
+    players: s.players.map((p) =>
+      p.id === playerId
+        ? {
+            ...p,
+            points: Math.max(0, (p.points ?? 0) - cost),
+            luckyBuys: (p.luckyBuys ?? 0) + 1,
+            pendingLucky: n,
+          }
+        : p,
+    ),
+  }));
+}
+
 /** Add/subtract lucky-dice shop points for a player. */
 function adjustPoints(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
@@ -865,23 +1025,27 @@ function adjustPoints(
 }
 
 /** Roll the dice for the current (human) player and resolve the aftermath.
- *  `luckyN` = a bought lucky dice number: the cost is validated and
- *  deducted HERE (host-authoritative — guests can't fake points) and the
- *  roll uses the 50%/50% weighted distribution instead of a fair die. */
+ *  If the player has an ARMED lucky dice (bought in the shop at any point
+ *  before this roll), the roll uses the 50/50 weighted distribution for
+ *  that number and the armed dice is consumed. */
 function doRoll(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
   get: () => GameStore,
-  luckyN?: number,
 ) {
   const { currentPlayerIndex } = get();
   const currentPlayer = get().players[currentPlayerIndex];
   if (!currentPlayer) return;
 
   let value: number;
-  const cost = luckyN !== undefined ? LUCKY_DICE_COST[luckyN] : undefined;
-  if (cost !== undefined && (currentPlayer.points ?? 0) >= cost) {
-    adjustPoints(set, currentPlayer.id, -cost);
-    value = rollLuckyDice(luckyN!);
+  const armed = currentPlayer.pendingLucky;
+  if (armed && LUCKY_DICE_COST[armed] !== undefined) {
+    value = rollLuckyDice(armed);
+    // Consume the armed dice (it was already paid for at purchase time)
+    set((s) => ({
+      players: s.players.map((p) =>
+        p.id === currentPlayer.id ? { ...p, pendingLucky: null } : p,
+      ),
+    }));
   } else {
     value = rollDice();
   }
@@ -968,6 +1132,7 @@ function executeMove(
   // capture = an opponent piece that was on the board is now back at base
   const mover = state.players[currentPlayerIndex];
   let captured = false;
+  let capturesMade = 0;
   let victim: Player | null = null;
   for (let i = 0; i < state.players.length; i++) {
     if (i === currentPlayerIndex) continue;
@@ -976,11 +1141,22 @@ function executeMove(
     for (let j = 0; j < before.length; j++) {
       if (before[j].position >= 0 && after[j].position === -1) {
         captured = true;
+        capturesMade++;
         victim = state.players[i];
       }
     }
   }
   const reachedHome = movedAfter != null && movedAfter.position === 57 && movedBefore.position !== 57;
+
+  // Ranking stat: captures made this match
+  if (capturesMade > 0) {
+    newState = {
+      ...newState,
+      players: newState.players.map((p, i) =>
+        i === currentPlayerIndex ? { ...p, kills: (p.kills ?? 0) + capturesMade } : p,
+      ),
+    };
+  }
 
   // How long the mover's cell-by-cell travel animation takes: effects
   // (toast + sfx) wait for it so nothing announces the outcome before the
@@ -1009,8 +1185,23 @@ function executeMove(
     }
   }
 
+  // System meme effect: ONE significant occasion per move, fired with a
+  // 40% chance (wins always fire). Broadcast via the snapshot so every
+  // device plays the same sound + shows the same gif on the piece.
+  const isWin = newState.phase === 'finished' && !!newState.winner;
+  const occasion = movedAfter
+    ? detectMemeOccasion({
+        state, mover, movedBefore, movedAfter, diceValue,
+        captured, victim, reachedHome, isWin,
+      })
+    : null;
+  const memeFx: MemeFx | null =
+    occasion && (isWin || Math.random() < MEME_FIRE_CHANCE)
+      ? buildMemeFx(occasion.kind, state.memeFx?.key ?? 0, occasion, travelMs)
+      : null;
+
   // Check for win
-  if (newState.phase === 'finished' && newState.winner) {
+  if (isWin) {
     const winnerPlayer = newState.players.find((p) => p.color === newState.winner);
     const winPos = getSquarePosition(COLOR_CONFIG[newState.winner as Color].entryIndex);
     newState = addCaptureEffectToState(newState, winPos.x, winPos.y, 'win');
@@ -1021,6 +1212,7 @@ function executeMove(
     }
     set({
       ...newState,
+      ...(memeFx ? { memeFx } : {}),
       messages: pushMessage(newState.messages, {
           id: createId(),
           playerId: winnerPlayer?.id ?? 'system',
@@ -1047,7 +1239,7 @@ function executeMove(
       }),
     };
   }
-  set(advanced);
+  set(memeFx ? { ...advanced, memeFx } : advanced);
 
   // Schedule bot turn if next player is a bot
   scheduleBotTurn(set, get);

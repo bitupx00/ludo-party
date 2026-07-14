@@ -15,7 +15,8 @@ import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useSoundStore, playSfx } from '../sound.ts';
 import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf, gifById } from '../game/gifs.ts';
-import { isSoundReaction, soundIdOf, memeSoundById } from '../game/memeSounds.ts';
+import { isSoundReaction, playMemeSound } from '../game/memeSounds.ts';
+import type { MemeFx } from '../game/memeFx.ts';
 import { useFavStore } from '../favorites.ts';
 import GifSticker from './GifSticker.tsx';
 import { useT } from '../i18n.ts';
@@ -39,7 +40,8 @@ export default function Game() {
   const reactions = useGameStore((s) => s.reactions);
   const selectPiece = useGameStore((s) => s.selectPiece);
   const roll = useGameStore((s) => s.roll);
-  const rollLucky = useGameStore((s) => s.rollLucky);
+  const buyLucky = useGameStore((s) => s.buyLucky);
+  const memeFx = useGameStore((s) => s.memeFx);
   const sendReaction = useGameStore((s) => s.sendReaction);
   const sendChatMessage = useGameStore((s) => s.sendChatMessage);
   const clearCaptureEffects = useGameStore((s) => s.clearCaptureEffects);
@@ -57,6 +59,27 @@ export default function Game() {
 
   const currentPlayer = players[currentPlayerIndex];
   const isBot = currentPlayer?.isBot ?? false;
+
+  // System meme effect playback: when the host broadcasts a memeFx, every
+  // device waits the mover's travel time, then plays the sound (50% vol,
+  // 5s cap) and shows the occasion gif anchored on the piece's square.
+  // Effects already present when this screen mounts (stale snapshot /
+  // rejoin) are ignored — only NEW keys fire.
+  const [activeFx, setActiveFx] = useState<MemeFx | null>(null);
+  const seenFxKey = useRef<number>(useGameStore.getState().memeFx?.key ?? 0);
+  useEffect(() => {
+    if (!memeFx || memeFx.key === seenFxKey.current) return;
+    seenFxKey.current = memeFx.key;
+    const wait = Math.max(0, memeFx.delay ?? 0);
+    const show = setTimeout(() => {
+      playMemeSound(memeFx.sound);
+      setActiveFx(memeFx);
+    }, wait);
+    const hide = setTimeout(() => {
+      setActiveFx((cur) => (cur?.key === memeFx.key ? null : cur));
+    }, wait + 3200);
+    return () => { clearTimeout(show); clearTimeout(hide); };
+  }, [memeFx]);
 
   // Dice reveal gate: after every roll the 3D dice takes ~950ms to settle on
   // its face. Until then NOTHING may leak the result — no movable rings, no
@@ -172,8 +195,9 @@ export default function Game() {
   const recent = useFavStore((s) => s.recent);
   const recordRecent = useFavStore((s) => s.recordRecent);
   const quickItems = useMemo(() => {
-    const items = favs.slice(0, 6);
-    if (recent && !items.includes(recent)) items.push(recent);
+    // Sounds are system-only now: legacy snd: favorites are filtered out
+    const items = favs.filter((p) => !isSoundReaction(p)).slice(0, 6);
+    if (recent && !isSoundReaction(recent) && !items.includes(recent)) items.push(recent);
     return items.length > 0 ? items : QUICK_GIFS.map((id) => `${GIF_PREFIX}${id}`);
   }, [favs, recent]);
 
@@ -189,7 +213,6 @@ export default function Game() {
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
   const quickLabel = useCallback((payload: string) => {
-    if (isSoundReaction(payload)) return `🔊 ${memeSoundById(soundIdOf(payload))?.name ?? ''}`;
     if (isGifReaction(payload)) return gifById(gifIdOf(payload))?.label ?? '';
     return payload;
   }, []);
@@ -284,6 +307,7 @@ export default function Game() {
           currentPlayer={currentPlayer}
           onPieceClick={handlePieceClick}
           perspective={myColor}
+          memeFx={activeFx}
         />
 
         {/* Bottom players */}
@@ -403,13 +427,18 @@ export default function Game() {
             {/* Lucky-dice shop: always visible so players track their ⭐,
                 buying only enabled on your own roll. */}
             <button
-              className="game-hud-side-btn game-shop-btn"
+              className={`game-hud-side-btn game-shop-btn ${shopPlayer?.pendingLucky ? 'game-shop-btn--armed' : ''}`}
               onClick={() => setShopOpen(true)}
               aria-label={t('luckyTitle')}
               title={t('luckyTitle')}
             >
               🎯
               <span className="game-shop-points">⭐{shopPoints}</span>
+              {shopPlayer?.pendingLucky ? (
+                <span className="game-shop-armed" title={t('luckyArmed')}>
+                  🎲{shopPlayer.pendingLucky}
+                </span>
+              ) : null}
             </button>
 
             {/* Big interactive dice: only during the local player's own
@@ -454,13 +483,15 @@ export default function Game() {
         onPhraseSelect={sendChatMessage}
       />
 
-      {/* Lucky-dice shop */}
+      {/* Lucky-dice shop: buy at ANY moment — the dice arms for your next roll */}
       <DiceShop
         isOpen={shopOpen}
         points={shopPoints}
-        canBuy={canRoll && myTurn}
+        luckyBuys={shopPlayer?.luckyBuys ?? 0}
+        pendingLucky={shopPlayer?.pendingLucky ?? null}
+        canBuy={!!shopPlayer && !shopPlayer.isBot && !winner}
         onClose={() => setShopOpen(false)}
-        onBuy={rollLucky}
+        onBuy={buyLucky}
       />
 
       {/* Capture overlay */}
@@ -520,11 +551,13 @@ export default function Game() {
           align-items: center;
           justify-content: center;
           gap: 8px;
-          padding: 6px 14px;
+          padding: 7px 14px;
           border-radius: var(--radius-full);
           background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.14);
+          border: 1.5px solid color-mix(in srgb, var(--turn-color) 55%, transparent);
+          box-shadow: 0 2px 10px color-mix(in srgb, var(--turn-color) 25%, transparent);
           min-width: 0;
+          transition: border-color 250ms ease, box-shadow 250ms ease;
         }
         .game-turn-dot {
           width: 10px;
@@ -615,8 +648,8 @@ export default function Game() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
-          padding-top: 4px;
+          gap: 10px;
+          padding-top: 2px;
         }
         .game-reactions {
           display: flex;
@@ -624,8 +657,8 @@ export default function Game() {
         }
         .game-reaction-btn {
           position: relative;
-          width: 38px;
-          height: 38px;
+          width: 42px;
+          height: 42px;
           border-radius: 50%;
           border: 1px solid rgba(255, 255, 255, 0.18);
           background: rgba(255, 255, 255, 0.1);
@@ -675,8 +708,8 @@ export default function Game() {
         }
         .game-hud-side-btn {
           position: relative;
-          width: 50px;
-          height: 50px;
+          width: 54px;
+          height: 54px;
           border-radius: 50%;
           border: 2px solid rgba(255, 255, 255, 0.22);
           background: rgba(255, 255, 255, 0.12);
@@ -711,6 +744,25 @@ export default function Game() {
           animation: pulse-glow 1.2s ease-in-out infinite;
           pointer-events: none;
           white-space: nowrap;
+        }
+        .game-shop-btn--armed {
+          border-color: rgba(255, 214, 90, 0.85);
+          box-shadow: 0 0 12px rgba(255, 214, 90, 0.45), 0 4px 0 rgba(20, 8, 70, 0.3);
+        }
+        .game-shop-armed {
+          position: absolute;
+          top: -7px;
+          right: -7px;
+          font-size: 0.6rem;
+          font-weight: 800;
+          font-family: var(--font-display);
+          color: #241865;
+          background: #ffd65a;
+          border: 1.5px solid #fff;
+          border-radius: var(--radius-full);
+          padding: 2px 6px;
+          white-space: nowrap;
+          animation: pulse-glow 1.4s ease-in-out infinite;
         }
         .game-shop-points {
           position: absolute;

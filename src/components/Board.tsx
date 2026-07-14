@@ -12,6 +12,8 @@ import {
   centerSideColors,
 } from '../game/boardRotation.ts';
 import Piece from './Piece.tsx';
+import GifSticker from './GifSticker.tsx';
+import type { MemeFx } from '../game/memeFx.ts';
 import { STEP_DURATION, RETURN_STEP_DURATION } from '../game/anim.ts';
 import './Board.css';
 
@@ -21,6 +23,9 @@ interface BoardProps {
   onPieceClick: (pieceId: string) => void;
   /** The color whose corner is shown bottom-left (this device's player). */
   perspective: Color;
+  /** Active system occasion effect: gif bubble anchored to a board square
+   *  (playback timing is handled by Game — this only renders it). */
+  memeFx?: MemeFx | null;
 }
 
 const COLORS_ORDER = ['red', 'green', 'yellow', 'blue'] as const;
@@ -89,7 +94,7 @@ function stepsBetween(from: number, to: number, color: Color): number {
  *  captured piece is released to fly back to its base. */
 const CAPTURE_RELEASE_BUFFER_MS = 90;
 
-export default function Board({ pieces, currentPlayer, onPieceClick, perspective }: BoardProps) {
+export default function Board({ pieces, currentPlayer, onPieceClick, perspective, memeFx }: BoardProps) {
   const k = ROTATION_FOR_COLOR[perspective];
   const rot = (x: number, y: number) => rotateCell(x, y, k);
 
@@ -411,6 +416,28 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
             );
           })}
         </AnimatePresence>
+
+        {/* System occasion gif: a meme bubble popping out of the square
+            where the action happened (rotated to this device's view). */}
+        {memeFx && (() => {
+          const c = coordsFor(Math.min(memeFx.position, 57), memeFx.color, '');
+          // Keep the bubble inside the board (edge squares would clip it)
+          const bx = Math.min(84, Math.max(16, c.x));
+          const by = Math.min(96, Math.max(22, c.y));
+          return (
+            <div
+              key={memeFx.key}
+              className="board-meme"
+              style={{ left: `${bx}%`, top: `${by}%` }}
+            >
+              <div className="board-meme-bubble">
+                {memeFx.gif.startsWith('/')
+                  ? <img className="board-meme-img" src={memeFx.gif} alt="" draggable={false} />
+                  : <GifSticker id={memeFx.gif} size={62} />}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

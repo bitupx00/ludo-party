@@ -18,6 +18,14 @@ export function rollDice(): number {
  *  more because both grant an extra roll. */
 export const LUCKY_DICE_COST: Record<number, number> = { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 4 };
 
+/** Actual price for a player: the base cost plus +1 ⭐ for every lucky
+ *  dice they already bought this match (escalating price). */
+export function luckyCost(n: number, player: Pick<Player, 'luckyBuys'>): number {
+  const base = LUCKY_DICE_COST[n];
+  if (base === undefined) return Infinity;
+  return base + (player.luckyBuys ?? 0);
+}
+
 /** True when the rolled value earns the roller a shop point. */
 export function earnsPoint(value: number): boolean {
   return value === 6 || value === 1;

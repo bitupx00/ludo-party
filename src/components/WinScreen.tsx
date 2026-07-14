@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import type { Color } from '../game/types.ts';
 import { PLAYER_CONFIG, TEAMMATE } from '../game/types.ts';
 import { useGameStore } from '../store/gameStore.ts';
+import { useRankStore } from '../ranking.ts';
 import { playSfx, vibrate } from '../sound.ts';
 import { useT } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
@@ -37,6 +38,27 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
       : false;
     playSfx(iWon ? 'win' : 'lose');
     if (iWon) vibrate([60, 60, 60, 60, 120]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Record the match in the DEVICE-LOCAL ranking: online games record only
+  // this device's own player; local tables record every human seat.
+  const recorded = useRef(false);
+  const recordMatch = useRankStore((s) => s.recordMatch);
+  useEffect(() => {
+    if (recorded.current) return;
+    recorded.current = true;
+    const s = useGameStore.getState();
+    const tracked = s.onlineRole !== 'none'
+      ? s.players.filter((p) => p.id === s.localPlayerId && !p.isBot)
+      : s.players.filter((p) => !p.isBot);
+    if (tracked.length === 0) return;
+    recordMatch(tracked.map((p) => ({
+      name: p.name,
+      won: p.color === winnerColor || (isTeams && p.color === teammateColor),
+      kills: p.kills ?? 0,
+      goals: p.pieces.filter((pc) => pc.position >= 57).length,
+    })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

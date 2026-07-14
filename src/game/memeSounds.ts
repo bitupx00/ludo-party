@@ -8,13 +8,11 @@ import { useSoundStore } from '../sound';
  * `node scripts/download-sounds.mjs` once locally to fetch all of them.
  * Missing files fail silently, so the game works with any subset.
  *
- * Two ways a sound plays:
- * - GAME EVENTS (kills, deaths, goal, passing an enemy, blocks…): the
- *   host picks ONE fitting sound at most every 2 full turns and
- *   broadcasts it (memeFx in the snapshot) so it plays for everyone,
- *   with a speech-bubble comment on the piece that "says" it.
- * - USER PANEL: every sound is listed by name in the sticker panel's
- *   🔊 tab — tapping one sends it as a reaction (no cadence limit).
+ * Sounds are SYSTEM-ONLY: on notable game events (kills, deaths, goal,
+ * passing an enemy, blocks…) the host rolls a 40% chance and broadcasts
+ * one fitting sound + an occasion gif anchored to the piece involved
+ * (memeFx in the snapshot — see src/game/memeFx.ts). Users cannot
+ * trigger sounds directly.
  */
 
 export interface MemeSound {
@@ -166,7 +164,7 @@ export function playMemeSound(id: string) {
     }
     currentAudio = audio;
     audio.currentTime = 0;
-    audio.volume = 0.85;
+    audio.volume = 0.42; // 50% of the original level — the clips ran hot
     void audio.play().catch(() => { /* file missing or autoplay blocked */ });
     stopTimer = setTimeout(() => {
       if (currentAudio === audio) {

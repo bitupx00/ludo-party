@@ -207,7 +207,7 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, onRoll }: Dice3
           gap: 6px;
         }
         .dice3d {
-          --d3-size: clamp(58px, 16vmin, 84px);
+          --d3-size: clamp(58px, 16vmin, 86px);
           --d3-half: calc(var(--d3-size) / 2);
           position: relative;
           width: var(--d3-size);
@@ -274,6 +274,7 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, onRoll }: Dice3
         }
         .dice3d-label {
           font-family: var(--font-display);
+          white-space: nowrap;
           font-size: 0.9rem;
           font-weight: 800;
           color: #ffd65a;

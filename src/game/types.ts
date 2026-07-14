@@ -21,6 +21,14 @@ export interface Player {
   /** Lucky-dice shop points: +1 for every 6 or 1 rolled, spent buying
    *  weighted dice (see LUCKY_DICE_COST in gameEngine). */
   points?: number;
+  /** Captures made this match (for the ranking screen). */
+  kills?: number;
+  /** Lucky dice bought this match — each purchase raises every dice's
+   *  price by +1 ⭐ (cost = base + luckyBuys). Resets each match. */
+  luckyBuys?: number;
+  /** A bought lucky dice waiting to be used: applied automatically to
+   *  this player's NEXT own roll (they still tap to roll). */
+  pendingLucky?: number | null;
 }
 
 export interface Piece {

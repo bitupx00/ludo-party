@@ -14,7 +14,12 @@ import { useT } from '../i18n.ts';
 interface DiceShopProps {
   isOpen: boolean;
   points: number;
-  /** Only true when the local player may roll right now — purchases roll immediately. */
+  /** Lucky dice already bought this match — each one raises every price +1 ⭐. */
+  luckyBuys: number;
+  /** Armed dice waiting for the next own roll (null = none). */
+  pendingLucky: number | null;
+  /** The local player may buy (human, game not finished). Buying works at
+   *  ANY moment — the dice arms for their next own roll. */
   canBuy: boolean;
   onClose: () => void;
   onBuy: (n: number) => void;
@@ -33,7 +38,7 @@ function ShopDieFace({ value }: { value: number }) {
   );
 }
 
-export default function DiceShop({ isOpen, points, canBuy, onClose, onBuy }: DiceShopProps) {
+export default function DiceShop({ isOpen, points, luckyBuys, pendingLucky, canBuy, onClose, onBuy }: DiceShopProps) {
   const t = useT();
 
   return (
@@ -62,15 +67,21 @@ export default function DiceShop({ isOpen, points, canBuy, onClose, onBuy }: Dic
 
             <p className="dice-shop-hint">{t('luckyHint')}</p>
 
+            {pendingLucky ? (
+              <div className="dice-shop-pending">
+                🎲 N°{pendingLucky} {t('luckyArmed')}
+              </div>
+            ) : null}
+
             <div className="dice-shop-grid">
               {SHOP_NUMBERS.map((n) => {
-                const cost = LUCKY_DICE_COST[n];
+                const cost = LUCKY_DICE_COST[n] + luckyBuys;
                 const affordable = points >= cost;
-                const enabled = canBuy && affordable;
+                const enabled = canBuy && affordable && !pendingLucky;
                 return (
                   <button
                     key={n}
-                    className={`dice-shop-item ${enabled ? '' : 'dice-shop-item--locked'}`}
+                    className={`dice-shop-item ${enabled ? '' : 'dice-shop-item--locked'} ${pendingLucky === n ? 'dice-shop-item--armed' : ''}`}
                     disabled={!enabled}
                     onClick={() => {
                       playSfx('pop');
@@ -172,6 +183,22 @@ export default function DiceShop({ isOpen, points, canBuy, onClose, onBuy }: Dic
             .dice-shop-item:not(:disabled):hover {
               background: rgba(255, 214, 90, 0.16);
               transform: translateY(-3px);
+            }
+            .dice-shop-pending {
+              text-align: center;
+              font-family: var(--font-display);
+              font-size: 0.82rem;
+              font-weight: 800;
+              color: #241865;
+              background: #ffd65a;
+              border-radius: var(--radius-full);
+              padding: 6px 12px;
+              animation: pulse-glow 1.6s ease-in-out infinite;
+            }
+            .dice-shop-item--armed {
+              border-color: #ffd65a;
+              background: rgba(255, 214, 90, 0.2);
+              opacity: 1;
             }
             .dice-shop-item--locked {
               opacity: 0.45;
