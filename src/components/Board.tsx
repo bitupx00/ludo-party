@@ -417,24 +417,30 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
           })}
         </AnimatePresence>
 
-        {/* System occasion gif: a meme bubble popping out of the square
-            where the action happened (rotated to this device's view). */}
+        {/* System occasion gif: small transparent sticker popping out of a
+            CORNER of the piece involved (no speech bubble). The corner is
+            picked from the square's board position so the gif never runs
+            off the edge: right of the piece by default, flipped to the
+            left near the right edge, and below it near the top edge. */}
         {memeFx && (() => {
           const c = coordsFor(Math.min(memeFx.position, 57), memeFx.color, '');
-          // Keep the bubble inside the board (edge squares would clip it)
-          const bx = Math.min(84, Math.max(16, c.x));
-          const by = Math.min(96, Math.max(22, c.y));
+          const flipX = c.x > 64; // near the right edge → gif to the LEFT
+          const below = c.y < 16; // near the top edge → gif BELOW the piece
+          const dx = flipX ? -2.6 : 2.6; // % of board: piece's corner offset
+          const dy = below ? 2.2 : -5.2;
           return (
             <div
               key={memeFx.key}
               className="board-meme"
-              style={{ left: `${bx}%`, top: `${by}%` }}
+              style={{
+                left: `${c.x + dx}%`,
+                top: `${c.y + dy}%`,
+                translate: `${flipX ? '-100%' : '0'} ${below ? '0' : '-100%'}`,
+              }}
             >
-              <div className="board-meme-bubble">
-                {memeFx.gif.startsWith('/')
-                  ? <img className="board-meme-img" src={memeFx.gif} alt="" draggable={false} />
-                  : <GifSticker id={memeFx.gif} size={62} />}
-              </div>
+              {memeFx.gif.startsWith('/')
+                ? <img className="board-meme-img" src={memeFx.gif} alt="" draggable={false} />
+                : <GifSticker id={memeFx.gif} size={46} />}
             </div>
           );
         })()}
