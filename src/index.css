@@ -3,33 +3,31 @@
 @import url('./components/Animations.css');
 
 :root {
-  /* Player palette — saturated candy colors */
-  --color-red: #f0405c;
-  --color-red-light: #fb7185;
-  --color-red-dark: #c22343;
-  --color-red-glow: rgba(240, 64, 92, 0.5);
-  --color-green: #26c165;
-  --color-green-light: #4ade80;
-  --color-green-dark: #178a49;
-  --color-green-glow: rgba(38, 193, 101, 0.5);
-  --color-yellow: #f5a415;
-  --color-yellow-light: #fcd34d;
-  --color-yellow-dark: #c07c08;
-  --color-yellow-glow: rgba(245, 164, 21, 0.5);
-  --color-blue: #3d7bfa;
-  --color-blue-light: #60a5fa;
-  --color-blue-dark: #2453c4;
-  --color-blue-glow: rgba(61, 123, 250, 0.5);
+  /* Player palette — Ludo Club classic saturated colors */
+  --color-red: #e33a30;
+  --color-red-light: #f47a70;
+  --color-red-dark: #b02620;
+  --color-red-glow: rgba(227, 58, 48, 0.5);
+  --color-green: #3caf4e;
+  --color-green-light: #7ed48a;
+  --color-green-dark: #2a8038;
+  --color-green-glow: rgba(60, 175, 78, 0.5);
+  --color-yellow: #e9b400;
+  --color-yellow-light: #ffd75e;
+  --color-yellow-dark: #b3830a;
+  --color-yellow-glow: rgba(233, 180, 0, 0.5);
+  --color-blue: #2b9bf4;
+  --color-blue-light: #7cc4fa;
+  --color-blue-dark: #1a6cbd;
+  --color-blue-glow: rgba(43, 155, 244, 0.5);
 
-  /* App background — rich playful indigo */
-  --color-bg: #4f3ed4;
-  --color-bg-deep: #3b2ba8;
-  --color-bg-secondary: #5a48e0;
-  --color-bg-tertiary: #4536bd;
+  /* App background — Ludo Club deep navy with polka dots */
+  --color-bg: #1d3f7d;
+  --color-bg-deep: #16336c;
+  --color-bg-secondary: #24498c;
+  --color-bg-tertiary: #1a3a76;
   --bg-gradient:
-    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(139, 108, 255, 0.55) 0%, transparent 60%),
-    radial-gradient(ellipse 90% 50% at 50% 110%, rgba(46, 26, 140, 0.6) 0%, transparent 60%),
-    linear-gradient(175deg, #5a45e6 0%, #4f3ed4 45%, #4230b8 100%);
+    linear-gradient(180deg, rgba(46, 84, 150, 0.35) 0%, transparent 30%, rgba(12, 28, 64, 0.45) 100%);
 
   /* Surfaces & text (on indigo bg) */
   --color-surface: rgba(255, 255, 255, 0.1);
@@ -98,7 +96,10 @@ html {
 body {
   font-family: var(--font-body);
   background: var(--color-bg);
-  background-image: var(--bg-gradient);
+  /* Ludo Club navy polka-dot pattern under a soft vertical light gradient */
+  background-image: var(--bg-gradient), url('/assets/bg-pattern.png');
+  background-size: 100% 100vh, 340px 340px;
+  background-repeat: no-repeat, repeat;
   /* no background-attachment: fixed — it forces repaints on mobile scroll */
   color: var(--color-text);
   min-height: 100dvh;
