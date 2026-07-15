@@ -14,6 +14,9 @@ interface VideoStore {
   micOn: boolean;
   /** Who is currently speaking (voice activity), by color. */
   speaking: Partial<Record<Color, boolean>>;
+  /** Players THIS device has silenced (local-only): mutes their voice
+   *  stream and their reaction sounds. Keyed by player id. */
+  mutedPlayers: Record<string, boolean>;
   /** Camera/mic toggle callbacks published by the online AV session. */
   controls: { toggleCamera: () => void; toggleMic: () => void } | null;
 
@@ -22,6 +25,7 @@ interface VideoStore {
   setCameraOn: (on: boolean) => void;
   setMicOn: (on: boolean) => void;
   setSpeaking: (color: Color, on: boolean) => void;
+  toggleMutePlayer: (playerId: string) => void;
   setControls: (controls: VideoStore['controls']) => void;
   clearAll: () => void;
 }
@@ -32,6 +36,7 @@ export const useVideoStore = create<VideoStore>((set, get) => ({
   cameraOn: true,
   micOn: true,
   speaking: {},
+  mutedPlayers: {},
   controls: null,
 
   setLocal: (color, stream) => {
@@ -61,7 +66,12 @@ export const useVideoStore = create<VideoStore>((set, get) => ({
     set({ speaking: { ...prev, [color]: on } });
   },
 
+  toggleMutePlayer: (playerId) => {
+    const prev = get().mutedPlayers;
+    set({ mutedPlayers: { ...prev, [playerId]: !prev[playerId] } });
+  },
+
   setControls: (controls) => set({ controls }),
 
-  clearAll: () => set({ streams: {}, localColor: null, cameraOn: true, micOn: true, speaking: {}, controls: null }),
+  clearAll: () => set({ streams: {}, localColor: null, cameraOn: true, micOn: true, speaking: {}, mutedPlayers: {}, controls: null }),
 }));

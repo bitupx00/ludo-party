@@ -8,6 +8,12 @@ import { getStoredTicket } from '../online/onlineManager.ts';
 import { loadProfile } from '../profile.ts';
 import { useT } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
+import { MiniDice } from './Dice3D.tsx';
+import { DICE_SKINS, loadSkinPref } from '../game/diceSkins.ts';
+
+function isOnlineSelf(players: Player[], localPlayerId: string | null): Player | undefined {
+  return localPlayerId ? players.find((p) => p.id === localPlayerId) : undefined;
+}
 
 export default function Lobby() {
   const t = useT();
@@ -39,11 +45,14 @@ export default function Lobby() {
   const removePlayer = useGameStore((s) => s.removePlayer);
   const changeSeat = useGameStore((s) => s.changeSeat);
   const startGame = useGameStore((s) => s.startGame);
+  const setDiceSkin = useGameStore((s) => s.setDiceSkin);
   const goHome = useGameStore((s) => s.goHome);
   const createOnlineRoom = useGameStore((s) => s.createOnlineRoom);
   const joinOnlineRoom = useGameStore((s) => s.joinOnlineRoom);
 
   const playersByColor = new Map<Color, Player>(players.map((p) => [p.color, p]));
+  const myLobbyPlayer = isOnlineSelf(players, localPlayerId) ?? [...players].reverse().find((p) => !p.isBot);
+  const mySkin = myLobbyPlayer?.diceSkin ?? loadSkinPref();
   const humans = players.filter((p) => !p.isBot);
   const nextFreeColor = COLORS.find((c) => !playersByColor.has(c));
 
@@ -391,6 +400,28 @@ export default function Lobby() {
           </p>
         )}
 
+        {/* Dice model picker: each player chooses THEIR dice before the
+            match (synced so everyone sees it on the mini dice too) */}
+        {!onlineSetup && myLobbyPlayer && (
+          <div className="lobby-dice-picker">
+            <span className="lobby-dice-title">🎲 {t('diceSkinTitle')}</span>
+            <div className="lobby-dice-row">
+              {DICE_SKINS.map((skin) => (
+                <button
+                  key={skin.id}
+                  className={`lobby-dice-option ${mySkin === skin.id ? 'lobby-dice-option--active' : ''}`}
+                  onClick={() => setDiceSkin(skin.id)}
+                  aria-label={skin.name}
+                  title={skin.name}
+                >
+                  <MiniDice value={6} rolling={false} skin={skin.id} />
+                  <span className="lobby-dice-name">{skin.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Start */}
         {!onlineSetup && (
         <div className="lobby-actions">
@@ -709,6 +740,52 @@ export default function Lobby() {
         .lobby-teams-toggle:disabled {
           cursor: default;
           opacity: 0.85;
+        }
+        .lobby-dice-picker {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 12px;
+          border-radius: var(--radius-xl);
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .lobby-dice-title {
+          font-family: var(--font-display);
+          font-size: 0.8rem;
+          font-weight: 800;
+          color: var(--color-text-secondary);
+        }
+        .lobby-dice-row {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+        .lobby-dice-option {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          padding: 7px 8px 5px;
+          border-radius: var(--radius-lg);
+          border: 2px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.06);
+          cursor: pointer;
+          transition: border-color var(--transition-fast), background var(--transition-fast);
+          touch-action: manipulation;
+        }
+        .lobby-dice-option--active {
+          border-color: #ffd65a;
+          background: rgba(255, 214, 90, 0.16);
+        }
+        .lobby-dice-name {
+          font-size: 0.6rem;
+          font-weight: 800;
+          font-family: var(--font-display);
+          color: var(--color-text-secondary);
+          white-space: nowrap;
         }
         .lobby-teams-note {
           text-align: center;

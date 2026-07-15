@@ -133,15 +133,34 @@ export function canPieceMove(piece: Piece, diceValue: number, color: Color): boo
 
 // ─── Movable Pieces ──────────────────────────────────────────────────
 
+/** All 4 pieces already in the goal? */
+export function allPiecesFinished(player: Player): boolean {
+  return player.pieces.every((p) => p.position >= FINISH_POS);
+}
+
+/** Teams (Ludo Club): once a player's own 4 pieces are home, on their
+ *  turns they play their TEAMMATE's pieces to help the team finish.
+ *  Returns whose pieces the current player controls this turn. */
+export function controlledPlayer(state: GameState): Player | undefined {
+  const current = state.players[state.currentPlayerIndex];
+  if (!current) return undefined;
+  if (state.teamsMode && allPiecesFinished(current)) {
+    const mate = state.players.find((p) => p.color === TEAMMATE[current.color]);
+    if (mate && !allPiecesFinished(mate)) return mate;
+  }
+  return current;
+}
+
 /**
- * Get all pieces of the current player that can move with the given dice value.
+ * Get all pieces the current player may move with the given dice value —
+ * their own, or (teams, once finished) their teammate's.
  */
 export function getMovablePieces(state: GameState, diceValue: number): Piece[] {
-  const currentPlayer = state.players[state.currentPlayerIndex];
-  if (!currentPlayer) return [];
+  const controlled = controlledPlayer(state);
+  if (!controlled) return [];
 
-  return currentPlayer.pieces.filter((piece) =>
-    canPieceMove(piece, diceValue, currentPlayer.color),
+  return controlled.pieces.filter((piece) =>
+    canPieceMove(piece, diceValue, controlled.color),
   );
 }
 
@@ -235,18 +254,23 @@ export function movePiece(
   const currentPlayer = state.players[state.currentPlayerIndex];
   if (!currentPlayer) return state;
 
-  const pieceIndex = currentPlayer.pieces.findIndex((p) => p.id === pieceId);
+  // Whose piece is this? Normally the current player's; in teams a
+  // FINISHED player moves their teammate's pieces (Ludo Club assist).
+  const controlled = controlledPlayer(state);
+  if (!controlled) return state;
+  const ownerIdx = state.players.findIndex((p) => p.id === controlled.id);
+  const pieceIndex = controlled.pieces.findIndex((p) => p.id === pieceId);
   if (pieceIndex === -1) return state;
 
-  const piece = currentPlayer.pieces[pieceIndex];
+  const piece = controlled.pieces[pieceIndex];
 
-  // Calculate new position
+  // Calculate new position (always along the piece OWNER's route)
   let newPos: number;
   if (piece.position === -1) {
     // Entering the board
-    newPos = COLOR_CONFIG[currentPlayer.color].entryIndex;
+    newPos = COLOR_CONFIG[controlled.color].entryIndex;
   } else {
-    newPos = calculateNewPosition(piece.position, diceValue, currentPlayer.color);
+    newPos = calculateNewPosition(piece.position, diceValue, controlled.color);
   }
 
   if (newPos === -2) return state; // Cannot move (overshoot)
@@ -255,7 +279,7 @@ export function movePiece(
   let newState: GameState = {
     ...state,
     players: state.players.map((player, idx) =>
-      idx === state.currentPlayerIndex
+      idx === ownerIdx
         ? {
             ...player,
             pieces: player.pieces.map((p) =>
@@ -269,7 +293,7 @@ export function movePiece(
   };
 
   // Add entry message
-  const movedPiece = newState.players[newState.currentPlayerIndex].pieces[pieceIndex];
+  const movedPiece = newState.players[ownerIdx].pieces[pieceIndex];
   if (piece.position === -1 && newPos >= 0) {
     newState = {
       ...newState,
@@ -301,12 +325,12 @@ export function movePiece(
         },
       ],
     };
-    // Check for win
-    if (checkWin(newState, currentPlayer.color)) {
+    // Check for win (teams: the WHOLE team's 8 pieces must be home)
+    if (checkWin(newState, controlled.color)) {
       return {
         ...newState,
         phase: 'finished',
-        winner: currentPlayer.color,
+        winner: controlled.color,
       };
     }
     return newState;
@@ -325,11 +349,18 @@ export function movePiece(
 
 // ─── Win Detection ───────────────────────────────────────────────────
 
-/** Check if a player has won (all 4 pieces in the goal). */
+/** Check for a win. Free-for-all: all 4 of the color's pieces home.
+ *  Teams (Ludo Club): the ENTIRE team wins together — all 8 pieces of
+ *  BOTH teammates must reach the goal, not just one player's. */
 export function checkWin(state: GameState, color: Color): boolean {
   const player = state.players.find((p) => p.color === color);
   if (!player) return false;
-  return player.pieces.every((piece) => piece.position >= FINISH_POS);
+  if (!allPiecesFinished(player)) return false;
+  if (state.teamsMode) {
+    const mate = state.players.find((p) => p.color === TEAMMATE[color]);
+    if (mate && !allPiecesFinished(mate)) return false;
+  }
+  return true;
 }
 
 // ─── Turn Management ─────────────────────────────────────────────────

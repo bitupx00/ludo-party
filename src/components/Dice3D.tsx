@@ -2,6 +2,7 @@ import { styleOnce } from '../styleOnce.ts';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { playSfx, vibrate } from '../sound.ts';
+import { skinById } from '../game/diceSkins.ts';
 import { useT } from '../i18n.ts';
 
 /**
@@ -15,6 +16,8 @@ interface Dice3DProps {
   rollSeq: number;
   canRoll: boolean;
   isBot: boolean;
+  /** Dice skin id (see game/diceSkins.ts) — the roller's chosen model. */
+  skin?: string;
   onRoll: () => void;
 }
 
@@ -63,10 +66,14 @@ function DiceFace({ value }: { value: number }) {
  * turn (Ludo Club style) — the big interactive Dice3D only appears in the
  * HUD during the LOCAL player's own turn.
  */
-export function MiniDice({ value, rolling }: { value: number | null; rolling: boolean }) {
+export function MiniDice({ value, rolling, skin }: { value: number | null; rolling: boolean; skin?: string }) {
   const pips = value ? PIP_MAP[value] : [];
+  const skinDef = skinById(skin);
   return (
-    <div className={`mini-dice ${rolling ? 'mini-dice--rolling' : ''}`}>
+    <div
+      className={`mini-dice ${rolling ? 'mini-dice--rolling' : ''}`}
+      style={skinDef.vars as React.CSSProperties}
+    >
       {value ? (
         <div className="mini-dice-face">
           {Array.from({ length: 9 }, (_, i) => (
@@ -80,7 +87,7 @@ export function MiniDice({ value, rolling }: { value: number | null; rolling: bo
   );
 }
 
-export default function Dice3D({ value, rollSeq, canRoll, isBot, onRoll }: Dice3DProps) {
+export default function Dice3D({ value, rollSeq, canRoll, isBot, skin, onRoll }: Dice3DProps) {
   const t = useT();
   const [rotation, setRotation] = useState({ x: -20, y: -25 });
   const [rolling, setRolling] = useState(false);
@@ -109,6 +116,7 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, onRoll }: Dice3
     return () => clearTimeout(timer);
   }, [rollSeq]);
 
+  const skinDef = skinById(skin);
   const tappable = canRoll && !isBot && !rolling;
 
   const handleTap = () => {
@@ -118,7 +126,8 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, onRoll }: Dice3
   return (
     <div className="dice3d-area">
       <motion.button
-        className={`dice3d ${tappable ? 'dice3d--ready' : ''}`}
+        className={`dice3d ${tappable ? 'dice3d--ready' : ''} ${skinDef.effect ? `dice3d--fx-${skinDef.effect}` : ''}`}
+        style={skinDef.vars as React.CSSProperties}
         onClick={handleTap}
         whileTap={tappable ? { scale: 0.9 } : {}}
         aria-label={t('rollDice')}
@@ -172,8 +181,8 @@ styleOnce('dice3d', `
           width: clamp(20px, 5.5vmin, 26px);
           height: clamp(20px, 5.5vmin, 26px);
           border-radius: 22%;
-          background: radial-gradient(circle at 30% 25%, #ffffff 0%, #f3eee2 55%, #ddd3bd 100%);
-          border: 1.5px solid rgba(120, 100, 60, 0.3);
+          background: radial-gradient(circle at 30% 25%, var(--d3-f1, #ffffff) 0%, var(--d3-f2, #f3eee2) 55%, var(--d3-f3, #ddd3bd) 100%);
+          border: 1.5px solid var(--d3-bd, rgba(120, 100, 60, 0.3));
           box-shadow: 0 2px 6px rgba(18, 8, 60, 0.4);
           display: flex;
           align-items: center;
@@ -199,7 +208,7 @@ styleOnce('dice3d', `
           width: 70%;
           height: 70%;
           border-radius: 50%;
-          background: #4534b8;
+          background: var(--d3-p2, #4534b8);
         }
         .mini-dice-pip--off {
           visibility: hidden;
@@ -229,6 +238,9 @@ styleOnce('dice3d', `
           cursor: pointer;
           animation: dice-nudge 1.6s ease-in-out infinite;
         }
+        .dice3d--fx-glow {
+          filter: drop-shadow(0 10px 14px rgba(20, 8, 60, 0.45)) drop-shadow(0 0 14px var(--d3-glow, transparent));
+        }
         @keyframes dice-nudge {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-7px); }
@@ -249,8 +261,8 @@ styleOnce('dice3d', `
           padding: 16%;
           border-radius: 18%;
           background:
-            radial-gradient(circle at 30% 25%, #ffffff 0%, #f3eee2 55%, #ddd3bd 100%);
-          border: 1px solid rgba(120, 100, 60, 0.25);
+            radial-gradient(circle at 30% 25%, var(--d3-f1, #ffffff) 0%, var(--d3-f2, #f3eee2) 55%, var(--d3-f3, #ddd3bd) 100%);
+          border: 1px solid var(--d3-bd, rgba(120, 100, 60, 0.25));
           box-shadow: inset 0 0 10px rgba(120, 100, 60, 0.18);
           backface-visibility: hidden;
         }
@@ -258,7 +270,7 @@ styleOnce('dice3d', `
           width: 72%;
           height: 72%;
           border-radius: 50%;
-          background: radial-gradient(circle at 35% 30%, #6b5cf0 0%, #4534b8 70%, #32247e 100%);
+          background: radial-gradient(circle at 35% 30%, var(--d3-p1, #6b5cf0) 0%, var(--d3-p2, #4534b8) 70%, var(--d3-p3, #32247e) 100%);
           box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.35), 0 1px 1px rgba(255, 255, 255, 0.6);
         }
         .d3-pip--off {

@@ -16,6 +16,7 @@ import {
   createId,
   addCaptureEffectToState,
   canPieceMove,
+  controlledPlayer,
 } from '../game/gameEngine';
 import { getSquarePosition } from '../game/boardPath';
 import { createBotPlayers, chooseBotMove, getBotReaction, BOT_NAMES, BOT_EMOJIS } from '../game/aiPlayer';
@@ -32,6 +33,7 @@ import { ensureProfile } from '../profile';
 import { playSfx } from '../sound';
 import { STEP_DURATION } from '../game/anim';
 import { buildMemeFx, MEME_FIRE_CHANCE, type MemeFx } from '../game/memeFx';
+import { isValidSkin, loadSkinPref, saveSkinPref } from '../game/diceSkins';
 import type { MemeEventKind } from '../game/memeSounds';
 import {
   NO_MOVE_MESSAGES,
@@ -124,9 +126,9 @@ interface GameStore {
   createOnlineRoom: (hostName: string) => Promise<void>;
   joinOnlineRoom: (code: string, name: string) => Promise<void>;
   /** Host: seat a remote guest; returns the new player id (null if full). */
-  addRemotePlayer: (name: string, points?: number) => string | null;
+  addRemotePlayer: (name: string, points?: number, skin?: string) => string | null;
   /** Host: apply a validated action coming from a guest. */
-  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number; color?: Color }) => void;
+  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number; color?: Color; skin?: string }) => void;
   /** Host: a guest disconnected — unseat (lobby) or convert to bot (game). */
   handleGuestLeft: (playerId: string) => void;
   /** Host: a disconnected guest came back (validated seat ticket) — give
@@ -148,6 +150,8 @@ interface GameStore {
   /** Host (online lobby): toggle 2v2 team play for the room. Requires 4
    *  human players to start; syncs to guests via the snapshot. */
   setTeamsMode: (on: boolean) => void;
+  /** Pick your dice model (lobby only; persisted on this device). */
+  setDiceSkin: (skin: string) => void;
   startGame: () => void;
 
   // Gameplay
@@ -199,15 +203,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   movablePieceIds: () => {
-    const { players, currentPlayerIndex, diceValue, phase, consecutiveSixes } = get();
+    const state = get();
+    const { diceValue, phase, consecutiveSixes } = state;
     const dice = diceValue ?? 0;
     if (dice === 0 || phase !== 'moving') return [];
     // Third consecutive bonus roll (6s/1s): play cancelled, nothing may move
     if (isBonusRoll(dice) && consecutiveSixes >= 2) return [];
-    const player = players[currentPlayerIndex];
-    if (!player) return [];
-    return player.pieces
-      .filter((p) => canPieceMove(p, dice, player.color))
+    // Teams: a player whose 4 pieces are home moves the TEAMMATE's pieces
+    const controlled = controlledPlayer(state);
+    if (!controlled) return [];
+    return controlled.pieces
+      .filter((p) => canPieceMove(p, dice, controlled.color))
       .map((p) => p.id);
   },
 
@@ -319,12 +325,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  addRemotePlayer: (name: string, points?: number) => {
+  addRemotePlayer: (name: string, points?: number, skin?: string) => {
     const { players } = get();
     if (players.length >= 4) return null;
     get().addPlayer(name.trim().slice(0, 24) || 'Jugador', points ?? 0);
     const added = get().players[get().players.length - 1];
-    if (added) playSfx('join');
+    if (added) {
+      if (skin && isValidSkin(skin)) {
+        set({ players: get().players.map((p) => (p.id === added.id ? { ...p, diceSkin: skin } : p)) });
+      }
+      playSfx('join');
+    }
     return added?.id ?? null;
   },
 
@@ -347,6 +358,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       chatFromPlayer(set, get, player, action.text);
       return;
     }
+    if (action.a === 'skin' && action.skin && isValidSkin(action.skin)) {
+      if (state.screen !== 'lobby') return;
+      set({ players: state.players.map((p) => (p.id === playerId ? { ...p, diceSkin: action.skin } : p)) });
+      return;
+    }
     if (action.a === 'seat' && action.color) {
       if (state.screen !== 'lobby') return;
       if (state.players.some((p) => p.color === action.color)) return; // taken
@@ -363,7 +379,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     } else if (action.a === 'select' && action.pieceId) {
       if (state.phase !== 'moving' || state.diceValue === null) return;
       if (isBonusRoll(state.diceValue) && state.consecutiveSixes >= 2) return; // third bonus roll: cancelled
-      const owns = player.pieces.some((p) => p.id === action.pieceId);
+      // Teams: a finished player moves the teammate's pieces, so validate
+      // against whoever the current turn CONTROLS (own or ally).
+      const controlled = controlledPlayer(state);
+      const owns = controlled?.pieces.some((p) => p.id === action.pieceId) ?? false;
       if (!owns) return;
       executeMove(set, get, action.pieceId);
     }
@@ -498,7 +517,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? ensureProfile(name).points
         : 0;
 
-    const newPlayer = { ...createPlayer(createId(), name, nextColor, emoji), points };
+    const newPlayer = {
+      ...createPlayer(createId(), name, nextColor, emoji),
+      points,
+      // Every locally-seated human starts with this device's dice pref
+      // (each player can change it in the lobby picker afterwards).
+      diceSkin: loadSkinPref(),
+    };
 
     set({
       players: [...players, newPlayer],
@@ -555,6 +580,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (screen !== 'lobby' || gameMode !== 'online') return;
     if (onlineRole !== 'host') return; // guests just mirror the snapshot
     set({ teamsMode: on });
+  },
+
+  setDiceSkin: (skin: string) => {
+    if (!isValidSkin(skin)) return;
+    const { players, screen, onlineRole, localPlayerId } = get();
+    if (screen !== 'lobby') return;
+    saveSkinPref(skin); // remember on this device for future games
+    if (onlineRole === 'guest') {
+      sendActionToHost({ a: 'skin', skin });
+      return;
+    }
+    // Online host → own player; local modes → most recently added human
+    const target = onlineRole === 'host'
+      ? players.find((p) => p.id === localPlayerId)
+      : [...players].reverse().find((p) => !p.isBot);
+    if (!target) return;
+    playSfx('click');
+    set({ players: players.map((p) => (p.id === target.id ? { ...p, diceSkin: skin } : p)) });
   },
 
   startGame: () => {
@@ -1147,12 +1190,16 @@ function executeMove(
   const { diceValue, currentPlayerIndex } = state;
   if (diceValue === null) return;
 
-  const movedBefore = state.players[currentPlayerIndex]?.pieces.find((p) => p.id === pieceId);
-  if (!movedBefore) return;
+  // Whose piece moves: the current player's, or (teams, once finished)
+  // their teammate's — the engine resolves the same way.
+  const controlled = controlledPlayer(state);
+  const controlledIdx = controlled ? state.players.findIndex((p) => p.id === controlled.id) : -1;
+  const movedBefore = controlled?.pieces.find((p) => p.id === pieceId);
+  if (!movedBefore || controlledIdx < 0) return;
 
   // Execute the move
   let newState = movePiece({ ...state }, pieceId, diceValue);
-  const movedAfter = newState.players[currentPlayerIndex].pieces.find((p) => p.id === pieceId);
+  const movedAfter = newState.players[controlledIdx].pieces.find((p) => p.id === pieceId);
 
   // Structural event detection (no message sniffing):
   // capture = an opponent piece that was on the board is now back at base
@@ -1215,9 +1262,9 @@ function executeMove(
   // 40% chance (wins always fire). Broadcast via the snapshot so every
   // device plays the same sound + shows the same gif on the piece.
   const isWin = newState.phase === 'finished' && !!newState.winner;
-  const occasion = movedAfter
+  const occasion = movedAfter && controlled
     ? detectMemeOccasion({
-        state, mover, movedBefore, movedAfter, diceValue,
+        state, mover: controlled, movedBefore, movedAfter, diceValue,
         captured, victim, reachedHome, isWin,
       })
     : null;

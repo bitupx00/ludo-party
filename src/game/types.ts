@@ -11,6 +11,17 @@ export const TEAMMATE: Record<Color, Color> = {
   blue: 'green',
 };
 
+/** Team identity (2v2): red+yellow = Equipo Fuego 🔥, green+blue =
+ *  Equipo Bosque 🌲 — shown as a badge on each avatar in team games. */
+export const TEAM_INFO: Record<'fuego' | 'bosque', { nameKey: 'teamFire' | 'teamForest'; emoji: string }> = {
+  fuego: { nameKey: 'teamFire', emoji: '🔥' },
+  bosque: { nameKey: 'teamForest', emoji: '🌲' },
+};
+
+export function teamOf(color: Color): 'fuego' | 'bosque' {
+  return color === 'red' || color === 'yellow' ? 'fuego' : 'bosque';
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -32,6 +43,8 @@ export interface Player {
   /** Last turnCount this player triggered a panel sound on (limit: one
    *  user sound per game turn). */
   lastSoundTurn?: number;
+  /** Chosen dice model (see game/diceSkins.ts) — picked in the lobby. */
+  diceSkin?: string;
 }
 
 export interface Piece {

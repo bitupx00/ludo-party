@@ -451,6 +451,7 @@ export default function Game() {
                 rollSeq={rollSeq}
                 canRoll={canRoll}
                 isBot={false}
+                skin={currentPlayer?.diceSkin}
                 onRoll={roll}
               />
             )}

@@ -2,6 +2,7 @@ import Peer, { type DataConnection, type MediaConnection, type PeerOptions } fro
 import type { Color } from '../game/types';
 import { useGameStore, SNAPSHOT_KEYS, type GameSnapshot } from '../store/gameStore';
 import { loadProfile } from '../profile';
+import { loadSkinPref } from '../game/diceSkins';
 
 /**
  * Online multiplayer over PeerJS (WebRTC data channels), host-authoritative:
@@ -33,11 +34,12 @@ export type GuestAction =
   | { a: 'buy'; lucky: number } // arm a lucky dice for the next own roll (host validates cost)
   | { a: 'select'; pieceId: string }
   | { a: 'seat'; color: Color } // lobby color pick (host validates it's free)
+  | { a: 'skin'; skin: string } // lobby dice-model pick (host validates the id)
   | { a: 'reaction'; emoji: string }
   | { a: 'chat'; text: string };
 
 type GuestMessage =
-  | { t: 'join'; name: string; points?: number; rejoin?: { playerId: string; token: string } }
+  | { t: 'join'; name: string; points?: number; skin?: string; rejoin?: { playerId: string; token: string } }
   | { t: 'pong' }
   | ({ t: 'action' } & GuestAction);
 
@@ -387,7 +389,7 @@ export function hostRoom(code: string): Promise<void> {
             conn.close();
             return;
           }
-          const playerId = store.addRemotePlayer(msg.name, msg.points);
+          const playerId = store.addRemotePlayer(msg.name, msg.points, msg.skin);
           if (!playerId) {
             conn.send({ t: 'error', code: 'room-full' } satisfies HostMessage);
             conn.close();
@@ -541,9 +543,9 @@ function joinRoomInternal(code: string, name: string): Promise<void> {
         const rejoin = ticket && ticket.code === code
           ? { playerId: ticket.playerId, token: ticket.token }
           : undefined;
-        // Carry the wallet: fresh seats start with the profile's saved ⭐
+        // Carry the wallet + this device's dice-skin preference
         const points = loadProfile()?.points ?? 0;
-        conn.send({ t: 'join', name, points, rejoin } satisfies GuestMessage);
+        conn.send({ t: 'join', name, points, skin: loadSkinPref(), rejoin } satisfies GuestMessage);
       });
 
       conn.on('data', (raw) => {

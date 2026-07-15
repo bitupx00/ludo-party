@@ -5,6 +5,7 @@ import {
   calculateNewPosition,
   createPlayer,
   createId,
+  getMovablePieces,
 } from './gameEngine';
 import { randomPick, CAPTURE_MESSAGES } from './stickers';
 import { GIFS, GIF_PREFIX } from './gifs';
@@ -64,7 +65,15 @@ export function chooseBotMove(
     canPieceMove(piece, diceValue, currentPlayer.color),
   );
 
-  if (movable.length === 0) return null;
+  if (movable.length === 0) {
+    // Teams: a finished bot helps its teammate — move the ally piece
+    // that's furthest along (simple but effective assist).
+    const assist = getMovablePieces(state, diceValue);
+    if (assist.length > 0) {
+      return [...assist].sort((a, b) => b.position - a.position)[0].id;
+    }
+    return null;
+  }
   if (movable.length === 1) return movable[0].id;
 
   // Priority 1: Capture

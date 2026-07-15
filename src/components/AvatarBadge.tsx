@@ -2,8 +2,8 @@ import { styleOnce } from '../styleOnce.ts';
 import { memo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Player } from '../game/types.ts';
-import { PLAYER_CONFIG, TEAMMATE } from '../game/types.ts';
-import type { Reaction } from '../store/gameStore.ts';
+import { PLAYER_CONFIG, TEAM_INFO, teamOf } from '../game/types.ts';
+import { useGameStore, type Reaction } from '../store/gameStore.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
 import { MiniDice } from './Dice3D.tsx';
@@ -85,6 +85,13 @@ function AvatarBadge({
   const config = PLAYER_CONFIG[player.color];
   const [bubbleVisible, setBubbleVisible] = useState(false);
 
+  // Per-player silencing (local to this device): voice + reaction sounds
+  const isMuted = useVideoStore((s) => !!s.mutedPlayers[player.id]);
+  const toggleMutePlayer = useVideoStore((s) => s.toggleMutePlayer);
+  const onlineRole = useGameStore((s) => s.onlineRole);
+  const localPlayerId = useGameStore((s) => s.localPlayerId);
+  const canMute = onlineRole !== 'none' && player.id !== localPlayerId && !player.isBot;
+
   // Camera feed for this player (video chat): shown inside the circle
   const stream = useVideoStore((s) => s.streams[player.color]);
   const isLocalCam = useVideoStore((s) => s.localColor === player.color);
@@ -100,11 +107,14 @@ function AvatarBadge({
   useEffect(() => {
     if (!reaction) return;
     setBubbleVisible(true);
-    if (isSoundReaction(reaction.emoji)) {
-      playMemeSound(soundIdOf(reaction.emoji));
-    } else if (isGifReaction(reaction.emoji)) {
-      const gif = gifById(gifIdOf(reaction.emoji));
-      if (gif) playSfx(gif.sfx);
+    // A silenced player's sounds never play on THIS device (bubble still shows)
+    if (!isMuted) {
+      if (isSoundReaction(reaction.emoji)) {
+        playMemeSound(soundIdOf(reaction.emoji));
+      } else if (isGifReaction(reaction.emoji)) {
+        const gif = gifById(gifIdOf(reaction.emoji));
+        if (gif) playSfx(gif.sfx);
+      }
     }
     const timer = setTimeout(() => setBubbleVisible(false), REACTION_VISIBLE_MS);
     return () => clearTimeout(timer);
@@ -122,12 +132,13 @@ function AvatarBadge({
             requestAnimationFrame ticking for the whole game. */}
         <div className={`avatar-badge-circle ${isCurrent ? 'avatar-badge-circle--pulse' : ''}`}>
           {showVideo && stream ? (
-            <AvatarVideo stream={stream} mirrored={isLocalCam} muted={isLocalCam} />
+            <AvatarVideo stream={stream} mirrored={isLocalCam} muted={isLocalCam || isMuted} />
           ) : (
             <span className="avatar-badge-emoji">{player.emoji}</span>
           )}
-          {/* Remote audio still plays when there's no video to show */}
-          {!showVideo && stream && !isLocalCam && stream.getAudioTracks().length > 0 && (
+          {/* Remote audio still plays when there's no video to show —
+              unless this device silenced the player */}
+          {!showVideo && stream && !isLocalCam && !isMuted && stream.getAudioTracks().length > 0 && (
             <AvatarAudio stream={stream} />
           )}
           {isLocalCam && !micOn && <span className="avatar-badge-mic-off">🔇</span>}
@@ -140,7 +151,7 @@ function AvatarBadge({
             the local device's own turn. */}
         {diceValue !== undefined && (
           <div className="avatar-badge-dice">
-            <MiniDice value={diceValue} rolling={!!diceRolling} />
+            <MiniDice value={diceValue} rolling={!!diceRolling} skin={player.diceSkin} />
           </div>
         )}
 
@@ -165,8 +176,21 @@ function AvatarBadge({
         </AnimatePresence>
 
         {showTeamBadge && (
-          <span className="avatar-team-dot" title={PLAYER_CONFIG[TEAMMATE[player.color]].label}
-            style={{ background: PLAYER_CONFIG[TEAMMATE[player.color]].cssColor }} />
+          <span className="avatar-team-badge" title={t(TEAM_INFO[teamOf(player.color)].nameKey)}>
+            {TEAM_INFO[teamOf(player.color)].emoji}
+          </span>
+        )}
+
+        {/* Silence THIS player (local): mutes their voice + their sounds */}
+        {canMute && (
+          <button
+            className={`avatar-mute-btn ${isMuted ? 'avatar-mute-btn--on' : ''}`}
+            onClick={(e) => { e.stopPropagation(); toggleMutePlayer(player.id); }}
+            aria-label={isMuted ? t('unmutePlayer') : t('mutePlayer')}
+            title={isMuted ? t('unmutePlayer') : t('mutePlayer')}
+          >
+            {isMuted ? '🔇' : '🔊'}
+          </button>
         )}
       </div>
 
@@ -331,14 +355,45 @@ styleOnce('avatar-badge', `
           z-index: 5;
           pointer-events: none;
         }
-        .avatar-team-dot {
+        .avatar-team-badge {
           position: absolute;
-          bottom: 0;
-          right: -2px;
-          width: 14px;
-          height: 14px;
+          bottom: -4px;
+          right: -6px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
-          border: 2px solid #fff;
+          background: rgba(20, 9, 46, 0.92);
+          border: 1.5px solid rgba(255, 255, 255, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.7rem;
+          line-height: 1;
+          z-index: 4;
+          pointer-events: none;
+        }
+        .avatar-mute-btn {
+          position: absolute;
+          top: -6px;
+          left: -8px;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          border: 1.5px solid rgba(255, 255, 255, 0.4);
+          background: rgba(20, 9, 46, 0.85);
+          font-size: 0.6rem;
+          line-height: 1;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 5;
+          padding: 0;
+          touch-action: manipulation;
+        }
+        .avatar-mute-btn--on {
+          background: rgba(240, 64, 92, 0.85);
+          border-color: rgba(255, 255, 255, 0.7);
         }
         .avatar-badge-info {
           display: flex;
