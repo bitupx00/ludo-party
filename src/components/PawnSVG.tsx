@@ -71,18 +71,19 @@ export default function PawnSVG({ color, className, shadow = true }: PawnSVGProp
       {/* Big glossy sphere head (chubby look) */}
       <circle cx="32" cy="18" r="15.5" fill={`url(#${headId})`} stroke={c.deep} strokeWidth="1.4" />
 
-      {/* Specular highlights */}
-      <ellipse cx="26" cy="11" rx="5.6" ry="4" fill="#ffffff" opacity="0.85" transform="rotate(-22 26 11)" />
-      <circle cx="22.5" cy="17.5" r="1.9" fill="#ffffff" opacity="0.55" />
+      {/* Specular highlights — subtle: full-white at high opacity read as
+          an overblown glare on the board */}
+      <ellipse cx="26" cy="11" rx="5.2" ry="3.6" fill="#ffffff" opacity="0.42" transform="rotate(-22 26 11)" />
+      <circle cx="22.5" cy="17.5" r="1.7" fill="#ffffff" opacity="0.26" />
       <path
         d="M24.5 36 C22.5 42 21.3 50 20.6 56"
         stroke="#ffffff"
-        strokeOpacity="0.4"
-        strokeWidth="3.4"
+        strokeOpacity="0.2"
+        strokeWidth="3"
         strokeLinecap="round"
         fill="none"
       />
-      <ellipse cx="22" cy="60.5" rx="3.4" ry="1.8" fill="#ffffff" opacity="0.35" />
+      <ellipse cx="22" cy="60.5" rx="3.2" ry="1.7" fill="#ffffff" opacity="0.16" />
     </svg>
   );
 }

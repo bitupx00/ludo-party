@@ -83,12 +83,17 @@ function Piece({ piece, xs, ys, layout, stepDuration = STEP_DURATION, onClick }:
     >
       {/* Static layer owns the centering translate — framer animates scale on
           the button below and would clobber a CSS transform there. Group
-          layout shrinks the piece around its cell-anchor point (50%, 80%)
-          and nudges it by fractions of its own box → responsive. */}
+          layout shrinks the piece around its cell-anchor point and nudges
+          it by fractions of its own box → responsive.
+          Anchor height differs by place: ON THE BOARD the pawn STANDS on
+          the cell (its base at the anchor, 80% down the art). WAITING IN
+          ITS BASE it must sit CENTERED inside the gray slot circle (Ludo
+          Club look) — anchoring the base there left the pawn floating on
+          the top half of the circle. */}
       <div
         className="piece-offset"
         style={{
-          transform: `translate(calc(-50% + ${layout.fx * 100}%), calc(-80% + ${layout.fy * 100}%)) scale(${layout.scale})`,
+          transform: `translate(calc(-50% + ${layout.fx * 100}%), calc(-${piece.position === -1 ? 58 : 80}% + ${layout.fy * 100}%)) scale(${layout.scale})`,
           transformOrigin: '50% 80%',
           transition: 'transform 180ms ease',
         }}
