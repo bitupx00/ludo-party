@@ -53,7 +53,6 @@ export const MEME_SOUNDS: MemeSound[] = [
   // Eventos especiales
   { id: 'buenosdias', name: 'Buenos días estrellitas' },
   { id: 'recluta', name: '¿Qué es esto recluta?' },
-  { id: 'terrorfx', name: 'Terror FX' },
   { id: 'patroclo', name: 'Patroclo' },
   { id: 'meamaba', name: 'Cuando alguien me amaba' },
   { id: 'shrekburro', name: 'Burro de Shrek' },
@@ -97,8 +96,10 @@ export const EVENT_POOLS = {
   block: ['hayalguien'],
   /** Landed on a square with a piece of your own color. */
   ownStack: ['gatitoboo'],
-  /** Landed exactly on an enemy's entry square. */
-  enemyEntry: ['terrorfx'],
+  /** Landed exactly on an enemy's entry square — you showed up at their
+   *  front door, so the fitting memes are a cheeky greeting or the owner
+   *  asking who the intruder is. */
+  enemyEntry: ['buenasbuenas', 'quienesese'],
   /** A 6-square sprint past enemies (big escape). */
   escape: ['ysemarcho', 'helicoptero', 'scouts'],
   /** Host starts the match (always plays, for everyone). */
