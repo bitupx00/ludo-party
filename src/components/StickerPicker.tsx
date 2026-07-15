@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QUICK_PHRASES } from '../game/stickers.ts';
-import { GIFS, GIF_PREFIX } from '../game/gifs.ts';
+import { GIFS, GIF_PREFIX, TGIF_PREFIX } from '../game/gifs.ts';
+import { tenorSearch, tenorTrending, tenorRegisterShare, type TenorGif } from '../game/tenor.ts';
 import { MEME_SOUNDS, SND_PREFIX } from '../game/memeSounds.ts';
 import { useFavStore } from '../favorites.ts';
 import GifSticker from './GifSticker.tsx';
@@ -22,6 +23,39 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
   const [activeTab, setActiveTab] = useState<'gifs' | 'sonidos' | 'frases'>('gifs');
   const favs = useFavStore((s) => s.favs);
   const toggleFav = useFavStore((s) => s.toggleFav);
+
+  // Tenor GIF search: trending on open, live results on search
+  const [query, setQuery] = useState('');
+  const [tenorGifs, setTenorGifs] = useState<TenorGif[]>([]);
+  const [tenorLoading, setTenorLoading] = useState(false);
+  const lastQuery = useRef('trending');
+  const trendingLoaded = useRef(false);
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'gifs' || trendingLoaded.current) return;
+    trendingLoaded.current = true;
+    setTenorLoading(true);
+    tenorTrending(16)
+      .then(setTenorGifs)
+      .catch(() => { /* offline/blocked — bundled stickers still work */ })
+      .finally(() => setTenorLoading(false));
+  }, [isOpen, activeTab]);
+
+  const runSearch = () => {
+    const q = query.trim();
+    setTenorLoading(true);
+    lastQuery.current = q || 'trending';
+    (q ? tenorSearch(q, 16) : tenorTrending(16))
+      .then(setTenorGifs)
+      .catch(() => setTenorGifs([]))
+      .finally(() => setTenorLoading(false));
+  };
+
+  const handleTenorClick = (gif: TenorGif) => {
+    onStickerSelect(`${TGIF_PREFIX}${gif.url}`);
+    tenorRegisterShare(gif.id, lastQuery.current);
+    onClose();
+  };
 
   const handleGifClick = (id: string) => {
     onStickerSelect(`${GIF_PREFIX}${id}`);
@@ -130,6 +164,38 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
                 ))}
               </div>
             ) : (
+              <div className="sticker-gifs-wrap">
+                <div className="sticker-search-row">
+                  <input
+                    className="sticker-search"
+                    type="text"
+                    placeholder="Buscar GIFs (Tenor)…"
+                    value={query}
+                    maxLength={60}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                  />
+                  <button className="sticker-search-btn" onClick={runSearch} aria-label="buscar">🔎</button>
+                </div>
+
+                {tenorLoading && <p className="sticker-tenor-note">Cargando GIFs…</p>}
+                {!tenorLoading && tenorGifs.length > 0 && (
+                  <>
+                    <div className="sticker-tenor-grid">
+                      {tenorGifs.map((gif) => (
+                        <button
+                          key={gif.id + gif.url}
+                          className="sticker-tenor-item"
+                          onClick={() => handleTenorClick(gif)}
+                        >
+                          <img src={gif.preview} alt="GIF" loading="lazy" draggable={false} />
+                        </button>
+                      ))}
+                    </div>
+                    <p className="sticker-tenor-note">Powered by Tenor</p>
+                  </>
+                )}
+
               <div className="sticker-grid">
                 {GIFS.map((gif, i) => {
                   const payload = `${GIF_PREFIX}${gif.id}`;
@@ -157,6 +223,7 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
                     </motion.div>
                   );
                 })}
+              </div>
               </div>
             )}
           </motion.div>
@@ -224,6 +291,68 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
           cursor: pointer;
           font-size: 0.75rem;
           font-weight: 800;
+        }
+        .sticker-gifs-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          overflow-y: auto;
+          min-height: 0;
+        }
+        .sticker-search-row {
+          display: flex;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        .sticker-search {
+          flex: 1;
+          min-width: 0;
+          padding: 8px 12px;
+          border-radius: var(--radius-full);
+          border: 1.5px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.1);
+          color: var(--color-text);
+          font-family: var(--font-body);
+          font-size: 0.85rem;
+          font-weight: 700;
+          outline: none;
+        }
+        .sticker-search::placeholder { color: var(--color-text-muted); }
+        .sticker-search-btn {
+          width: 38px;
+          border-radius: var(--radius-full);
+          border: none;
+          background: rgba(255, 255, 255, 0.14);
+          cursor: pointer;
+          font-size: 0.9rem;
+        }
+        .sticker-tenor-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        .sticker-tenor-item {
+          padding: 0;
+          border: none;
+          border-radius: var(--radius-md);
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.08);
+          cursor: pointer;
+          aspect-ratio: 1;
+        }
+        .sticker-tenor-item img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .sticker-tenor-note {
+          text-align: center;
+          font-size: 0.62rem;
+          font-weight: 700;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
         }
         .sticker-grid {
           display: grid;

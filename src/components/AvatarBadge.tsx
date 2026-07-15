@@ -7,7 +7,7 @@ import { useGameStore, type Reaction } from '../store/gameStore.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
 import { MiniDice } from './Dice3D.tsx';
-import { isGifReaction, gifIdOf, gifById } from '../game/gifs.ts';
+import { isGifReaction, gifIdOf, gifById, isTenorReaction, tenorUrlOf } from '../game/gifs.ts';
 import { isSoundReaction, soundIdOf, memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import { playSfx } from '../sound.ts';
 import GifSticker from './GifSticker.tsx';
@@ -160,7 +160,7 @@ function AvatarBadge({
           {bubbleVisible && reaction && (
             <motion.div
               key={reaction.key}
-              className={`avatar-reaction-bubble ${isGifReaction(reaction.emoji) ? 'avatar-reaction-bubble--gif' : ''}`}
+              className={`avatar-reaction-bubble ${isGifReaction(reaction.emoji) || isTenorReaction(reaction.emoji) ? 'avatar-reaction-bubble--gif' : ''}`}
               initial={{ opacity: 0, scale: 0.3, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.5, y: -8 }}
@@ -168,9 +168,11 @@ function AvatarBadge({
             >
               {isGifReaction(reaction.emoji)
                 ? <GifSticker id={gifIdOf(reaction.emoji)} size={58} />
-                : isSoundReaction(reaction.emoji)
-                  ? <span className="avatar-snd">🔊 {memeSoundById(soundIdOf(reaction.emoji))?.name ?? ''}</span>
-                  : reaction.emoji}
+                : isTenorReaction(reaction.emoji)
+                  ? <img className="avatar-tgif" src={tenorUrlOf(reaction.emoji)} alt="GIF" draggable={false} />
+                  : isSoundReaction(reaction.emoji)
+                    ? <span className="avatar-snd">🔊 {memeSoundById(soundIdOf(reaction.emoji))?.name ?? ''}</span>
+                    : reaction.emoji}
             </motion.div>
           )}
         </AnimatePresence>
@@ -330,6 +332,13 @@ styleOnce('avatar-badge', `
           right: auto;
           left: -12px;
           border-radius: 17px 17px 4px 17px;
+        }
+        .avatar-tgif {
+          width: 64px;
+          height: 64px;
+          object-fit: cover;
+          border-radius: 12px;
+          display: block;
         }
         .avatar-snd {
           font-size: 0.68rem;

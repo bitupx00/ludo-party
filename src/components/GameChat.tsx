@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameMessage, Player } from '../game/types.ts';
 import { useT } from '../i18n.ts';
-import { isGifReaction, gifIdOf } from '../game/gifs.ts';
+import { isGifReaction, gifIdOf, isTenorReaction, tenorUrlOf } from '../game/gifs.ts';
 import { isSoundReaction, soundIdOf, memeSoundById } from '../game/memeSounds.ts';
 import GifSticker from './GifSticker.tsx';
 
@@ -115,6 +115,8 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
                           <span className="chat-sticker">
                             {isGifReaction(msg.sticker)
                               ? <GifSticker id={gifIdOf(msg.sticker)} size={72} />
+                              : isTenorReaction(msg.sticker)
+                              ? <img className="chat-tgif" src={tenorUrlOf(msg.sticker)} alt="GIF" />
                               : isSoundReaction(msg.sticker)
                                 ? <span className="chat-snd">🔊 {memeSoundById(soundIdOf(msg.sticker))?.name ?? ''}</span>
                                 : msg.sticker}
@@ -208,6 +210,12 @@ styleOnce('game-chat', `
           align-items: center;
           justify-content: center;
           font-size: 0.8rem;
+        }
+        .chat-tgif {
+          max-width: 150px;
+          max-height: 110px;
+          border-radius: 12px;
+          display: block;
         }
         .chat-messages {
           flex: 1;

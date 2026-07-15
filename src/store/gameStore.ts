@@ -34,6 +34,7 @@ import { playSfx } from '../sound';
 import { STEP_DURATION } from '../game/anim';
 import { buildMemeFx, MEME_FIRE_CHANCE, type MemeFx } from '../game/memeFx';
 import { isValidSkin, loadSkinPref, saveSkinPref } from '../game/diceSkins';
+import { prefetchOccasionGifs } from '../game/tenor';
 import type { MemeEventKind } from '../game/memeSounds';
 import {
   NO_MOVE_MESSAGES,
@@ -345,7 +346,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!player) return;
 
     if (action.a === 'reaction' && action.emoji) {
-      reactionFromPlayer(set, get, player, action.emoji.slice(0, 20));
+      // tgif: payloads carry a Tenor URL — allow more room than plain emojis
+      const cap = action.emoji.startsWith('tgif:') ? 400 : 20;
+      reactionFromPlayer(set, get, player, action.emoji.slice(0, cap));
       return;
     }
     if (action.a === 'buy' && action.lucky !== undefined) {
@@ -651,6 +654,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         },
       ],
     });
+
+    // Warm up the Tenor meme pools (fails soft when offline)
+    prefetchOccasionGifs();
 
     // Match-opener meme (same 40% chance as every occasion). Fired a beat
     // AFTER the screen switch so the game screen is mounted and hears it.

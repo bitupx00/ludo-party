@@ -1,5 +1,6 @@
 import type { Color } from './types';
 import { EVENT_POOLS, type MemeEventKind } from './memeSounds';
+import { tenorPoolFor, fillPool } from './tenor';
 import memeGifManifest from './memeGifs.json';
 
 /**
@@ -57,9 +58,17 @@ const FALLBACK_GIFS: Record<MemeEventKind, string[]> = {
 
 const manifest = memeGifManifest as Partial<Record<MemeEventKind, string[]>>;
 
-/** Gif candidates for an occasion: real meme files if installed, else
- *  the bundled sticker fallback. */
+/** Gif candidates for an occasion, best source first:
+ *  1. Tenor pool (real community memes, fetched live by the host)
+ *  2. downloaded meme files (scripts/download-gifs.mjs manifest)
+ *  3. bundled animated stickers (always available). */
 export function gifsForOccasion(kind: MemeEventKind): string[] {
+  const tenor = tenorPoolFor(kind);
+  if (tenor.length > 0) {
+    fillPool(kind); // keep it warm for the next occasion
+    return tenor.map((g) => g.url);
+  }
+  fillPool(kind); // kick off the fetch for next time
   const real = manifest[kind];
   if (real && real.length > 0) return real;
   return FALLBACK_GIFS[kind];

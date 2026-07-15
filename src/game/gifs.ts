@@ -73,3 +73,15 @@ export function gifIdOf(value: string): string {
 export function gifById(id: string): GifDef | undefined {
   return GIFS.find((g) => g.id === id);
 }
+
+/* ─── Tenor GIF reactions (remote URLs) ────────────────────────────── */
+
+export const TGIF_PREFIX = 'tgif:';
+
+export function isTenorReaction(value: string): boolean {
+  return value.startsWith(TGIF_PREFIX) && /^https?:\/\//.test(value.slice(TGIF_PREFIX.length));
+}
+
+export function tenorUrlOf(value: string): string {
+  return value.slice(TGIF_PREFIX.length);
+}

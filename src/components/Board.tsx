@@ -446,7 +446,7 @@ function Board({ pieces, onPieceClick, perspective, memeFx }: BoardProps) {
                 translate: `${flipX ? '-100%' : '0'} ${below ? '0' : '-100%'}`,
               }}
             >
-              {memeFx.gif.startsWith('/')
+              {memeFx.gif.startsWith('/') || memeFx.gif.startsWith('http')
                 ? <img className="board-meme-img" src={memeFx.gif} alt="" draggable={false} />
                 : <GifSticker id={memeFx.gif} size={46} />}
             </div>

@@ -15,7 +15,7 @@ import { PLAYER_CONFIG } from '../game/types.ts';
 import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useSoundStore, playSfx } from '../sound.ts';
-import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf, gifById } from '../game/gifs.ts';
+import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf, gifById, isTenorReaction, tenorUrlOf } from '../game/gifs.ts';
 import { isSoundReaction, soundIdOf, memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import type { MemeFx } from '../game/memeFx.ts';
 import { useFavStore } from '../favorites.ts';
@@ -216,6 +216,7 @@ export default function Game() {
   const quickLabel = useCallback((payload: string) => {
     if (isSoundReaction(payload)) return `🔊 ${memeSoundById(soundIdOf(payload))?.name ?? ''}`;
     if (isGifReaction(payload)) return gifById(gifIdOf(payload))?.label ?? '';
+    if (isTenorReaction(payload)) return 'GIF';
     return payload;
   }, []);
   const quickPressStart = useCallback((payload: string) => {
@@ -397,7 +398,9 @@ export default function Game() {
               >
                 {isGifReaction(payload)
                   ? <GifSticker id={gifIdOf(payload)} size={27} />
-                  : <span className="game-reaction-snd">🔊</span>}
+                  : isTenorReaction(payload)
+                    ? <img className="game-reaction-tgif" src={tenorUrlOf(payload)} alt="GIF" draggable={false} />
+                    : <span className="game-reaction-snd">🔊</span>}
                 {tipFor === payload && (
                   <span className="game-reaction-tip">{quickLabel(payload)}</span>
                 )}
@@ -681,6 +684,13 @@ styleOnce('game', `
         .game-reaction-btn:hover {
           background: rgba(255, 255, 255, 0.2);
           transform: translateY(-2px);
+        }
+        .game-reaction-tgif {
+          width: 30px;
+          height: 30px;
+          object-fit: cover;
+          border-radius: 8px;
+          display: block;
         }
         .game-reaction-snd {
           font-size: 0.95rem;
