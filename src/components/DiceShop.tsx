@@ -69,7 +69,7 @@ export default function DiceShop({ isOpen, points, luckyBuys, pendingLucky, canB
 
             {pendingLucky ? (
               <div className="dice-shop-pending">
-                🎲 N°{pendingLucky} {t('luckyArmed')}
+                🎲 N°{pendingLucky} {t('luckyArmed')} · {t('luckyCancelHint')}
               </div>
             ) : null}
 
@@ -77,18 +77,22 @@ export default function DiceShop({ isOpen, points, luckyBuys, pendingLucky, canB
               {SHOP_NUMBERS.map((n) => {
                 const cost = LUCKY_DICE_COST[n] + luckyBuys;
                 const affordable = points >= cost;
-                const enabled = canBuy && affordable && !pendingLucky;
+                const isArmed = pendingLucky === n;
+                // The ARMED dice stays tappable: tapping it again CANCELS
+                // the purchase (full refund). Others lock while one is armed.
+                const enabled = canBuy && (pendingLucky ? isArmed : affordable);
                 return (
                   <button
                     key={n}
-                    className={`dice-shop-item ${enabled ? '' : 'dice-shop-item--locked'} ${pendingLucky === n ? 'dice-shop-item--armed' : ''}`}
+                    className={`dice-shop-item ${enabled ? '' : 'dice-shop-item--locked'} ${isArmed ? 'dice-shop-item--armed' : ''}`}
                     disabled={!enabled}
                     onClick={() => {
                       playSfx('pop');
                       onBuy(n);
-                      onClose();
+                      if (!isArmed) onClose(); // canceling keeps the shop open
                     }}
                   >
+                    {isArmed && <span className="dice-shop-cancel">✕</span>}
                     <ShopDieFace value={n} />
                     <span className={`dice-shop-cost ${affordable ? '' : 'dice-shop-cost--missing'}`}>
                       ⭐ {cost}
@@ -196,9 +200,28 @@ export default function DiceShop({ isOpen, points, luckyBuys, pendingLucky, canB
               animation: pulse-glow 1.6s ease-in-out infinite;
             }
             .dice-shop-item--armed {
+              position: relative;
               border-color: #ffd65a;
               background: rgba(255, 214, 90, 0.2);
               opacity: 1;
+              cursor: pointer;
+            }
+            .dice-shop-cancel {
+              position: absolute;
+              top: -8px;
+              right: -8px;
+              width: 22px;
+              height: 22px;
+              border-radius: 50%;
+              background: #f0405c;
+              color: #fff;
+              font-size: 0.7rem;
+              font-weight: 800;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border: 2px solid #fff;
+              box-shadow: 0 2px 6px rgba(18, 8, 60, 0.4);
             }
             .dice-shop-item--locked {
               opacity: 0.45;

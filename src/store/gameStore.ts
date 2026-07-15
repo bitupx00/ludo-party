@@ -62,6 +62,7 @@ export const SNAPSHOT_KEYS = [
   'captureEffects',
   'turnCount',
   'consecutiveSixes',
+  'pendingExtraRolls',
   'teamsMode',
   'screen',
   'gameMode',
@@ -83,6 +84,7 @@ interface GameStore {
   captureEffects: CaptureEffect[];
   turnCount: number;
   consecutiveSixes: number;
+  pendingExtraRolls?: number;
   teamsMode?: boolean;
 
   // Navigation / mode
@@ -160,7 +162,6 @@ interface GameStore {
   addMessage: (text: string, sticker?: string) => void;
   sendReaction: (emoji: string) => void;
   sendChatMessage: (text: string) => void;
-  addCaptureEffect: (x: number, y: number, type: CaptureEffect['type']) => void;
   clearCaptureEffects: () => void;
 
   // Reset
@@ -333,8 +334,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!player) return;
 
     if (action.a === 'reaction' && action.emoji) {
-      // Sounds are system-only now — old clients' snd: reactions are dropped
-      if (action.emoji.startsWith('snd:')) return;
       reactionFromPlayer(set, get, player, action.emoji.slice(0, 20));
       return;
     }
@@ -595,6 +594,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       winner: null,
       turnCount: 1,
       consecutiveSixes: 0,
+      pendingExtraRolls: 0,
       teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       reactions: {},
       memeFx: null,
@@ -715,17 +715,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     chatFromPlayer(set, get, target, text);
   },
 
-  addCaptureEffect: (x: number, y: number, type: CaptureEffect['type']) => {
-    const state = get();
-    const newState = addCaptureEffectToState(state, x, y, type);
-    set(newState);
-
-    // Auto-clear effects after 2 seconds
-    setTimeout(() => {
-      set({ captureEffects: get().captureEffects.filter((e) => Date.now() - e.timestamp > 2000) });
-    }, 2500);
-  },
-
   clearCaptureEffects: () => {
     set({ captureEffects: [] });
   },
@@ -781,6 +770,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       winner: null,
       turnCount: 1,
       consecutiveSixes: 0,
+      pendingExtraRolls: 0,
       teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       captureEffects: [],
       reactions: {},
@@ -825,11 +815,26 @@ function deviceHolder(state: GameStore): Player | undefined {
 
 function reactionFromPlayer(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
-  _get: () => GameStore,
+  get: () => GameStore,
   player: Player,
   emoji: string,
 ) {
+  // Panel sounds are rate-limited: ONE per player per game turn (gifs and
+  // emojis are unlimited). Validated here so it holds host-side too.
+  const isSound = emoji.startsWith('snd:');
+  if (isSound) {
+    const turn = get().turnCount;
+    const live = get().players.find((p) => p.id === player.id);
+    if (live && (live.lastSoundTurn ?? -1) === turn) return; // already used this turn
+  }
   set((s) => ({
+    ...(isSound
+      ? {
+          players: s.players.map((p) =>
+            p.id === player.id ? { ...p, lastSoundTurn: s.turnCount } : p,
+          ),
+        }
+      : {}),
     reactions: { ...s.reactions, [player.id]: { emoji, key: Date.now() } },
     messages: pushMessage(s.messages, {
       id: createId(),
@@ -977,6 +982,7 @@ function cancelThirdSix(
       phase: 'rolling',
       diceValue: null,
       consecutiveSixes: 0,
+      pendingExtraRolls: 0,
       turnCount: current.turnCount + 1,
     });
     scheduleBotTurn(set, get);
@@ -994,7 +1000,27 @@ function applyLuckyPurchase(
 ) {
   const player = get().players.find((p) => p.id === playerId);
   if (!player || player.isBot) return;
-  if (player.pendingLucky) return; // already armed — use it first
+
+  // Tapping the ARMED dice again cancels it: refund exactly what was paid
+  // (base + escalation at purchase time) and undo the price escalation.
+  if (player.pendingLucky === n) {
+    const paid = (LUCKY_DICE_COST[n] ?? 0) + Math.max(0, (player.luckyBuys ?? 1) - 1);
+    set((s) => ({
+      players: s.players.map((p) =>
+        p.id === playerId
+          ? {
+              ...p,
+              points: Math.min(99999, (p.points ?? 0) + paid),
+              luckyBuys: Math.max(0, (p.luckyBuys ?? 1) - 1),
+              pendingLucky: null,
+            }
+          : p,
+      ),
+    }));
+    return;
+  }
+
+  if (player.pendingLucky) return; // a different number is armed — cancel it first
   const cost = luckyCost(n, player);
   if ((player.points ?? 0) < cost) return;
   set((s) => ({

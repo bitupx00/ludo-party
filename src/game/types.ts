@@ -29,6 +29,9 @@ export interface Player {
   /** A bought lucky dice waiting to be used: applied automatically to
    *  this player's NEXT own roll (they still tap to roll). */
   pendingLucky?: number | null;
+  /** Last turnCount this player triggered a panel sound on (limit: one
+   *  user sound per game turn). */
+  lastSoundTurn?: number;
 }
 
 export interface Piece {
@@ -48,6 +51,11 @@ export interface GameState {
   captureEffects: CaptureEffect[];
   turnCount: number;
   consecutiveSixes: number;
+  /** Banked extra rolls: rolling a 6/1 AND capturing (or reaching the
+   *  goal) in the same move stacks TWO extra rolls — one is used by
+   *  staying on the turn, the rest waits here and keeps the turn alive
+   *  even if the next roll earns nothing. */
+  pendingExtraRolls?: number;
   /** When true (2v2 mode), teammates cannot capture each other. */
   teamsMode?: boolean;
 }
@@ -199,7 +207,10 @@ export const PLAYER_CONFIG: Record<Color, {
   },
 };
 
-export const PLAYER_COLORS_ORDER: Color[] = ['red', 'green', 'yellow', 'blue'];
+/** Turn order = CLOCKWISE seating around the board (any rotation keeps
+ *  the cycle clockwise): red TL → blue TR → yellow BR → green BL. Teams
+ *  still alternate (red+yellow vs blue+green). */
+export const PLAYER_COLORS_ORDER: Color[] = ['red', 'blue', 'yellow', 'green'];
 
 /** Seat order for ONLINE rooms (Ludo Club style): the first two seats taken
  *  are always diagonally-opposite corners (red ↔ yellow), never adjacent

@@ -2,21 +2,24 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QUICK_PHRASES } from '../game/stickers.ts';
 import { GIFS, GIF_PREFIX } from '../game/gifs.ts';
+import { MEME_SOUNDS, SND_PREFIX } from '../game/memeSounds.ts';
 import { useFavStore } from '../favorites.ts';
 import GifSticker from './GifSticker.tsx';
 
 interface StickerPickerProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Receives the reaction payload (`gif:<id>`). */
+  /** Receives the reaction payload (`gif:<id>` or `snd:<id>`). */
   onStickerSelect: (payload: string) => void;
   /** Quick phrases go to the chat as text messages. */
   onPhraseSelect: (text: string) => void;
+  /** True when this player already used their ONE sound this turn. */
+  soundsLocked?: boolean;
 }
 
 /** Bottom-sheet panel with animated GIF stickers + quick phrases. */
-export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhraseSelect }: StickerPickerProps) {
-  const [activeTab, setActiveTab] = useState<'gifs' | 'frases'>('gifs');
+export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhraseSelect, soundsLocked }: StickerPickerProps) {
+  const [activeTab, setActiveTab] = useState<'gifs' | 'sonidos' | 'frases'>('gifs');
   const favs = useFavStore((s) => s.favs);
   const toggleFav = useFavStore((s) => s.toggleFav);
 
@@ -27,6 +30,12 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
 
   const handlePhraseClick = (text: string) => {
     onPhraseSelect(text);
+    onClose();
+  };
+
+  const handleSoundClick = (id: string) => {
+    if (soundsLocked) return; // one sound per turn
+    onStickerSelect(`${SND_PREFIX}${id}`);
     onClose();
   };
 
@@ -57,6 +66,12 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
                 🎬 GIFs
               </button>
               <button
+                className={`sticker-tab ${activeTab === 'sonidos' ? 'sticker-tab--active' : ''}`}
+                onClick={() => setActiveTab('sonidos')}
+              >
+                🔊 Sonidos
+              </button>
+              <button
                 className={`sticker-tab ${activeTab === 'frases' ? 'sticker-tab--active' : ''}`}
                 onClick={() => setActiveTab('frases')}
               >
@@ -65,7 +80,40 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
               <button className="sticker-close" onClick={onClose} aria-label="✕">✕</button>
             </div>
 
-            {activeTab === 'frases' ? (
+            {activeTab === 'sonidos' ? (
+              <>
+                <p className={`sticker-sound-note ${soundsLocked ? 'sticker-sound-note--locked' : ''}`}>
+                  {soundsLocked ? '⏳ Ya usaste tu sonido este turno' : '🔊 1 sonido por turno'}
+                </p>
+                <div className="sticker-sounds">
+                  {MEME_SOUNDS.map((snd, i) => {
+                    const payload = `${SND_PREFIX}${snd.id}`;
+                    const isFav = favs.includes(payload);
+                    return (
+                      <motion.div
+                        key={snd.id}
+                        className={`sticker-sound ${soundsLocked ? 'sticker-sound--locked' : ''}`}
+                        role="button"
+                        onClick={() => handleSoundClick(snd.id)}
+                        whileTap={soundsLocked ? {} : { scale: 0.94 }}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.min(i * 0.015, 0.4) }}
+                      >
+                        <span className="sticker-sound-name">🔊 {snd.name}</span>
+                        <button
+                          className={`sticker-fav ${isFav ? 'sticker-fav--on' : ''}`}
+                          onClick={(e) => { e.stopPropagation(); toggleFav(payload); }}
+                          aria-label="favorito"
+                        >
+                          {isFav ? '⭐' : '☆'}
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : activeTab === 'frases' ? (
               <div className="sticker-phrases">
                 {QUICK_PHRASES.map((phrase, i) => (
                   <motion.button
@@ -211,6 +259,63 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
           font-weight: 800;
           letter-spacing: 0.5px;
           color: var(--color-text-secondary);
+        }
+        .sticker-sound-note {
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: var(--color-text-muted);
+          text-align: center;
+        }
+        .sticker-sound-note--locked {
+          color: #ffb0bb;
+        }
+        .sticker-sounds {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          /* Rows keep their natural height and the LIST scrolls — without
+             this the grid squashes all rows into the panel height and
+             every title gets clipped by the next one. */
+          grid-auto-rows: max-content;
+          align-content: start;
+          gap: 7px;
+          overflow-y: auto;
+          min-height: 0;
+          padding-bottom: var(--gap-sm);
+        }
+        .sticker-sound {
+          min-height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+          text-align: left;
+          padding: 8px 12px;
+          border: none;
+          border-radius: var(--radius-lg);
+          background: rgba(255, 255, 255, 0.1);
+          color: var(--color-text);
+          font-family: var(--font-body);
+          font-size: 0.82rem;
+          font-weight: 700;
+          line-height: 1.2;
+          cursor: pointer;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          transition: background var(--transition-fast);
+        }
+        .sticker-sound:hover {
+          background: rgba(255, 255, 255, 0.18);
+        }
+        .sticker-sound--locked {
+          opacity: 0.45;
+          cursor: default;
+        }
+        .sticker-sound-name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          min-width: 0;
         }
         .sticker-fav {
           flex-shrink: 0;

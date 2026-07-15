@@ -7,8 +7,9 @@ import type { Reaction } from '../store/gameStore.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
 import { MiniDice } from './Dice3D.tsx';
-import { isGifReaction, gifIdOf } from '../game/gifs.ts';
-import { isSoundReaction } from '../game/memeSounds.ts';
+import { isGifReaction, gifIdOf, gifById } from '../game/gifs.ts';
+import { isSoundReaction, soundIdOf, memeSoundById, playMemeSound } from '../game/memeSounds.ts';
+import { playSfx } from '../sound.ts';
 import GifSticker from './GifSticker.tsx';
 
 /** Attach a stream to a media element and keep playback alive: autoplay
@@ -93,13 +94,18 @@ function AvatarBadge({
   const hasVideoTrack = !!stream && stream.getVideoTracks().length > 0;
   const showVideo = hasVideoTrack && (!isLocalCam || cameraOn);
 
-  // Show the reaction bubble briefly whenever a new reaction arrives.
-  // Reactions are VISUAL-only: all sounds come from the system's occasion
-  // effects now (users can't trigger sounds).
+  // Show the reaction bubble briefly whenever a new reaction arrives —
+  // panel sounds (limited to 1 per player per turn, validated host-side)
+  // play on every client; gif stickers play their small sfx.
   useEffect(() => {
     if (!reaction) return;
-    if (isSoundReaction(reaction.emoji)) return; // legacy snd: payloads: ignore
     setBubbleVisible(true);
+    if (isSoundReaction(reaction.emoji)) {
+      playMemeSound(soundIdOf(reaction.emoji));
+    } else if (isGifReaction(reaction.emoji)) {
+      const gif = gifById(gifIdOf(reaction.emoji));
+      if (gif) playSfx(gif.sfx);
+    }
     const timer = setTimeout(() => setBubbleVisible(false), REACTION_VISIBLE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +157,9 @@ function AvatarBadge({
             >
               {isGifReaction(reaction.emoji)
                 ? <GifSticker id={gifIdOf(reaction.emoji)} size={58} />
-                : reaction.emoji}
+                : isSoundReaction(reaction.emoji)
+                  ? <span className="avatar-snd">🔊 {memeSoundById(soundIdOf(reaction.emoji))?.name ?? ''}</span>
+                  : reaction.emoji}
             </motion.div>
           )}
         </AnimatePresence>

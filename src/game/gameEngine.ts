@@ -345,6 +345,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
   const bonusInRow = rolledBonus ? state.consecutiveSixes + 1 : 0;
 
   // Third consecutive bonus roll (any mix of 6s and 1s) → turn forfeited
+  // (any banked extra rolls are forfeited with it)
   if (rolledBonus && bonusInRow >= 3) {
     const nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
     return {
@@ -353,6 +354,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
       phase: 'rolling',
       diceValue: null,
       consecutiveSixes: 0,
+      pendingExtraRolls: 0,
       turnCount: state.turnCount + 1,
       messages: [
         ...state.messages,
@@ -367,13 +369,19 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
     };
   }
 
-  // Extra roll: rolled a 6 or a 1, captured a piece, or brought a piece home
-  if (rolledBonus || bonusRoll) {
+  // Extra-roll credits: rolling a 6/1 earns one AND capturing/reaching the
+  // goal earns another — they STACK (6 + kill = DOUBLE extra roll). One
+  // credit is spent by staying on the turn now; the rest is banked in
+  // pendingExtraRolls and keeps the turn alive on later rolls that earn
+  // nothing on their own.
+  const credits = (state.pendingExtraRolls ?? 0) + (rolledBonus ? 1 : 0) + (bonusRoll ? 1 : 0);
+  if (credits > 0) {
     return {
       ...state,
       phase: 'rolling',
       diceValue: null,
       consecutiveSixes: bonusInRow,
+      pendingExtraRolls: credits - 1,
       messages: rolledBonus
         ? [
             ...state.messages,
@@ -397,6 +405,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
     phase: 'rolling',
     diceValue: null,
     consecutiveSixes: 0,
+    pendingExtraRolls: 0,
     turnCount: state.turnCount + 1,
   };
 }
@@ -454,6 +463,7 @@ export function createInitialState(): GameState {
     captureEffects: [],
     turnCount: 0,
     consecutiveSixes: 0,
+    pendingExtraRolls: 0,
   };
 }
 

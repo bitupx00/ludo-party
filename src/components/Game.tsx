@@ -16,7 +16,7 @@ import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useSoundStore, playSfx } from '../sound.ts';
 import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf, gifById } from '../game/gifs.ts';
-import { isSoundReaction, playMemeSound } from '../game/memeSounds.ts';
+import { isSoundReaction, soundIdOf, memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import type { MemeFx } from '../game/memeFx.ts';
 import { useFavStore } from '../favorites.ts';
 import GifSticker from './GifSticker.tsx';
@@ -35,6 +35,7 @@ export default function Game() {
   const rollSeq = useGameStore((s) => s.rollSeq);
   const winner = useGameStore((s) => s.winner);
   const consecutiveSixes = useGameStore((s) => s.consecutiveSixes);
+  const turnCount = useGameStore((s) => s.turnCount);
   const teamsMode = useGameStore((s) => s.teamsMode);
   const captureEffects = useGameStore((s) => s.captureEffects);
   const messages = useGameStore((s) => s.messages);
@@ -196,9 +197,8 @@ export default function Game() {
   const recent = useFavStore((s) => s.recent);
   const recordRecent = useFavStore((s) => s.recordRecent);
   const quickItems = useMemo(() => {
-    // Sounds are system-only now: legacy snd: favorites are filtered out
-    const items = favs.filter((p) => !isSoundReaction(p)).slice(0, 6);
-    if (recent && !isSoundReaction(recent) && !items.includes(recent)) items.push(recent);
+    const items = favs.slice(0, 6);
+    if (recent && !items.includes(recent)) items.push(recent);
     return items.length > 0 ? items : QUICK_GIFS.map((id) => `${GIF_PREFIX}${id}`);
   }, [favs, recent]);
 
@@ -214,6 +214,7 @@ export default function Game() {
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
   const quickLabel = useCallback((payload: string) => {
+    if (isSoundReaction(payload)) return `🔊 ${memeSoundById(soundIdOf(payload))?.name ?? ''}`;
     if (isGifReaction(payload)) return gifById(gifIdOf(payload))?.label ?? '';
     return payload;
   }, []);
@@ -481,6 +482,7 @@ export default function Game() {
         onClose={() => setStickersOpen(false)}
         onStickerSelect={handleStickerSelect}
         onPhraseSelect={sendChatMessage}
+        soundsLocked={(shopPlayer?.lastSoundTurn ?? -1) === turnCount}
       />
 
       {/* Lucky-dice shop: buy at ANY moment — the dice arms for your next roll */}
@@ -526,7 +528,7 @@ styleOnce('game', `
           max-width: 560px;
           display: flex;
           flex-direction: column;
-          padding: calc(6px + env(safe-area-inset-top)) 10px calc(8px + env(safe-area-inset-bottom));
+          padding: calc(6px + env(safe-area-inset-top)) 5px calc(8px + env(safe-area-inset-bottom));
           gap: 4px;
         }
         .game-header {

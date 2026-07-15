@@ -2,7 +2,10 @@
 
 .board-container {
   position: relative;
-  width: min(98vw, 56dvh, 560px);
+  /* svh (NOT dvh): dvh grows when the mobile browser bar hides, which
+     resized the board mid-game and pushed the layout downward. svh is
+     stable. Width runs almost edge to edge. */
+  width: min(100vw - 8px, 58svh, 560px);
   aspect-ratio: 1;
   margin: 0 auto;
   flex-shrink: 0;
@@ -147,7 +150,9 @@
   z-index: 10;
 }
 
-.pieces-overlay > * {
+/* Only the PIECES take taps — any other overlay child (occasion gif,
+   decorations) must never intercept touches on the board. */
+.pieces-overlay > .piece-slot {
   pointer-events: auto;
 }
 
@@ -310,7 +315,7 @@
 /* Responsive tuning */
 @media (min-width: 768px) {
   .board-container {
-    width: min(90vw, 58dvh, 560px);
+    width: min(90vw, 60svh, 560px);
   }
 }
 

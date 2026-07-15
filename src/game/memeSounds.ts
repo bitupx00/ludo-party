@@ -143,6 +143,22 @@ let stopTimer: ReturnType<typeof setTimeout> | null = null;
 /** Hard cap per clip — nothing plays longer than this. */
 const MAX_CLIP_MS = 5000;
 
+/** LRU cap: decoded audio buffers are memory-heavy; over a long game the
+ *  old unbounded cache could accumulate all 47 clips. Keep the most
+ *  recently used dozen and release the rest. */
+const AUDIO_CACHE_MAX = 12;
+
+function cacheAudio(id: string, audio: HTMLAudioElement) {
+  cache.delete(id); // re-insert = move to the "most recent" end
+  cache.set(id, audio);
+  while (cache.size > AUDIO_CACHE_MAX) {
+    const [oldId, old] = cache.entries().next().value as [string, HTMLAudioElement];
+    if (old === currentAudio) break; // never evict the playing clip
+    cache.delete(oldId);
+    try { old.pause(); old.src = ''; } catch { /* noop */ }
+  }
+}
+
 /** Play a meme sound by id. Rules:
  *  - Only ONE clip at a time: a new sound (from any player) cuts off
  *    whatever was still playing.
@@ -158,11 +174,11 @@ export function playMemeSound(id: string) {
       try { currentAudio.pause(); currentAudio.currentTime = 0; } catch { /* noop */ }
     }
     let audio = cache.get(id);
-    if (!audio) {
+    if (!audio || !audio.src) {
       audio = new Audio(`/sfx/${id}.mp3`);
       audio.preload = 'auto';
-      cache.set(id, audio);
     }
+    cacheAudio(id, audio);
     currentAudio = audio;
     audio.currentTime = 0;
     audio.volume = 0.42; // 50% of the original level — the clips ran hot

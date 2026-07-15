@@ -15,10 +15,7 @@ function loadList(key: string): string[] {
   try {
     const raw = localStorage.getItem(key);
     const arr = raw ? JSON.parse(raw) : [];
-    // snd: payloads are legacy — sounds are system-only now
-    return Array.isArray(arr)
-      ? arr.filter((v) => typeof v === 'string' && !v.startsWith('snd:'))
-      : [];
+    return Array.isArray(arr) ? arr.filter((v) => typeof v === 'string') : [];
   } catch {
     return [];
   }
