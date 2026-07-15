@@ -169,7 +169,7 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
                   <input
                     className="sticker-search"
                     type="text"
-                    placeholder="Buscar GIFs (Tenor)…"
+                    placeholder="Buscar GIFs…"
                     value={query}
                     maxLength={60}
                     onChange={(e) => setQuery(e.target.value)}
@@ -192,7 +192,7 @@ export default function StickerPicker({ isOpen, onClose, onStickerSelect, onPhra
                         </button>
                       ))}
                     </div>
-                    <p className="sticker-tenor-note">Powered by Tenor</p>
+                    <p className="sticker-tenor-note">Powered by Klipy</p>
                   </>
                 )}
 
