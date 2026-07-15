@@ -228,8 +228,10 @@
   );
   -webkit-mask: radial-gradient(farthest-side, transparent 66%, #000 67%);
   mask: radial-gradient(farthest-side, transparent 66%, #000 67%);
-  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.5));
+  /* NO filter here: drop-shadow on a spinning masked element forces a
+     re-rasterization every frame on mobile GPUs. */
   animation: ring-spin 1.6s linear infinite;
+  will-change: rotate;
   pointer-events: none;
 }
 

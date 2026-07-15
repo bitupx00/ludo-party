@@ -1,6 +1,6 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { memo, useEffect, useMemo, useReducer, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import type { Piece as PieceType, Player, Color } from '../game/types.ts';
+import type { Piece as PieceType, Color } from '../game/types.ts';
 import { HOME_STRETCH_ENTRY, PLAYER_CONFIG } from '../game/types.ts';
 import { isSafeSquare, getSquareGridCoord, getHomeStretchGridCoord } from '../game/boardPath.ts';
 import {
@@ -19,7 +19,6 @@ import './Board.css';
 
 interface BoardProps {
   pieces: (PieceType & { _color: Color; _playerId: string; _isMovable: boolean })[];
-  currentPlayer: Player | undefined;
   onPieceClick: (pieceId: string) => void;
   /** The color whose corner is shown bottom-left (this device's player). */
   perspective: Color;
@@ -94,7 +93,7 @@ function stepsBetween(from: number, to: number, color: Color): number {
  *  captured piece is released to fly back to its base. */
 const CAPTURE_RELEASE_BUFFER_MS = 90;
 
-export default function Board({ pieces, currentPlayer, onPieceClick, perspective, memeFx }: BoardProps) {
+function Board({ pieces, onPieceClick, perspective, memeFx }: BoardProps) {
   const k = ROTATION_FOR_COLOR[perspective];
   const rot = (x: number, y: number) => rotateCell(x, y, k);
 
@@ -263,8 +262,10 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
     return result;
   };
 
-  // ── Static cells ──────────────────────────────────────────────────
-  const pathCells = PATH_CELLS.map((pos, pathIndex) => {
+  // ── Static cells (only depend on the board rotation — memoized so the
+  //     88 cell divs + SVGs aren't rebuilt on every piece/store change) ──
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pathCells = useMemo(() => PATH_CELLS.map((pos, pathIndex) => {
     const entryColor = (Object.entries(ENTRY_SQUARES) as [Color, number][])
       .find(([, sq]) => sq === pathIndex)?.[0];
     const safe = isSafeSquare(pathIndex);
@@ -302,9 +303,11 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
         )}
       </div>
     );
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [k]);
 
-  const homeStretchCells = COLORS_ORDER.flatMap((color) =>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const homeStretchCells = useMemo(() => COLORS_ORDER.flatMap((color) =>
     Array.from({ length: 5 }, (_, idx) => {
       const c = getHomeStretchGridCoord(color, idx);
       const r = rot(c.col, c.row);
@@ -316,7 +319,8 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
         />
       );
     }),
-  );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [k]);
 
   // Center triangles rotate with the board
   const [topC, rightC, bottomC, leftC] = centerSideColors(k);
@@ -332,47 +336,53 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
     pieceGroups.get(key)!.push(piece);
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cornerBases = useMemo(() => COLORS_ORDER.map((color) => {
+    const corner = cornerForColor(color, k);
+    const origin = CORNER_ORIGIN[corner];
+    const cfg = PLAYER_CONFIG[color];
+    return (
+      <div
+        key={`base-${color}`}
+        className="home-base"
+        style={{
+          left: `${(origin.x / 15) * 100}%`,
+          top: `${(origin.y / 15) * 100}%`,
+          // Flat saturated corner color (Ludo Club) — no gradient
+          background: cfg.cssColor,
+        }}
+      >
+        <div className="home-base-pad" />
+      </div>
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [k]);
+
+  // Base waiting slots — same coordinate math as the pieces, so the
+  // pawns always sit exactly on their circles (any rotation).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const baseSlots = useMemo(() => COLORS_ORDER.flatMap((color) =>
+    BASE_SLOTS[color].map((slot, i) => {
+      const r = rot(slot.x, slot.y);
+      return (
+        <span
+          key={`slot-${color}-${i}`}
+          className={`home-base-slot home-base-slot--${color}`}
+          style={{
+            left: `${r.x * CELL + CELL / 2}%`,
+            top: `${r.y * CELL + CELL / 2}%`,
+          }}
+        />
+      );
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [k]);
+
   return (
     <div className="board-container">
       <div className="board-grid">
-        {/* Corner home bases */}
-        {COLORS_ORDER.map((color) => {
-          const corner = cornerForColor(color, k);
-          const origin = CORNER_ORIGIN[corner];
-          const cfg = PLAYER_CONFIG[color];
-          return (
-            <div
-              key={`base-${color}`}
-              className="home-base"
-              style={{
-                left: `${(origin.x / 15) * 100}%`,
-                top: `${(origin.y / 15) * 100}%`,
-                // Flat saturated corner color (Ludo Club) — no gradient
-                background: cfg.cssColor,
-              }}
-            >
-              <div className="home-base-pad" />
-            </div>
-          );
-        })}
-
-        {/* Base waiting slots — same coordinate math as the pieces, so the
-            pawns always sit exactly on their circles (any rotation). */}
-        {COLORS_ORDER.flatMap((color) =>
-          BASE_SLOTS[color].map((slot, i) => {
-            const r = rot(slot.x, slot.y);
-            return (
-              <span
-                key={`slot-${color}-${i}`}
-                className={`home-base-slot home-base-slot--${color}`}
-                style={{
-                  left: `${r.x * CELL + CELL / 2}%`,
-                  top: `${r.y * CELL + CELL / 2}%`,
-                }}
-              />
-            );
-          }),
-        )}
+        {cornerBases}
+        {baseSlots}
 
         {/* Path + home stretch cells */}
         {pathCells}
@@ -400,7 +410,6 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
             const stackIdx = group.indexOf(piece);
             const layout = groupLayout(group.length, Math.max(stackIdx, 0));
             const { xs, ys, stepDuration } = travelFor(piece);
-            const isCurrentPlayer = piece._playerId === currentPlayer?.id;
 
             return (
               <Piece
@@ -410,7 +419,6 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
                 ys={ys}
                 layout={layout}
                 stepDuration={stepDuration}
-                isCurrentPlayer={isCurrentPlayer}
                 onClick={onPieceClick}
               />
             );
@@ -448,3 +456,9 @@ export default function Board({ pieces, currentPlayer, onPieceClick, perspective
     </div>
   );
 }
+
+/** Memoized: the game screen re-renders on every store change (chat,
+ *  reactions, effect timers…) but the board only needs to run when the
+ *  pieces array, the movable set, the perspective or an occasion effect
+ *  actually changed — all stable references from Game's useMemo. */
+export default memo(Board);

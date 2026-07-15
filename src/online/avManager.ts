@@ -41,7 +41,14 @@ const CALL_STREAM_TIMEOUT_MS = 7000;
 
 const analysers = new Map<Color, AnalyserNode>();
 let audioCtx: AudioContext | null = null;
-let speakingRaf: number | null = null;
+let speakingTimer: ReturnType<typeof setInterval> | null = null;
+/** Shared FFT read buffer — allocated once, not per tick. */
+const speakingBuf = new Uint8Array(128);
+/** Voice-activity polling rate. The old requestAnimationFrame loop ran
+ *  this at 60fps for the WHOLE online session (allocating a buffer per
+ *  frame) — a constant CPU drain on phones. ~8Hz is plenty for a
+ *  speaking indicator. */
+const SPEAKING_POLL_MS = 120;
 
 function colorForPlayerId(playerId: string): Color | null {
   const player = useGameStore.getState().players.find((p) => p.id === playerId);
@@ -72,25 +79,27 @@ function setupSpeaking(color: Color, stream: MediaStream) {
     analyser.fftSize = 256;
     source.connect(analyser);
     analysers.set(color, analyser);
-    if (speakingRaf === null) tickSpeaking();
+    if (speakingTimer === null) speakingTimer = setInterval(tickSpeaking, SPEAKING_POLL_MS);
   } catch {
     /* WebAudio unavailable — skip the speaking indicator */
   }
 }
 
 function tickSpeaking() {
-  const data = new Uint8Array(128);
-  for (const [color, analyser] of analysers) {
-    analyser.getByteFrequencyData(data as Uint8Array<ArrayBuffer>);
-    let sum = 0;
-    for (let i = 0; i < data.length; i++) sum += data[i];
-    useVideoStore.getState().setSpeaking(color, sum / data.length > 8);
+  if (analysers.size === 0) {
+    if (speakingTimer !== null) { clearInterval(speakingTimer); speakingTimer = null; }
+    return;
   }
-  speakingRaf = analysers.size > 0 ? requestAnimationFrame(tickSpeaking) : null;
+  for (const [color, analyser] of analysers) {
+    analyser.getByteFrequencyData(speakingBuf as Uint8Array<ArrayBuffer>);
+    let sum = 0;
+    for (let i = 0; i < speakingBuf.length; i++) sum += speakingBuf[i];
+    useVideoStore.getState().setSpeaking(color, sum / speakingBuf.length > 8);
+  }
 }
 
 function stopSpeaking() {
-  if (speakingRaf !== null) { cancelAnimationFrame(speakingRaf); speakingRaf = null; }
+  if (speakingTimer !== null) { clearInterval(speakingTimer); speakingTimer = null; }
   analysers.clear();
   if (audioCtx) { try { void audioCtx.close(); } catch { /* noop */ } audioCtx = null; }
 }

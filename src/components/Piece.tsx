@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { Piece as PieceType, Color } from '../game/types.ts';
 import PawnSVG from './PawnSVG.tsx';
@@ -19,11 +19,10 @@ interface PieceProps {
   /** Seconds per travel cell — normal moves use STEP_DURATION; a captured
    *  piece's backward run to base uses a much faster step. */
   stepDuration?: number;
-  isCurrentPlayer: boolean;
   onClick: (pieceId: string) => void;
 }
 
-export default function Piece({ piece, xs, ys, layout, stepDuration = STEP_DURATION, onClick }: PieceProps) {
+function Piece({ piece, xs, ys, layout, stepDuration = STEP_DURATION, onClick }: PieceProps) {
   const isFinished = piece.position >= 57;
   const canMove = piece._isMovable && !isFinished;
   const [traveling, setTraveling] = useState(false);
@@ -113,3 +112,23 @@ export default function Piece({ piece, xs, ys, layout, stepDuration = STEP_DURAT
     </motion.div>
   );
 }
+
+/** Memoized with a field-level comparator: every move rebuilds ALL piece
+ *  objects (immutable state updates), so identity checks alone would
+ *  re-render all 16 pawns on every store change. Only re-render when
+ *  something this pawn actually shows has changed. The travel keyframe
+ *  arrays (xs/ys) come from Board's cache, so their identity is stable
+ *  for the life of a position. */
+export default memo(Piece, (a, b) =>
+  a.piece.id === b.piece.id &&
+  a.piece.position === b.piece.position &&
+  a.piece._color === b.piece._color &&
+  a.piece._isMovable === b.piece._isMovable &&
+  a.xs === b.xs &&
+  a.ys === b.ys &&
+  a.stepDuration === b.stepDuration &&
+  a.layout.fx === b.layout.fx &&
+  a.layout.fy === b.layout.fy &&
+  a.layout.scale === b.layout.scale &&
+  a.onClick === b.onClick,
+);

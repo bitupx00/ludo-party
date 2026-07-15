@@ -1,3 +1,4 @@
+import { styleOnce } from '../styleOnce.ts';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore.ts';
@@ -304,7 +305,6 @@ export default function Game() {
         {/* Board */}
         <Board
           pieces={allPieces}
-          currentPlayer={currentPlayer}
           onPieceClick={handlePieceClick}
           perspective={myColor}
           memeFx={activeFx}
@@ -510,7 +510,12 @@ export default function Game() {
       {/* Win screen */}
       {winner && <WinScreen winnerColor={winner} />}
 
-      <style>{`
+    </div>
+  );
+}
+
+// Static component CSS — injected once per module (see styleOnce.ts)
+styleOnce('game', `
         .game-layout {
           min-height: 100dvh;
           display: flex;
@@ -800,7 +805,5 @@ export default function Game() {
           .game-column { gap: 2px; }
           .game-status-slot { min-height: 20px; }
         }
-      `}</style>
-    </div>
-  );
-}
+      
+`);

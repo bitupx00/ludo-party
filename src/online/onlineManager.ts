@@ -307,11 +307,17 @@ export function hostRoom(code: string): Promise<void> {
     peer = p;
 
     p.on('open', () => {
-      // Broadcast every store change to connected guests (microtask-batched
-      // within a tick, throttled across ticks — see scheduleBroadcast)
+      // Broadcast store changes to connected guests (microtask-batched
+      // within a tick, throttled across ticks — see scheduleBroadcast).
+      // Changes that don't touch any snapshot field (AV state, local UI
+      // flags) are skipped BEFORE the expensive stringify.
       let pending = false;
-      unsubscribeStore = useGameStore.subscribe(() => {
-        if (pending) return;
+      unsubscribeStore = useGameStore.subscribe((state, prev) => {
+        let relevant = false;
+        for (const key of SNAPSHOT_KEYS) {
+          if (state[key] !== prev[key]) { relevant = true; break; }
+        }
+        if (!relevant || pending) return;
         pending = true;
         queueMicrotask(() => {
           pending = false;

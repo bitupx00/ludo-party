@@ -1,3 +1,4 @@
+import { styleOnce } from '../styleOnce.ts';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { playSfx, vibrate } from '../sound.ts';
@@ -75,44 +76,6 @@ export function MiniDice({ value, rolling }: { value: number | null; rolling: bo
       ) : (
         <span className="mini-dice-icon">🎲</span>
       )}
-      <style>{`
-        .mini-dice {
-          width: clamp(20px, 5.5vmin, 26px);
-          height: clamp(20px, 5.5vmin, 26px);
-          border-radius: 22%;
-          background: radial-gradient(circle at 30% 25%, #ffffff 0%, #f3eee2 55%, #ddd3bd 100%);
-          border: 1.5px solid rgba(120, 100, 60, 0.3);
-          box-shadow: 0 2px 6px rgba(18, 8, 60, 0.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .mini-dice--rolling {
-          animation: pulse-glow 0.7s ease-in-out infinite;
-        }
-        .mini-dice-icon {
-          font-size: clamp(11px, 3vmin, 14px);
-          line-height: 1;
-        }
-        .mini-dice-face {
-          width: 100%;
-          height: 100%;
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          grid-template-rows: repeat(3, 1fr);
-          place-items: center;
-          padding: 14%;
-        }
-        .mini-dice-pip {
-          width: 70%;
-          height: 70%;
-          border-radius: 50%;
-          background: #4534b8;
-        }
-        .mini-dice-pip--off {
-          visibility: hidden;
-        }
-      `}</style>
     </div>
   );
 }
@@ -199,7 +162,49 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, onRoll }: Dice3
         </AnimatePresence>
       </div>
 
-      <style>{`
+    </div>
+  );
+}
+
+// Static component CSS — injected once per module (see styleOnce.ts)
+styleOnce('dice3d', `
+        .mini-dice {
+          width: clamp(20px, 5.5vmin, 26px);
+          height: clamp(20px, 5.5vmin, 26px);
+          border-radius: 22%;
+          background: radial-gradient(circle at 30% 25%, #ffffff 0%, #f3eee2 55%, #ddd3bd 100%);
+          border: 1.5px solid rgba(120, 100, 60, 0.3);
+          box-shadow: 0 2px 6px rgba(18, 8, 60, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .mini-dice--rolling {
+          animation: pulse-glow 0.7s ease-in-out infinite;
+        }
+        .mini-dice-icon {
+          font-size: clamp(11px, 3vmin, 14px);
+          line-height: 1;
+        }
+        .mini-dice-face {
+          width: 100%;
+          height: 100%;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          grid-template-rows: repeat(3, 1fr);
+          place-items: center;
+          padding: 14%;
+        }
+        .mini-dice-pip {
+          width: 70%;
+          height: 70%;
+          border-radius: 50%;
+          background: #4534b8;
+        }
+        .mini-dice-pip--off {
+          visibility: hidden;
+        }
+      
         .dice3d-area {
           display: flex;
           flex-direction: column;
@@ -283,7 +288,5 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, onRoll }: Dice3
         .dice3d-label--muted {
           color: var(--color-text-muted);
         }
-      `}</style>
-    </div>
-  );
-}
+      
+`);

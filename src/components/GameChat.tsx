@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { styleOnce } from '../styleOnce.ts';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameMessage, Player } from '../game/types.ts';
 import { useT } from '../i18n.ts';
@@ -28,7 +29,8 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
   // Only user-authored content belongs in the chat panel — dice rolls,
   // captures, entries, etc. are engine narration with their own dedicated
   // UI (status banner, capture overlay) and would just be noise here.
-  const chatMessages = messages.filter((m) => m.kind === 'chat');
+  // Memoized so the scroll effect below only fires on REAL list changes.
+  const chatMessages = useMemo(() => messages.filter((m) => m.kind === 'chat'), [messages]);
 
   const handleSend = () => {
     const text = draft.trim();
@@ -38,10 +40,11 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
   };
 
   // Build a playerId → player lookup
-  const playerMap = new Map<string, Player>();
-  for (const p of players) {
-    playerMap.set(p.id, p);
-  }
+  const playerMap = useMemo(() => {
+    const map = new Map<string, Player>();
+    for (const p of players) map.set(p.id, p);
+    return map;
+  }, [players]);
 
   useEffect(() => {
     if (scrollRef.current && isOpen) {
@@ -151,7 +154,12 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
         )}
       </AnimatePresence>
 
-      <style>{`
+    </>
+  );
+}
+
+// Static component CSS — injected once per module (see styleOnce.ts)
+styleOnce('game-chat', `
         .chat-panel {
           position: fixed;
           top: 0;
@@ -348,7 +356,5 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
           opacity: 0.4;
           cursor: not-allowed;
         }
-      `}</style>
-    </>
-  );
-}
+      
+`);

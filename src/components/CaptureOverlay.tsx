@@ -95,6 +95,8 @@ export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayPro
 
   useEffect(() => {
     if (!latestEffect || revealedIds.current.has(latestEffect.id)) return;
+    // Bounded: only recent ids matter (stale effects are filtered above)
+    if (revealedIds.current.size > 200) revealedIds.current.clear();
     revealedIds.current.add(latestEffect.id);
     // Delay counts from when the effect reaches THIS client (host: move
     // time; guest: snapshot receipt — matching their own piece animation).

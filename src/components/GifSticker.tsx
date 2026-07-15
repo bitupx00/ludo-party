@@ -1,3 +1,4 @@
+import { styleOnce } from '../styleOnce.ts';
 import { gifById } from '../game/gifs.ts';
 
 /**
@@ -192,7 +193,12 @@ export default function GifSticker({ id, size = 40 }: GifStickerProps) {
   return (
     <>
       <Renderer s={size} />
-      <style>{`
+    </>
+  );
+}
+
+// Static component CSS — injected once per module (see styleOnce.ts)
+styleOnce('gif-sticker', `
         .gif-anim { display: block; overflow: visible; }
         .gif-bounce { animation: gifBounce 0.55s ease-in-out infinite; }
         @keyframes gifBounce { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8%) rotate(4deg); } }
@@ -243,7 +249,5 @@ export default function GifSticker({ id, size = 40 }: GifStickerProps) {
         @media (prefers-reduced-motion: reduce) {
           .gif-anim, .gif-anim * { animation: none !important; }
         }
-      `}</style>
-    </>
-  );
-}
+      
+`);

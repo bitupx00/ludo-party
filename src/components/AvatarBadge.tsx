@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { styleOnce } from '../styleOnce.ts';
+import { memo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Player } from '../game/types.ts';
 import { PLAYER_CONFIG, TEAMMATE } from '../game/types.ts';
@@ -68,7 +69,7 @@ interface AvatarBadgeProps {
 
 const REACTION_VISIBLE_MS = 2600;
 
-export default function AvatarBadge({
+function AvatarBadge({
   player,
   isCurrent,
   isThinking,
@@ -110,11 +111,10 @@ export default function AvatarBadge({
       style={{ '--badge-color': config.cssColor, '--badge-light': config.cssLight } as React.CSSProperties}
     >
       <div className="avatar-badge-circle-wrap">
-        <motion.div
-          className="avatar-badge-circle"
-          animate={isCurrent ? { scale: [1, 1.06, 1] } : { scale: 1 }}
-          transition={isCurrent ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut' } : {}}
-        >
+        {/* Turn "breathing" runs as a CSS animation (compositor thread) —
+            the old framer-motion infinite keyframe loop kept a JS
+            requestAnimationFrame ticking for the whole game. */}
+        <div className={`avatar-badge-circle ${isCurrent ? 'avatar-badge-circle--pulse' : ''}`}>
           {showVideo && stream ? (
             <AvatarVideo stream={stream} mirrored={isLocalCam} muted={isLocalCam} />
           ) : (
@@ -127,7 +127,7 @@ export default function AvatarBadge({
           {isLocalCam && !micOn && <span className="avatar-badge-mic-off">🔇</span>}
           {isSpeaking && <span className="avatar-badge-speaking" />}
           {isCurrent && <span className="avatar-badge-ring" />}
-        </motion.div>
+        </div>
 
         {/* Turn dice (Ludo Club style): only for the currently-rolling
             player, shown here instead of the big HUD dice when it isn't
@@ -174,7 +174,17 @@ export default function AvatarBadge({
         </span>
       </div>
 
-      <style>{`
+    </div>
+  );
+}
+
+// Memoized: the game screen re-renders on every store change (chat,
+// timers, effects) — a badge only needs to re-render when ITS props
+// actually changed (shallow compare covers it: primitives + identities).
+export default memo(AvatarBadge);
+
+// Static component CSS — injected once per module (see styleOnce.ts)
+styleOnce('avatar-badge', `
         .avatar-badge {
           display: flex;
           align-items: center;
@@ -212,6 +222,13 @@ export default function AvatarBadge({
             0 0 0 3px var(--badge-color),
             0 0 18px var(--badge-color),
             0 4px 10px rgba(18, 8, 60, 0.35);
+        }
+        .avatar-badge-circle--pulse {
+          animation: badge-breathe 1.2s ease-in-out infinite;
+        }
+        @keyframes badge-breathe {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.06); }
         }
         .avatar-badge-emoji {
           font-size: clamp(20px, 5.5vmin, 27px);
@@ -347,7 +364,5 @@ export default function AvatarBadge({
         @media (max-width: 380px) {
           .avatar-badge-name { max-width: 22vw; font-size: 0.75rem; }
         }
-      `}</style>
-    </div>
-  );
-}
+      
+`);
