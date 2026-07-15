@@ -95,7 +95,7 @@ export const COLOR_CONFIG: Record<Color, {
   displayName: string;
 }> = {
   red: {
-    entryIndex: 13,
+    entryIndex: 0,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -104,7 +104,7 @@ export const COLOR_CONFIG: Record<Color, {
     displayName: 'Rojo',
   },
   green: {
-    entryIndex: 26,
+    entryIndex: 39,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -113,7 +113,7 @@ export const COLOR_CONFIG: Record<Color, {
     displayName: 'Verde',
   },
   yellow: {
-    entryIndex: 39,
+    entryIndex: 26,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -122,7 +122,7 @@ export const COLOR_CONFIG: Record<Color, {
     displayName: 'Amarillo',
   },
   blue: {
-    entryIndex: 0,
+    entryIndex: 13,
     safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
     homeStretchStart: 52,
     homeStretchEnd: 56,
@@ -133,17 +133,17 @@ export const COLOR_CONFIG: Record<Color, {
 };
 
 /** Last board square (0-51) from which rolling 1+ enters the home stretch.
- *  Ludo King convention: each color travels 50 ring squares from its entry
+ *  Ludo Club convention: each color travels 50 ring squares from its entry
  *  and turns into its own arm's center lane at the arm tip.
- *  Blue (entry=0, base TL): HS_entry = 50 — left tip (0,7)
- *  Red (entry=13, base TR): HS_entry = 11 — top tip (7,0)
- *  Green (entry=26, base BR): HS_entry = 24 — right tip (14,7)
- *  Yellow (entry=39, base BL): HS_entry = 37 — bottom tip (7,14) */
+ *  Red (entry=0): HS_entry = 50 — left tip (0,7)
+ *  Blue (entry=13): HS_entry = 11 — top tip (7,0)
+ *  Yellow (entry=26): HS_entry = 24 — right tip (14,7)
+ *  Green (entry=39): HS_entry = 37 — bottom tip (7,14) */
 export const HOME_STRETCH_ENTRY: Record<Color, number> = {
-  red: 11,
-  green: 24,
-  yellow: 37,
-  blue: 50,
+  red: 50,
+  green: 37,
+  yellow: 24,
+  blue: 11,
 };
 
 export const AVATAR_EMOJIS = [
@@ -172,29 +172,29 @@ export const PLAYER_CONFIG: Record<Color, {
   red: {
     label: COLOR_CONFIG.red.displayName,
     emoji: COLOR_CONFIG.red.emoji,
-    cssColor: '#e33a30',
-    cssLight: '#f47a70',
+    cssColor: '#f0405c',
+    cssLight: '#fb7185',
     cssClass: COLOR_CONFIG.red.cssClass,
   },
   green: {
     label: COLOR_CONFIG.green.displayName,
     emoji: COLOR_CONFIG.green.emoji,
-    cssColor: '#3caf4e',
-    cssLight: '#7ed48a',
+    cssColor: '#26c165',
+    cssLight: '#4ade80',
     cssClass: COLOR_CONFIG.green.cssClass,
   },
   yellow: {
     label: COLOR_CONFIG.yellow.displayName,
     emoji: COLOR_CONFIG.yellow.emoji,
-    cssColor: '#e9b400',
-    cssLight: '#ffd75e',
+    cssColor: '#f5a415',
+    cssLight: '#fcd34d',
     cssClass: COLOR_CONFIG.yellow.cssClass,
   },
   blue: {
     label: COLOR_CONFIG.blue.displayName,
     emoji: COLOR_CONFIG.blue.emoji,
-    cssColor: '#2b9bf4',
-    cssLight: '#7cc4fa',
+    cssColor: '#3d7bfa',
+    cssLight: '#60a5fa',
     cssClass: COLOR_CONFIG.blue.cssClass,
   },
 };
