@@ -47,7 +47,7 @@ import {
   randomPick,
 } from '../game/stickers';
 
-export type Screen = 'home' | 'lobby' | 'game' | 'ranking' | 'inventory';
+export type Screen = 'home' | 'lobby' | 'game' | 'ranking' | 'inventory' | 'arcade';
 
 export type OnlineRole = 'none' | 'host' | 'guest';
 
@@ -148,6 +148,8 @@ interface GameStore {
   openRanking: () => void;
   /** Open the inventory screen (from home only). */
   openInventory: () => void;
+  /** Open the arcade (puzzles + minigames) screen (from home only). */
+  openArcade: () => void;
 
   // Online multiplayer
   createOnlineRoom: (hostName: string) => Promise<void>;
@@ -294,6 +296,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   openInventory: () => {
     if (get().screen !== 'home') return;
     set({ screen: 'inventory' });
+  },
+
+  openArcade: () => {
+    if (get().screen !== 'home') return;
+    set({ screen: 'arcade' });
   },
 
   goHome: () => {

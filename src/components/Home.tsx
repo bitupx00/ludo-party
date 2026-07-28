@@ -20,6 +20,7 @@ export default function Home() {
   const openLobby = useGameStore((s) => s.openLobby);
   const openRanking = useGameStore((s) => s.openRanking);
   const openInventory = useGameStore((s) => s.openInventory);
+  const openArcade = useGameStore((s) => s.openArcade);
   const onlineError = useGameStore((s) => s.onlineError);
   const [tipIndex, setTipIndex] = useState(0);
   const [dailyOpen, setDailyOpen] = useState(false);
@@ -76,6 +77,9 @@ export default function Home() {
       </button>
       <button className="home-rank home-inv" onClick={openInventory} aria-label="Inventario">
         🎒
+      </button>
+      <button className="home-rank home-arc" onClick={openArcade} aria-label="Arcade">
+        🕹️
       </button>
       <div className="home-coins" title="Puntos (monedas)">🪙 {coins.toLocaleString('es')}</div>
 
@@ -237,6 +241,7 @@ export default function Home() {
         .home-daily--ready { animation: pulse-glow 1.4s ease-in-out infinite; border-color: rgba(255, 214, 90, 0.8); }
         .home-help { top: calc(152px + env(safe-area-inset-top)); }
         .home-inv { top: calc(198px + env(safe-area-inset-top)); }
+        .home-arc { top: calc(244px + env(safe-area-inset-top)); }
         .home-coins {
           position: absolute;
           top: calc(60px + env(safe-area-inset-top));
