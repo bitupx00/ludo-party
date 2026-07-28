@@ -275,7 +275,14 @@ export function movePiece(
 
   if (newPos === -2) return state; // Cannot move (overshoot)
 
-  // Update piece position
+  // Update piece position. Piezas Hermanas: every OWN piece stacked on
+  // the starting square rides along to the same destination (a convoy).
+  const convoy = new Set<string>([pieceId]);
+  if (state.siblingMode && piece.position >= 0) {
+    for (const p of controlled.pieces) {
+      if (p.id !== pieceId && p.position === piece.position && p.position < FINISH_POS) convoy.add(p.id);
+    }
+  }
   let newState: GameState = {
     ...state,
     players: state.players.map((player, idx) =>
@@ -283,7 +290,7 @@ export function movePiece(
         ? {
             ...player,
             pieces: player.pieces.map((p) =>
-              p.id === pieceId
+              convoy.has(p.id)
                 ? { ...p, position: newPos, isSafe: newPos >= 52 || [0, 8, 13, 21, 26, 34, 39, 47].includes(newPos) }
                 : p,
             ),

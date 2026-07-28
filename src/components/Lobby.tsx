@@ -40,6 +40,8 @@ export default function Lobby() {
   const changeSeat = useGameStore((s) => s.changeSeat);
   const startGame = useGameStore((s) => s.startGame);
   const betAmount = useGameStore((s) => s.betAmount);
+  const siblingMode = useGameStore((s) => s.siblingMode);
+  const setSiblingMode = useGameStore((s) => s.setSiblingMode);
   const setBet = useGameStore((s) => s.setBet);
   const goHome = useGameStore((s) => s.goHome);
   const createOnlineRoom = useGameStore((s) => s.createOnlineRoom);
@@ -411,6 +413,14 @@ export default function Lobby() {
               ))}
             </div>
             <span className="lobby-dice-name">El ganador se lleva el pozo{isGuest ? ' · la elige el host' : ''}</span>
+            <button
+              className={`lobby-bet-option ${siblingMode ? 'lobby-dice-option--active' : ''}`}
+              disabled={isGuest}
+              onClick={() => setSiblingMode(!siblingMode)}
+              title="Tus fichas apiladas en una casilla corren juntas"
+            >
+              👯 Piezas Hermanas: {siblingMode ? 'SÍ' : 'NO'}
+            </button>
           </div>
         )}
 

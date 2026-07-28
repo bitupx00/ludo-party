@@ -71,6 +71,9 @@ export interface GameState {
   pendingExtraRolls?: number;
   /** When true (2v2 mode), teammates cannot capture each other. */
   teamsMode?: boolean;
+  /** "Piezas Hermanas" mode: your pieces stacked on the SAME square move
+   *  TOGETHER as one convoy. */
+  siblingMode?: boolean;
 }
 
 export interface GameMessage {

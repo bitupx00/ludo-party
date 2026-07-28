@@ -81,6 +81,7 @@ export const SNAPSHOT_KEYS = [
   'consecutiveSixes',
   'pendingExtraRolls',
   'teamsMode',
+  'siblingMode',
   'screen',
   'gameMode',
   'rollSeq',
@@ -106,6 +107,7 @@ interface GameStore {
   consecutiveSixes: number;
   pendingExtraRolls?: number;
   teamsMode?: boolean;
+  siblingMode?: boolean;
 
   // Navigation / mode
   screen: Screen;
@@ -183,6 +185,9 @@ interface GameStore {
   setDiceSkin: (skin: string) => void;
   /** Host/local: set the match entry bet (coins, lobby only). */
   setBet: (amount: number) => void;
+  /** Host/local (lobby): toggle Piezas Hermanas (stacked own pieces move
+   *  together as a convoy). */
+  setSiblingMode: (on: boolean) => void;
   /** Host/local: current turn ran out of time — auto-roll / auto-move. */
   turnTimeout: () => void;
   startGame: () => void;
@@ -647,6 +652,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ betAmount: amount });
   },
 
+  setSiblingMode: (on: boolean) => {
+    const { screen, onlineRole } = get();
+    if (screen !== 'lobby' || onlineRole === 'guest') return;
+    set({ siblingMode: on });
+  },
+
   turnTimeout: () => {
     const s = get();
     if (s.onlineRole === 'guest' || s.screen !== 'game' || s.phase === 'finished') return;
@@ -725,6 +736,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       consecutiveSixes: 0,
       pendingExtraRolls: 0,
       teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
+      siblingMode: get().siblingMode === true,
       reactions: {},
       memeFx: null,
       memeThrow: null,
