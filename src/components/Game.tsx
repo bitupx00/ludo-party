@@ -95,6 +95,7 @@ export default function Game() {
   const sendChatMessage = useGameStore((s) => s.sendChatMessage);
   const clearCaptureEffects = useGameStore((s) => s.clearCaptureEffects);
   const movablePieceIds = useGameStore((s) => s.movablePieceIds);
+  const turnTimeout = useGameStore((s) => s.turnTimeout);
   const goHome = useGameStore((s) => s.goHome);
 
   const onlineRole = useGameStore((s) => s.onlineRole);
@@ -124,11 +125,17 @@ export default function Game() {
       playMemeSound(memeFx.sound);
       setActiveFx(memeFx);
     }, wait);
-    const hide = setTimeout(() => {
-      setActiveFx((cur) => (cur?.key === memeFx.key ? null : cur));
-    }, wait + 3200);
-    return () => { clearTimeout(show); clearTimeout(hide); };
+    return () => clearTimeout(show);
   }, [memeFx]);
+  // Auto-hide is keyed to the SHOWN fx, not to memeFx: the old combined
+  // effect lost its hide timer whenever memeFx changed/reset mid-display
+  // (rematch, snapshot churn), leaving the gif STUCK on the board and
+  // sitting over the pieces. This way anything shown always dies in 3.2s.
+  useEffect(() => {
+    if (!activeFx) return;
+    const hide = setTimeout(() => setActiveFx(null), 3200);
+    return () => clearTimeout(hide);
+  }, [activeFx]);
 
   // Thrown memes (gift button): animate the flight on every device, play
   // the impact sound, and pin the meme on the target's avatar for a minute.
@@ -161,6 +168,19 @@ export default function Game() {
     });
   }, []);
   useEffect(() => () => { Object.values(pinTimers.current).forEach(clearTimeout); }, []);
+
+  // ⏱ 20s turn timer: the acting device (host/local) forces an auto-roll
+  // or auto-move when the current human runs out of time; every device
+  // shows the draining bar over the current player's avatar.
+  const TURN_MS = 20000;
+  const timerKey = !winner && currentPlayer && !currentPlayer.isBot && (phase === 'rolling' || phase === 'moving')
+    ? `${currentPlayerIndex}-${phase}-${rollSeq}`
+    : null;
+  useEffect(() => {
+    if (!timerKey || onlineRole === 'guest') return;
+    const timer = setTimeout(() => turnTimeout(), TURN_MS);
+    return () => clearTimeout(timer);
+  }, [timerKey, onlineRole, turnTimeout]);
 
   // Dice reveal gate: after every roll the 3D dice takes ~950ms to settle on
   // its face. Until then NOTHING may leak the result — no movable rings, no
@@ -345,6 +365,7 @@ export default function Game() {
         diceRolling={showTurnDice && (phase === 'rolling' || (phase === 'moving' && !diceSettled))}
         onGift={onlineRole !== 'none' && player.id === localPlayerId ? undefined : setGiftTarget}
         pinnedMeme={pinned[player.id] ?? null}
+        timerKey={isCurrent ? timerKey : null}
       />
     );
   };

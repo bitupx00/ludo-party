@@ -107,6 +107,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-weight: 700;
   overscroll-behavior: none;
+  /* LudoPata'S paw-print wallpaper (subtle, WhatsApp-style) */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%23ffffff' fill-opacity='0.045'%3E%3Cellipse cx='30' cy='34' rx='9' ry='7.5'/%3E%3Ccircle cx='18' cy='22' r='3.6'/%3E%3Ccircle cx='27' cy='17' r='3.6'/%3E%3Ccircle cx='36' cy='18' r='3.6'/%3E%3Ccircle cx='43' cy='25' r='3.2'/%3E%3Cellipse cx='88' cy='92' rx='9' ry='7.5' transform='rotate(24 88 92)'/%3E%3Ccircle cx='75' cy='83' r='3.4'/%3E%3Ccircle cx='83' cy='77' r='3.6'/%3E%3Ccircle cx='92' cy='76' r='3.6'/%3E%3Ccircle cx='100' cy='81' r='3.2'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 120px 120px;
 }
 
 #root {

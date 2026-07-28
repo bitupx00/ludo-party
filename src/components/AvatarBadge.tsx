@@ -70,6 +70,9 @@ interface AvatarBadgeProps {
   onGift?: (playerId: string) => void;
   /** Last meme thrown at this player (gif payload) — stuck on the avatar. */
   pinnedMeme?: string | null;
+  /** Non-null while it's THIS player's turn: restarts the 20s draining
+   *  bar above the avatar (bar runs in the player's color). */
+  timerKey?: string | null;
 }
 
 const REACTION_VISIBLE_MS = 2600;
@@ -95,6 +98,7 @@ function AvatarBadge({
   diceRolling,
   onGift,
   pinnedMeme,
+  timerKey,
 }: AvatarBadgeProps) {
   const t = useT();
   const config = PLAYER_CONFIG[player.color];
@@ -143,6 +147,12 @@ function AvatarBadge({
       style={{ '--badge-color': config.cssColor, '--badge-light': config.cssLight } as React.CSSProperties}
     >
       <div className="avatar-badge-circle-wrap">
+        {/* Turn countdown: thin bar draining over 20s in the player's color */}
+        {timerKey != null && (
+          <span key={timerKey} className="avatar-turn-timer">
+            <span className="avatar-turn-timer-fill" />
+          </span>
+        )}
         {/* Turn "breathing" runs as a CSS animation (compositor thread) —
             the old framer-motion infinite keyframe loop kept a JS
             requestAnimationFrame ticking for the whole game. */}
@@ -296,6 +306,31 @@ styleOnce('avatar-badge', `
             0 0 0 3px var(--badge-color),
             0 0 18px var(--badge-color),
             0 4px 10px rgba(18, 8, 60, 0.35);
+        }
+        .avatar-turn-timer {
+          position: absolute;
+          top: -10px;
+          left: 50%;
+          translate: -50% 0;
+          width: 120%;
+          height: 4px;
+          border-radius: 3px;
+          background: rgba(255, 255, 255, 0.18);
+          overflow: hidden;
+          z-index: 6;
+          pointer-events: none;
+        }
+        .avatar-turn-timer-fill {
+          display: block;
+          height: 100%;
+          border-radius: 3px;
+          background: var(--badge-color);
+          transform-origin: left center;
+          animation: turn-drain 20s linear forwards;
+        }
+        @keyframes turn-drain {
+          from { transform: scaleX(1); }
+          to { transform: scaleX(0); }
         }
         .avatar-badge-circle--pulse {
           animation: badge-breathe 1.2s ease-in-out infinite;

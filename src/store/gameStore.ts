@@ -87,6 +87,8 @@ export const SNAPSHOT_KEYS = [
   'reactions',
   'memeFx',
   'memeThrow',
+  'betAmount',
+  'matchId',
 ] as const;
 
 export type GameSnapshot = Pick<GameStore, (typeof SNAPSHOT_KEYS)[number]>;
@@ -118,6 +120,10 @@ interface GameStore {
   /** Latest thrown meme (gift button) — synced so every device animates
    *  the same flight and pins it on the target. */
   memeThrow: MemeThrow | null;
+  /** Entry bet in coins per human player (winner takes the pot). */
+  betAmount: number;
+  /** Unique id per started match (bet settlement dedup). */
+  matchId: string | null;
 
   // Online multiplayer
   onlineRole: OnlineRole;
@@ -171,6 +177,10 @@ interface GameStore {
   setTeamsMode: (on: boolean) => void;
   /** Pick your dice model (lobby only; persisted on this device). */
   setDiceSkin: (skin: string) => void;
+  /** Host/local: set the match entry bet (coins, lobby only). */
+  setBet: (amount: number) => void;
+  /** Host/local: current turn ran out of time — auto-roll / auto-move. */
+  turnTimeout: () => void;
   startGame: () => void;
 
   // Gameplay
@@ -212,6 +222,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   reactions: {},
   memeFx: null,
   memeThrow: null,
+  betAmount: 100,
+  matchId: null,
   onlineRole: 'none',
   roomCode: null,
   localPlayerId: null,
@@ -614,6 +626,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ teamsMode: on });
   },
 
+  setBet: (amount: number) => {
+    const { screen, onlineRole } = get();
+    if (screen !== 'lobby' || onlineRole === 'guest') return;
+    if (![100, 250, 500, 1000, 2000, 3000].includes(amount)) return;
+    set({ betAmount: amount });
+  },
+
+  turnTimeout: () => {
+    const s = get();
+    if (s.onlineRole === 'guest' || s.screen !== 'game' || s.phase === 'finished') return;
+    const cur = s.players[s.currentPlayerIndex];
+    if (!cur || cur.isBot) return;
+    if (s.phase === 'rolling') {
+      doRoll(set, get);
+      return;
+    }
+    if (s.phase === 'moving' && s.diceValue !== null) {
+      const movable = getMovablePieces({ ...s, diceValue: s.diceValue }, s.diceValue);
+      if (movable.length > 0) {
+        executeMove(set, get, movable[Math.floor(Math.random() * movable.length)].id);
+      } else {
+        const advanced = advanceTurn({ ...s });
+        set(advanced);
+        scheduleBotTurn(set, get);
+      }
+    }
+  },
+
   setDiceSkin: (skin: string) => {
     if (!isValidSkin(skin)) return;
     const { players, screen, onlineRole, localPlayerId } = get();
@@ -674,6 +714,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactions: {},
       memeFx: null,
       memeThrow: null,
+      matchId: createId(),
           messages: [
         {
           id: createId(),
@@ -866,6 +907,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactions: {},
       memeFx: null,
       memeThrow: null,
+      matchId: createId(),
           messages: [
         {
           id: createId(),

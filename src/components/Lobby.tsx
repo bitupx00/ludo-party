@@ -46,6 +46,8 @@ export default function Lobby() {
   const changeSeat = useGameStore((s) => s.changeSeat);
   const startGame = useGameStore((s) => s.startGame);
   const setDiceSkin = useGameStore((s) => s.setDiceSkin);
+  const betAmount = useGameStore((s) => s.betAmount);
+  const setBet = useGameStore((s) => s.setBet);
   const goHome = useGameStore((s) => s.goHome);
   const createOnlineRoom = useGameStore((s) => s.createOnlineRoom);
   const joinOnlineRoom = useGameStore((s) => s.joinOnlineRoom);
@@ -422,6 +424,26 @@ export default function Lobby() {
           </div>
         )}
 
+        {/* Match bet (coins): entry per player, winner takes the pot */}
+        {!onlineSetup && (
+          <div className="lobby-dice-picker">
+            <span className="lobby-dice-title">🪙 Apuesta de entrada (puntos)</span>
+            <div className="lobby-dice-row">
+              {[100, 250, 500, 1000, 2000, 3000].map((amt) => (
+                <button
+                  key={amt}
+                  className={`lobby-bet-option ${betAmount === amt ? 'lobby-dice-option--active' : ''}`}
+                  disabled={isGuest}
+                  onClick={() => setBet(amt)}
+                >
+                  {amt >= 1000 ? `${amt / 1000}k` : amt}
+                </button>
+              ))}
+            </div>
+            <span className="lobby-dice-name">El ganador se lleva el pozo{isGuest ? ' · la elige el host' : ''}</span>
+          </div>
+        )}
+
         {/* Start */}
         {!onlineSetup && (
         <div className="lobby-actions">
@@ -780,6 +802,19 @@ export default function Lobby() {
           border-color: #ffd65a;
           background: rgba(255, 214, 90, 0.16);
         }
+        .lobby-bet-option {
+          padding: 8px 12px;
+          border-radius: var(--radius-full);
+          border: 2px solid rgba(255, 255, 255, 0.14);
+          background: rgba(255, 255, 255, 0.06);
+          color: var(--color-text);
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 0.8rem;
+          cursor: pointer;
+          touch-action: manipulation;
+        }
+        .lobby-bet-option:disabled { opacity: 0.6; cursor: default; }
         .lobby-dice-name {
           font-size: 0.6rem;
           font-weight: 800;
