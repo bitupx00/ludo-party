@@ -66,9 +66,22 @@ interface AvatarBadgeProps {
    *  (the big HUD dice covers that case instead). */
   diceValue?: number | null;
   diceRolling?: boolean;
+  /** Gift button: open the throw-meme picker targeting this player. */
+  onGift?: (playerId: string) => void;
+  /** Last meme thrown at this player (gif payload) — stuck on the avatar. */
+  pinnedMeme?: string | null;
 }
 
 const REACTION_VISIBLE_MS = 2600;
+
+/** A sound reaction ALWAYS shows a meme gif with it — picked
+ *  deterministically from the sound id so every device shows the same. */
+const SOUND_GIF_POOL = ['jaja', 'grito', 'craneo', 'rabia', 'aplausos', 'llora', 'payaso', 'rofl'];
+function gifForSound(soundId: string): string {
+  let h = 0;
+  for (let i = 0; i < soundId.length; i++) h = (h * 31 + soundId.charCodeAt(i)) >>> 0;
+  return SOUND_GIF_POOL[h % SOUND_GIF_POOL.length];
+}
 
 function AvatarBadge({
   player,
@@ -80,6 +93,8 @@ function AvatarBadge({
   showTeamBadge,
   diceValue,
   diceRolling,
+  onGift,
+  pinnedMeme,
 }: AvatarBadgeProps) {
   const t = useT();
   const config = PLAYER_CONFIG[player.color];
@@ -124,6 +139,7 @@ function AvatarBadge({
   return (
     <div
       className={`avatar-badge avatar-badge--${align} ${isCurrent ? 'avatar-badge--current' : ''}`}
+      data-badge-for={player.id}
       style={{ '--badge-color': config.cssColor, '--badge-light': config.cssLight } as React.CSSProperties}
     >
       <div className="avatar-badge-circle-wrap">
@@ -171,7 +187,12 @@ function AvatarBadge({
                 : isTenorReaction(reaction.emoji)
                   ? <img className="avatar-tgif" src={tenorUrlOf(reaction.emoji)} alt="GIF" draggable={false} />
                   : isSoundReaction(reaction.emoji)
-                    ? <span className="avatar-snd">🔊 {memeSoundById(soundIdOf(reaction.emoji))?.name ?? ''}</span>
+                    ? (
+                      <span className="avatar-snd-wrap">
+                        <GifSticker id={gifForSound(soundIdOf(reaction.emoji))} size={30} />
+                        <span className="avatar-snd">{memeSoundById(soundIdOf(reaction.emoji))?.name ?? ''}</span>
+                      </span>
+                    )
                     : reaction.emoji}
             </motion.div>
           )}
@@ -181,6 +202,25 @@ function AvatarBadge({
           <span className="avatar-team-badge" title={t(TEAM_INFO[teamOf(player.color)].nameKey)}>
             {TEAM_INFO[teamOf(player.color)].emoji}
           </span>
+        )}
+
+        {/* Meme stuck on the avatar: the last one thrown at this player */}
+        {pinnedMeme && (
+          <span className="avatar-pinned-meme">
+            <GifSticker id={pinnedMeme.startsWith('gif:') ? pinnedMeme.slice(4) : pinnedMeme} size={30} />
+          </span>
+        )}
+
+        {/* Gift: throw a meme at this player (Ludo Club style) */}
+        {onGift && (
+          <button
+            className="avatar-gift-btn"
+            onClick={(e) => { e.stopPropagation(); onGift(player.id); }}
+            aria-label={t('throwMeme')}
+            title={t('throwMeme')}
+          >
+            🎁
+          </button>
         )}
 
         {/* Silence THIS player (local): mutes their voice + their sounds */}
@@ -332,6 +372,45 @@ styleOnce('avatar-badge', `
           right: auto;
           left: -12px;
           border-radius: 17px 17px 4px 17px;
+        }
+        .avatar-pinned-meme {
+          position: absolute;
+          top: -10px;
+          right: -10px;
+          z-index: 6;
+          rotate: 12deg;
+          filter: drop-shadow(0 2px 4px rgba(18, 8, 60, 0.5));
+          animation: pinned-splat 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+          pointer-events: none;
+        }
+        @keyframes pinned-splat {
+          0% { scale: 2.2; opacity: 0; rotate: -30deg; }
+          100% { scale: 1; opacity: 1; rotate: 12deg; }
+        }
+        .avatar-gift-btn {
+          position: absolute;
+          bottom: -6px;
+          left: -8px;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          border: 1.5px solid rgba(255, 214, 90, 0.6);
+          background: rgba(20, 9, 46, 0.85);
+          font-size: 0.62rem;
+          line-height: 1;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 5;
+          padding: 0;
+          touch-action: manipulation;
+        }
+        .avatar-snd-wrap {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 0 4px;
         }
         .avatar-tgif {
           width: 64px;

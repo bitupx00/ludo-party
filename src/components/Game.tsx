@@ -18,6 +18,8 @@ import { useSoundStore, playSfx } from '../sound.ts';
 import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf, gifById, isTenorReaction, tenorUrlOf } from '../game/gifs.ts';
 import { isSoundReaction, soundIdOf, memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import type { MemeFx } from '../game/memeFx.ts';
+import type { MemeThrow } from '../store/gameStore.ts';
+import { THROW_PACK } from '../game/gifs.ts';
 import { useFavStore } from '../favorites.ts';
 import GifSticker from './GifSticker.tsx';
 import { useT } from '../i18n.ts';
@@ -25,6 +27,49 @@ import { useT } from '../i18n.ts';
 /** How long the 3D dice spin animation takes to visually settle (see
  *  Dice3D's 950ms settle timer) — inputs stay locked until then. */
 const DICE_SETTLE_MS = 1000;
+
+/** Flight time of a thrown meme (avatar → avatar). */
+const THROW_FLIGHT_MS = 850;
+
+/** A thrown meme flying from the sender's avatar to the target's, with a
+ *  lobbed arc and spin. Positions are read from the badges' data
+ *  attributes at launch time (fixed-position overlay). */
+function ThrowFlight({ fx, onDone }: { fx: MemeThrow; onDone: () => void }) {
+  const [pts] = useState(() => {
+    const center = (el: Element | null) => {
+      const r = el?.getBoundingClientRect();
+      return r
+        ? { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    };
+    return {
+      a: center(document.querySelector(`[data-badge-for="${fx.from}"]`)),
+      b: center(document.querySelector(`[data-badge-for="${fx.to}"]`)),
+    };
+  });
+  useEffect(() => {
+    const timer = setTimeout(onDone, THROW_FLIGHT_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const gifId = fx.gif.startsWith('gif:') ? fx.gif.slice(4) : fx.gif;
+  return (
+    <motion.div
+      className="throw-fly"
+      initial={{ left: pts.a.x, top: pts.a.y, scale: 0.5, rotate: 0, opacity: 0.9 }}
+      animate={{
+        left: [pts.a.x, (pts.a.x + pts.b.x) / 2, pts.b.x],
+        top: [pts.a.y, Math.min(pts.a.y, pts.b.y) - 110, pts.b.y],
+        scale: [0.6, 1.25, 1],
+        rotate: 540,
+        opacity: 1,
+      }}
+      transition={{ duration: THROW_FLIGHT_MS / 1000, ease: 'easeIn' }}
+    >
+      <GifSticker id={gifId} size={48} />
+    </motion.div>
+  );
+}
 
 export default function Game() {
   const t = useT();
@@ -44,6 +89,8 @@ export default function Game() {
   const roll = useGameStore((s) => s.roll);
   const buyLucky = useGameStore((s) => s.buyLucky);
   const memeFx = useGameStore((s) => s.memeFx);
+  const memeThrow = useGameStore((s) => s.memeThrow);
+  const throwMeme = useGameStore((s) => s.throwMeme);
   const sendReaction = useGameStore((s) => s.sendReaction);
   const sendChatMessage = useGameStore((s) => s.sendChatMessage);
   const clearCaptureEffects = useGameStore((s) => s.clearCaptureEffects);
@@ -82,6 +129,38 @@ export default function Game() {
     }, wait + 3200);
     return () => { clearTimeout(show); clearTimeout(hide); };
   }, [memeFx]);
+
+  // Thrown memes (gift button): animate the flight on every device, play
+  // the impact sound, and pin the meme on the target's avatar for a minute.
+  const PIN_MS = 60000;
+  const [flight, setFlight] = useState<MemeThrow | null>(null);
+  const [pinned, setPinned] = useState<Record<string, string>>({});
+  const pinTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const seenThrowKey = useRef<number>(useGameStore.getState().memeThrow?.key ?? 0);
+  const [giftTarget, setGiftTarget] = useState<string | null>(null);
+  useEffect(() => {
+    if (!memeThrow || memeThrow.key === seenThrowKey.current) return;
+    seenThrowKey.current = memeThrow.key;
+    setFlight(memeThrow);
+  }, [memeThrow]);
+  const handleFlightDone = useCallback(() => {
+    setFlight((fx) => {
+      if (!fx) return null;
+      // The thrower may be silenced on this device — no impact sound then
+      if (!useVideoStore.getState().mutedPlayers[fx.from]) playMemeSound(fx.sound);
+      setPinned((p) => ({ ...p, [fx.to]: fx.gif }));
+      if (pinTimers.current[fx.to]) clearTimeout(pinTimers.current[fx.to]);
+      pinTimers.current[fx.to] = setTimeout(() => {
+        setPinned((p) => {
+          const next = { ...p };
+          delete next[fx.to];
+          return next;
+        });
+      }, PIN_MS);
+      return null;
+    });
+  }, []);
+  useEffect(() => () => { Object.values(pinTimers.current).forEach(clearTimeout); }, []);
 
   // Dice reveal gate: after every roll the 3D dice takes ~950ms to settle on
   // its face. Until then NOTHING may leak the result — no movable rings, no
@@ -264,6 +343,8 @@ export default function Game() {
         showTeamBadge={teamsMode === true}
         diceValue={showTurnDice ? (phase === 'moving' && diceSettled ? diceValue : null) : undefined}
         diceRolling={showTurnDice && (phase === 'rolling' || (phase === 'moving' && !diceSettled))}
+        onGift={onlineRole !== 'none' && player.id === localPlayerId ? undefined : setGiftTarget}
+        pinnedMeme={pinned[player.id] ?? null}
       />
     );
   };
@@ -513,6 +594,50 @@ export default function Game() {
         </div>
       )}
 
+      {/* Thrown meme in flight */}
+      {flight && <ThrowFlight fx={flight} onDone={handleFlightDone} />}
+
+      {/* Throw-meme picker (gift button on an avatar) */}
+      <AnimatePresence>
+        {giftTarget && (
+          <motion.div
+            className="throw-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setGiftTarget(null)}
+          >
+            <motion.div
+              className="throw-picker"
+              initial={{ scale: 0.85, y: 16, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.85, y: 16, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="throw-picker-title">
+                🎁 {t('throwMemeTo')} {players.find((p) => p.id === giftTarget)?.name ?? ''}
+              </span>
+              <div className="throw-picker-grid">
+                {THROW_PACK.map((id) => (
+                  <motion.button
+                    key={id}
+                    className="throw-picker-item"
+                    whileTap={{ scale: 0.82 }}
+                    onClick={() => {
+                      throwMeme(giftTarget, `gif:${id}`);
+                      setGiftTarget(null);
+                    }}
+                  >
+                    <GifSticker id={id} size={44} />
+                  </motion.button>
+                ))}
+              </div>
+              <span className="throw-picker-note">🔊 1 {t('luckyReady') === 'listo' ? 'lanzamiento por turno' : 'throw per turn'}</span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Win screen */}
       {winner && <WinScreen winnerColor={winner} />}
 
@@ -743,6 +868,67 @@ styleOnce('game', `
         .game-hud-side-btn:active {
           transform: translateY(3px);
           box-shadow: 0 1px 0 rgba(20, 8, 70, 0.3);
+        }
+        .throw-fly {
+          position: fixed;
+          z-index: 170;
+          translate: -50% -50%;
+          pointer-events: none;
+          filter: drop-shadow(0 6px 10px rgba(18, 8, 60, 0.5));
+        }
+        .throw-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 120;
+          background: rgba(12, 5, 40, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .throw-picker {
+          background: linear-gradient(165deg, #3d2b8f, #241865);
+          border: 2px solid rgba(255, 214, 90, 0.5);
+          border-radius: 20px;
+          box-shadow: 0 16px 44px rgba(8, 2, 30, 0.6);
+          padding: 14px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+          max-width: 320px;
+        }
+        .throw-picker-title {
+          font-family: var(--font-display);
+          font-size: 0.9rem;
+          font-weight: 800;
+          text-align: center;
+        }
+        .throw-picker-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        .throw-picker-item {
+          width: 58px;
+          height: 58px;
+          border-radius: 14px;
+          border: 2px solid rgba(255, 255, 255, 0.16);
+          background: rgba(255, 255, 255, 0.08);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          touch-action: manipulation;
+        }
+        .throw-picker-item:hover {
+          background: rgba(255, 214, 90, 0.16);
+          border-color: rgba(255, 214, 90, 0.5);
+        }
+        .throw-picker-note {
+          font-size: 0.68rem;
+          font-weight: 700;
+          color: var(--color-text-muted);
         }
         .game-reconnecting {
           position: fixed;

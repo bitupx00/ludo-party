@@ -141,7 +141,7 @@ let currentAudio: HTMLAudioElement | null = null;
 let stopTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Hard cap per clip — nothing plays longer than this. */
-const MAX_CLIP_MS = 5000;
+const MAX_CLIP_MS = 4500;
 
 /** LRU cap: decoded audio buffers are memory-heavy; over a long game the
  *  old unbounded cache could accumulate all 47 clips. Keep the most
@@ -193,6 +193,10 @@ export function playMemeSound(id: string) {
     /* audio unavailable */
   }
 }
+
+/** Impact sounds for THROWN memes (gift button): always plays with the
+ *  meme when it lands on the target's avatar. */
+export const THROW_SOUNDS = ['lepego', 'faaah', 'grito', 'oof5', 'pew', 'bruh'] as const;
 
 /** Pick a random sound id from an event pool. */
 export function pickFromPool(kind: MemeEventKind): string {

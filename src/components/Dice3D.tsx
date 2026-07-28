@@ -125,13 +125,18 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, skin, onRoll }:
 
   return (
     <div className="dice3d-area">
-      <motion.button
+      {/* div (NOT <button disabled>): iOS Safari + framer-motion swallowed
+          ghost touches through a disabled button without firing onClick —
+          a plain div with a guarded handler dodges that WebKit bug. */}
+      <motion.div
         className={`dice3d ${tappable ? 'dice3d--ready' : ''} ${skinDef.effect ? `dice3d--fx-${skinDef.effect}` : ''}`}
         style={skinDef.vars as React.CSSProperties}
         onClick={handleTap}
         whileTap={tappable ? { scale: 0.9 } : {}}
+        role="button"
+        tabIndex={tappable ? 0 : -1}
         aria-label={t('rollDice')}
-        disabled={!tappable}
+        aria-disabled={!tappable}
       >
         <div
           className="d3-cube"
@@ -142,7 +147,7 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, skin, onRoll }:
           ))}
         </div>
         {tappable && <span className="dice3d-ring" />}
-      </motion.button>
+      </motion.div>
 
       <div className="dice3d-label-slot">
         <AnimatePresence mode="wait">

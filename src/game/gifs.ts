@@ -85,3 +85,7 @@ export function isTenorReaction(value: string): boolean {
 export function tenorUrlOf(value: string): string {
   return value.slice(TGIF_PREFIX.length);
 }
+
+/** Memes throwable at other players (gift button on their avatar) —
+ *  Ludo Club style ammunition: poop, bomb, clown, skull, rage, love… */
+export const THROW_PACK = ['popo', 'bomba', 'payaso', 'craneo', 'rabia', 'diablito', 'jaja', 'amor'];

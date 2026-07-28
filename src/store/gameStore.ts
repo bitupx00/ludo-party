@@ -35,6 +35,8 @@ import { STEP_DURATION } from '../game/anim';
 import { buildMemeFx, MEME_FIRE_CHANCE, type MemeFx } from '../game/memeFx';
 import { isValidSkin, loadSkinPref, saveSkinPref } from '../game/diceSkins';
 import { prefetchOccasionGifs } from '../game/tenor';
+import { THROW_PACK } from '../game/gifs';
+import { THROW_SOUNDS } from '../game/memeSounds';
 import type { MemeEventKind } from '../game/memeSounds';
 import {
   NO_MOVE_MESSAGES,
@@ -52,6 +54,18 @@ export type OnlineRole = 'none' | 'host' | 'guest';
 export interface Reaction {
   emoji: string;
   key: number;
+}
+
+/** A meme THROWN from one player at another (gift button): flies across
+ *  the screen, lands with a sound and sticks on the target's avatar. */
+export interface MemeThrow {
+  key: number;
+  from: string;
+  to: string;
+  /** gif payload (`gif:<id>` from the throw pack). */
+  gif: string;
+  /** Impact meme sound id. */
+  sound: string;
 }
 
 /** Fields mirrored from host to guests in online games. */
@@ -72,6 +86,7 @@ export const SNAPSHOT_KEYS = [
   'rollSeq',
   'reactions',
   'memeFx',
+  'memeThrow',
 ] as const;
 
 export type GameSnapshot = Pick<GameStore, (typeof SNAPSHOT_KEYS)[number]>;
@@ -100,6 +115,9 @@ interface GameStore {
   /** System occasion effect (sound + gif on the piece involved), decided
    *  host-side with a 40% chance per occasion. Synced to guests. */
   memeFx: MemeFx | null;
+  /** Latest thrown meme (gift button) — synced so every device animates
+   *  the same flight and pins it on the target. */
+  memeThrow: MemeThrow | null;
 
   // Online multiplayer
   onlineRole: OnlineRole;
@@ -129,7 +147,7 @@ interface GameStore {
   /** Host: seat a remote guest; returns the new player id (null if full). */
   addRemotePlayer: (name: string, points?: number, skin?: string) => string | null;
   /** Host: apply a validated action coming from a guest. */
-  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number; color?: Color; skin?: string }) => void;
+  applyGuestAction: (playerId: string, action: { a: string; pieceId?: string; emoji?: string; text?: string; lucky?: number; color?: Color; skin?: string; to?: string; gif?: string }) => void;
   /** Host: a guest disconnected — unseat (lobby) or convert to bot (game). */
   handleGuestLeft: (playerId: string) => void;
   /** Host: a disconnected guest came back (validated seat ticket) — give
@@ -167,6 +185,9 @@ interface GameStore {
   addMessage: (text: string, sticker?: string) => void;
   sendReaction: (emoji: string) => void;
   sendChatMessage: (text: string) => void;
+  /** Throw a meme at another player (flies to their avatar, lands with a
+   *  sound, sticks for a minute). Shares the 1-per-turn sound limit. */
+  throwMeme: (toPlayerId: string, gifPayload: string) => void;
   clearCaptureEffects: () => void;
 
   // Reset
@@ -190,6 +211,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   rollSeq: 0,
   reactions: {},
   memeFx: null,
+  memeThrow: null,
   onlineRole: 'none',
   roomCode: null,
   localPlayerId: null,
@@ -240,6 +262,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       teamsMode: mode === 'teams',
       reactions: {},
       memeFx: null,
+      memeThrow: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -263,6 +286,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       screen: 'home',
       reactions: {},
       memeFx: null,
+      memeThrow: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -349,6 +373,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // tgif: payloads carry a Tenor URL — allow more room than plain emojis
       const cap = action.emoji.startsWith('tgif:') ? 400 : 20;
       reactionFromPlayer(set, get, player, action.emoji.slice(0, cap));
+      return;
+    }
+    if (action.a === 'throw' && action.to && action.gif) {
+      applyMemeThrow(set, get, playerId, action.to, action.gif);
       return;
     }
     if (action.a === 'buy' && action.lucky !== undefined) {
@@ -479,6 +507,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       screen: 'home',
       reactions: {},
       memeFx: null,
+      memeThrow: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -644,6 +673,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
       reactions: {},
       memeFx: null,
+      memeThrow: null,
           messages: [
         {
           id: createId(),
@@ -752,6 +782,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     reactionFromPlayer(set, get, target, emoji);
   },
 
+  throwMeme: (toPlayerId: string, gifPayload: string) => {
+    if (get().onlineRole === 'guest') {
+      sendActionToHost({ a: 'throw', to: toPlayerId, gif: gifPayload });
+      return;
+    }
+    const thrower = deviceHolder(get());
+    if (!thrower) return;
+    applyMemeThrow(set, get, thrower.id, toPlayerId, gifPayload);
+  },
+
   sendChatMessage: (text: string) => {
     if (!text.trim()) return;
     if (get().onlineRole === 'guest') {
@@ -778,6 +818,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       screen: 'home',
       reactions: {},
       memeFx: null,
+      memeThrow: null,
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -824,6 +865,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       captureEffects: [],
       reactions: {},
       memeFx: null,
+      memeThrow: null,
           messages: [
         {
           id: createId(),
@@ -860,6 +902,39 @@ function deviceHolder(state: GameStore): Player | undefined {
   const current = state.players[state.currentPlayerIndex];
   if (current && !current.isBot) return current;
   return state.players.find((p) => !p.isBot) ?? current;
+}
+
+/** Validate + broadcast a meme throw (host-authoritative). Throws carry
+ *  a sound, so they share the ONE-sound-per-turn limit. */
+function applyMemeThrow(
+  set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  get: () => GameStore,
+  fromId: string,
+  toId: string,
+  gifPayload: string,
+) {
+  const s = get();
+  if (s.screen !== 'game') return;
+  const from = s.players.find((p) => p.id === fromId);
+  const to = s.players.find((p) => p.id === toId);
+  if (!from || !to || from.id === to.id) return;
+  // Only the curated throw pack is valid ammunition
+  const gifId = gifPayload.startsWith('gif:') ? gifPayload.slice(4) : '';
+  if (!THROW_PACK.includes(gifId)) return;
+  // Rate limit: shares the 1-sound-per-turn budget
+  if ((from.lastSoundTurn ?? -1) === s.turnCount) return;
+  const sound = THROW_SOUNDS[Math.floor(Math.random() * THROW_SOUNDS.length)];
+  set((st) => ({
+    players: st.players.map((p) => (p.id === fromId ? { ...p, lastSoundTurn: st.turnCount } : p)),
+    memeThrow: { key: (st.memeThrow?.key ?? 0) + 1, from: fromId, to: toId, gif: gifPayload, sound },
+    messages: pushMessage(st.messages, {
+      id: createId(),
+      playerId: fromId,
+      text: `🎁 ${from.name} le lanzó un meme a ${to.name}`,
+      timestamp: Date.now(),
+      kind: 'system',
+    }),
+  }));
 }
 
 function reactionFromPlayer(

@@ -35,6 +35,7 @@ export type GuestAction =
   | { a: 'select'; pieceId: string }
   | { a: 'seat'; color: Color } // lobby color pick (host validates it's free)
   | { a: 'skin'; skin: string } // lobby dice-model pick (host validates the id)
+  | { a: 'throw'; to: string; gif: string } // meme thrown at another player (host validates)
   | { a: 'reaction'; emoji: string }
   | { a: 'chat'; text: string };
 
