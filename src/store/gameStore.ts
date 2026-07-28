@@ -35,8 +35,8 @@ import { STEP_DURATION } from '../game/anim';
 import { buildMemeFx, MEME_FIRE_CHANCE, type MemeFx } from '../game/memeFx';
 import { isValidSkin, loadSkinPref, saveSkinPref } from '../game/diceSkins';
 import { prefetchOccasionGifs } from '../game/tenor';
-import { THROW_PACK } from '../game/gifs';
-import { THROW_SOUNDS } from '../game/memeSounds';
+import { isMemeReaction, memePartsOf } from '../game/gifs';
+import { THROW_SOUNDS, MEME_SOUNDS } from '../game/memeSounds';
 import type { MemeEventKind } from '../game/memeSounds';
 import {
   NO_MOVE_MESSAGES,
@@ -401,8 +401,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!player) return;
 
     if (action.a === 'reaction' && action.emoji) {
-      // tgif: payloads carry a Tenor URL — allow more room than plain emojis
-      const cap = action.emoji.startsWith('tgif:') ? 400 : 20;
+      // meme:/tgif: payloads carry a GIF URL — allow more room than text
+      const cap = action.emoji.startsWith('tgif:') || action.emoji.startsWith('meme:') ? 400 : 20;
       reactionFromPlayer(set, get, player, action.emoji.slice(0, cap));
       return;
     }
@@ -466,13 +466,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       players: state.players.map((p) =>
         p.id === playerId
-          ? { ...p, isBot: true, name: `${p.name} 🤖`, emoji: BOT_EMOJIS[p.color] }
+          ? { ...p, isBot: true, name: `${p.name} (bot)`, emoji: BOT_EMOJIS[p.color] }
           : p,
       ),
       messages: pushMessage(state.messages, {
         id: createId(),
         playerId: 'system',
-        text: `📴 ${player.name} se desconectó — ahora juega un bot`,
+        text: `${player.name} se desconectó — ahora juega un bot`,
         timestamp: Date.now(),
         kind: 'system',
       }),
@@ -510,11 +510,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // where the old link hadn't dropped yet) — just keep playing.
     if (!player.isBot) return;
 
-    const cleanName = name?.trim().slice(0, 24) || player.name.replace(/ 🤖$/, '');
+    const cleanName = name?.trim().slice(0, 24) || player.name.replace(/ \(bot\)$| 🤖$/, '');
     // Give them back a human avatar (the original was replaced by the bot's)
     const usedEmojis = new Set(state.players.filter((p) => p.id !== playerId).map((p) => p.emoji));
     const available = AVATAR_EMOJIS.filter((e) => !usedEmojis.has(e));
-    const emoji = available[Math.floor(Math.random() * available.length)] || '🎲';
+    const emoji = available[Math.floor(Math.random() * available.length)] || 'dice';
 
     set({
       players: state.players.map((p) =>
@@ -523,7 +523,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       messages: pushMessage(state.messages, {
         id: createId(),
         playerId: 'system',
-        text: `🔌 ${cleanName} se reconectó`,
+        text: `${cleanName} se reconectó`,
         timestamp: Date.now(),
         kind: 'system',
       }),
@@ -567,7 +567,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Pick a random emoji avatar
     const usedEmojis = new Set(players.map((p) => p.emoji));
     const availableEmojis = AVATAR_EMOJIS.filter((e) => !usedEmojis.has(e));
-    const emoji = availableEmojis[Math.floor(Math.random() * availableEmojis.length)] || '🎲';
+    const emoji = availableEmojis[Math.floor(Math.random() * availableEmojis.length)] || 'dice';
 
     // Persistent ⭐ wallet: the first human seated on this device is the
     // device's own player — their profile wallet funds their in-game
@@ -745,7 +745,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         {
           id: createId(),
           playerId: 'system',
-          text: '¡¡¡EL JUEGO COMIENZA!!! 🎲🔥',
+          text: '¡¡¡EL JUEGO COMIENZA!!!',
           timestamp: Date.now(),
           kind: 'system',
         },
@@ -938,7 +938,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         {
           id: createId(),
           playerId: 'system',
-          text: '¡REVANCHA! 🔄🔥',
+          text: '¡REVANCHA!',
           timestamp: Date.now(),
           kind: 'system',
         },
@@ -986,19 +986,23 @@ function applyMemeThrow(
   const from = s.players.find((p) => p.id === fromId);
   const to = s.players.find((p) => p.id === toId);
   if (!from || !to || from.id === to.id) return;
-  // Only the curated throw pack is valid ammunition
-  const gifId = gifPayload.startsWith('gif:') ? gifPayload.slice(4) : '';
-  if (!THROW_PACK.includes(gifId)) return;
+  // Only PURCHASED memes are valid ammunition: `meme:<soundId>|<url>`.
+  // Ownership lives on the sender's device; the host validates shape.
+  if (!isMemeReaction(gifPayload) || gifPayload.length > 400) return;
+  const parts = memePartsOf(gifPayload);
+  if (!/^https:\/\//.test(parts.url)) return;
   // Rate limit: shares the 1-sound-per-turn budget
   if ((from.lastSoundTurn ?? -1) === s.turnCount) return;
-  const sound = THROW_SOUNDS[Math.floor(Math.random() * THROW_SOUNDS.length)];
+  const sound = MEME_SOUNDS.some((sn) => sn.id === parts.sound)
+    ? parts.sound
+    : THROW_SOUNDS[0];
   set((st) => ({
     players: st.players.map((p) => (p.id === fromId ? { ...p, lastSoundTurn: st.turnCount } : p)),
     memeThrow: { key: (st.memeThrow?.key ?? 0) + 1, from: fromId, to: toId, gif: gifPayload, sound },
     messages: pushMessage(st.messages, {
       id: createId(),
       playerId: fromId,
-      text: `🎁 ${from.name} le lanzó un meme a ${to.name}`,
+      text: `${from.name} le lanzó un meme a ${to.name}`,
       timestamp: Date.now(),
       kind: 'system',
     }),
@@ -1011,9 +1015,10 @@ function reactionFromPlayer(
   player: Player,
   emoji: string,
 ) {
-  // Panel sounds are rate-limited: ONE per player per game turn (gifs and
-  // emojis are unlimited). Validated here so it holds host-side too.
-  const isSound = emoji.startsWith('snd:');
+  // Sounds are rate-limited: ONE per player per game turn. Every purchased
+  // meme carries a paired sound, so memes count too. Validated here so it
+  // holds host-side as well.
+  const isSound = emoji.startsWith('snd:') || emoji.startsWith('meme:');
   if (isSound) {
     const turn = get().turnCount;
     const live = get().players.find((p) => p.id === player.id);
@@ -1279,7 +1284,7 @@ function doRoll(
     messages: pushMessage(get().messages, {
         id: createId(),
         playerId: currentPlayer.id,
-        text: `🎲 Salió un ${value}`,
+        text: `Salió un ${value}`,
         timestamp: Date.now(),
         kind: 'system',
       }),
@@ -1393,7 +1398,7 @@ function executeMove(
     // Meme-style toast: WHO killed WHOM (rendered by CaptureOverlay)
     const fx = newState.captureEffects[newState.captureEffects.length - 1];
     if (fx) {
-      fx.label = `💥 ${mover.name} eliminó a ${victim?.name ?? '???'}`;
+      fx.label = `${mover.name} eliminó a ${victim?.name ?? '???'}`;
       fx.delay = travelMs;
     }
   }
@@ -1402,7 +1407,7 @@ function executeMove(
     newState = addCaptureEffectToState(newState, pos.x, pos.y, 'home');
     const fx = newState.captureEffects[newState.captureEffects.length - 1];
     if (fx) {
-      fx.label = `🏁 ${mover.name} llegó a la meta`;
+      fx.label = `${mover.name} llegó a la meta`;
       fx.delay = travelMs;
     }
   }
@@ -1429,7 +1434,7 @@ function executeMove(
     newState = addCaptureEffectToState(newState, winPos.x, winPos.y, 'win');
     const winFx = newState.captureEffects[newState.captureEffects.length - 1];
     if (winFx) {
-      winFx.label = `🏆 ¡${winnerPlayer?.name ?? ''} GANA la partida!`;
+      winFx.label = `¡${winnerPlayer?.name ?? ''} GANA la partida!`;
       winFx.delay = movedBefore.position < 0 ? 0 : diceValue * STEP_DURATION * 1000;
     }
     set({
@@ -1493,7 +1498,7 @@ function scheduleBotTurn(
       messages: pushMessage(state.messages, {
           id: createId(),
           playerId: currentPlayer.id,
-          text: `🎲 ${currentPlayer.emoji} Salió un ${value}`,
+          text: `${currentPlayer.name} sacó un ${value}`,
           timestamp: Date.now(),
           kind: 'system',
         }),
@@ -1541,11 +1546,10 @@ function scheduleBotTurn(
           if (Math.random() < 0.45) {
             const current = get();
             const reaction = getBotReaction();
-            const bubbleEmoji = reaction.sticker ?? '😏';
             set({
               reactions: {
                 ...current.reactions,
-                [currentPlayer.id]: { emoji: bubbleEmoji, key: Date.now() },
+                [currentPlayer.id]: { emoji: reaction.text, key: Date.now() },
               },
               messages: pushMessage(current.messages, {
                   id: createId(),

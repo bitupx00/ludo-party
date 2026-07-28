@@ -1,3 +1,4 @@
+import { Dices, Star } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LUCKY_DICE_COST } from '../game/gameEngine.ts';
 import { PIP_MAP } from './Dice3D.tsx';
@@ -60,8 +61,8 @@ export default function DiceShop({ isOpen, points, luckyBuys, pendingLucky, canB
             onClick={(e) => e.stopPropagation()}
           >
             <div className="dice-shop-header">
-              <span className="dice-shop-title">🎲 {t('luckyTitle')}</span>
-              <span className="dice-shop-points">⭐ {points}</span>
+              <span className="dice-shop-title"><Dices size={16} className="ds-ico" /> {t('luckyTitle')}</span>
+              <span className="dice-shop-points"><Star size={13} className="ds-ico" /> {points}</span>
               <button className="dice-shop-close" onClick={onClose} aria-label="✕">✕</button>
             </div>
 
@@ -69,7 +70,7 @@ export default function DiceShop({ isOpen, points, luckyBuys, pendingLucky, canB
 
             {pendingLucky ? (
               <div className="dice-shop-pending">
-                🎲 N°{pendingLucky} {t('luckyArmed')} · {t('luckyCancelHint')}
+                <Dices size={12} className="ds-ico" /> N°{pendingLucky} {t('luckyArmed')} · {t('luckyCancelHint')}
               </div>
             ) : null}
 
@@ -95,7 +96,7 @@ export default function DiceShop({ isOpen, points, luckyBuys, pendingLucky, canB
                     {isArmed && <span className="dice-shop-cancel">✕</span>}
                     <ShopDieFace value={n} />
                     <span className={`dice-shop-cost ${affordable ? '' : 'dice-shop-cost--missing'}`}>
-                      ⭐ {cost}
+                      <Star size={11} className="ds-ico" /> {cost}
                     </span>
                   </button>
                 );

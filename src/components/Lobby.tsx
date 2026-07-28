@@ -8,6 +8,12 @@ import { getStoredTicket } from '../online/onlineManager.ts';
 import { loadProfile } from '../profile.ts';
 import { useT } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
+import AvatarIcon from './AvatarIcon.tsx';
+import {
+  AlertTriangle, Bot, Check, ClipboardCopy, Coins, Crown, Flame, Handshake,
+  Hourglass, Home as HomeIcon, LogIn, RefreshCw, Rocket, Share2, Star,
+  TreePine, Users2,
+} from 'lucide-react';
 
 export default function Lobby() {
   const t = useT();
@@ -92,10 +98,10 @@ export default function Lobby() {
   const handleShareRoom = useCallback(async () => {
     if (!roomCode) return;
     const url = `${window.location.origin}/?room=${roomCode}`;
-    const text = `🎲 ¡Únete a mi partida de LudoPata'S! Código: ${roomCode}`;
+    const text = `¡Únete a mi partida de LudoPata'S! Código: ${roomCode}`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "LudoPata'S 🎲", text, url });
+        await navigator.share({ title: "LudoPata'S", text, url });
         return;
       } catch {
         /* user dismissed the sheet — fall through to copy */
@@ -114,7 +120,7 @@ export default function Lobby() {
     : gameMode === 'teams' ? t('modeTeams')
     : gameMode === 'online' ? t('modeOnline')
     : t('modeLocal');
-  const modeIcon = gameMode === 'solo' ? '🤖' : gameMode === 'teams' ? '🤝' : gameMode === 'online' ? '🌐' : '👥';
+  const ModeIcon = gameMode === 'solo' ? Bot : gameMode === 'teams' ? Handshake : gameMode === 'online' ? Rocket : Users2;
 
   const hint = isGuest
     ? t('waitingHost')
@@ -137,7 +143,7 @@ export default function Lobby() {
             ‹
           </button>
           <h2 className="lobby-mode-title">
-            {modeIcon} {modeTitle}
+            <ModeIcon size={17} className="lobby-ico" /> {modeTitle}
           </h2>
           <span className="lobby-header-spacer" />
         </div>
@@ -155,7 +161,7 @@ export default function Lobby() {
                 onClick={() => joinOnlineRoom(storedTicket.code, storedTicket.name)}
                 disabled={onlineConnecting}
               >
-                🔁 {t('rejoinRoom')} · {storedTicket.code}
+                <RefreshCw size={15} className="lobby-ico" /> {t('rejoinRoom')} · {storedTicket.code}
               </button>
             )}
 
@@ -173,7 +179,7 @@ export default function Lobby() {
               onClick={() => createOnlineRoom(nameInput)}
               disabled={!nameInput.trim() || onlineConnecting}
             >
-              {onlineConnecting ? `⏳ ${t('connecting')}` : `🏠 ${t('createRoom')}`}
+              {onlineConnecting ? <><Hourglass size={15} className="lobby-ico" /> {t('connecting')}</> : <><HomeIcon size={15} className="lobby-ico" /> {t('createRoom')}</>}
             </button>
 
             <div className="lobby-online-divider">{t('orJoin')}</div>
@@ -194,7 +200,7 @@ export default function Lobby() {
                 onClick={() => joinOnlineRoom(codeInput, nameInput)}
                 disabled={codeInput.length < 4 || !nameInput.trim() || onlineConnecting}
               >
-                🚀 {t('joinRoomBtn')}
+                <LogIn size={15} className="lobby-ico" /> {t('joinRoomBtn')}
               </button>
             </div>
 
@@ -204,7 +210,7 @@ export default function Lobby() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
-                ⚠️ {t(onlineError as Parameters<typeof t>[0])}
+                <AlertTriangle size={13} className="lobby-ico" /> {t(onlineError as Parameters<typeof t>[0])}
               </motion.p>
             )}
           </motion.div>
@@ -224,10 +230,10 @@ export default function Lobby() {
             </div>
             <div className="lobby-room-actions">
               <button className="btn btn-primary btn-small" onClick={handleShareRoom}>
-                📤 {t('shareBtn')}
+                <Share2 size={13} className="lobby-ico" /> {t('shareBtn')}
               </button>
               <button className="btn btn-secondary btn-small" onClick={handleCopyCode}>
-                {copied ? `✅ ${t('copiedCode')}` : `📋 ${t('copyCode')}`}
+                {copied ? <><Check size={13} className="lobby-ico" /> {t('copiedCode')}</> : <><ClipboardCopy size={13} className="lobby-ico" /> {t('copyCode')}</>}
               </button>
             </div>
           </motion.div>
@@ -240,7 +246,7 @@ export default function Lobby() {
             onClick={() => setTeamsMode(!teamsMode)}
             disabled={isGuest}
           >
-            🤝 {t('modeTeams')} · {teamsMode ? 'ON' : 'OFF'}
+            <Handshake size={14} className="lobby-ico" /> {t('modeTeams')} · {teamsMode ? 'ON' : 'OFF'}
           </button>
         )}
 
@@ -266,7 +272,7 @@ export default function Lobby() {
             onClick={handleAddPlayer}
             disabled={!canAddHuman}
           >
-            ➕ {t('add')}
+            + {t('add')}
           </button>
         </motion.div>
         )}
@@ -277,10 +283,10 @@ export default function Lobby() {
           {isTeamsGame && (
             <div className="lobby-team-labels">
               <span className="lobby-team-label" style={{ color: 'var(--color-red-light)' }}>
-                🔥 {t('teamA')}
+                <Flame size={13} className="lobby-ico" /> {t('teamA')}
               </span>
               <span className="lobby-team-label" style={{ color: 'var(--color-green-light)' }}>
-                🌿 {t('teamB')}
+                <TreePine size={13} className="lobby-ico" /> {t('teamB')}
               </span>
             </div>
           )}
@@ -311,15 +317,15 @@ export default function Lobby() {
                           className="lobby-seat-player"
                         >
                           <span className="lobby-seat-name">
-                            {seated.emoji} {seated.name}
+                            <AvatarIcon id={seated.emoji} size={13} /> {seated.name}
                           </span>
                           <span className="lobby-seat-tag">
                             {seated.isBot
-                              ? `🤖 ${t('bot')}`
+                              ? <><Bot size={11} className="lobby-ico" /> {t('bot')}</>
                               : (localPlayerId ? seated.id === localPlayerId : humans[0]?.id === seated.id)
-                                ? `⭐ ${t('you')}`
+                                ? <><Star size={11} className="lobby-ico" /> {t('you')}</>
                                 : isOnline && seated.id === humans[0]?.id
-                                  ? `👑 ${t('host')}`
+                                  ? <><Crown size={11} className="lobby-ico" /> {t('host')}</>
                                   : PLAYER_CONFIG[color].label}
                           </span>
                         </motion.div>
@@ -332,9 +338,9 @@ export default function Lobby() {
                           className="lobby-seat-player"
                         >
                           <span className="lobby-seat-name lobby-seat-name--ghost">
-                            {willBeBot ? `${BOT_EMOJIS[color]} ${BOT_NAMES[color]}` : t('seatFree')}
+                            {willBeBot ? <><AvatarIcon id={BOT_EMOJIS[color]} size={12} /> {BOT_NAMES[color]}</> : t('seatFree')}
                           </span>
-                          {willBeBot && <span className="lobby-seat-tag">🤖 {t('bot')}</span>}
+                          {willBeBot && <span className="lobby-seat-tag"><Bot size={11} className="lobby-ico" /> {t('bot')}</span>}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -357,7 +363,7 @@ export default function Lobby() {
                           className="lobby-seat-sit"
                           onClick={() => changeSeat(color)}
                         >
-                          👇 {t('sitHere')}
+                          {t('sitHere')}
                         </button>
                       )}
                       {isNextFree && gameMode !== 'solo' && gameMode !== 'teams' && !isOnline && !isGuest && (
@@ -366,7 +372,7 @@ export default function Lobby() {
                           onClick={addBotPlayer}
                           aria-label={t('addBot')}
                         >
-                          +🤖
+                          +<Bot size={13} className="lobby-ico" />
                         </button>
                       )}
                     </span>
@@ -380,7 +386,7 @@ export default function Lobby() {
                           : 'linear-gradient(135deg, var(--color-green), var(--color-blue))',
                       }}
                     >
-                      {(color === 'red' || color === 'yellow') ? '🔥' : '🌿'}
+                      {(color === 'red' || color === 'yellow') ? <Flame size={12} /> : <TreePine size={12} />}
                     </span>
                   )}
                 </motion.div>
@@ -392,14 +398,14 @@ export default function Lobby() {
 
         {isTeamsGame && (
           <p className="lobby-teams-note">
-            {PLAYER_CONFIG.red.emoji}+{PLAYER_CONFIG.yellow.emoji} vs {PLAYER_CONFIG.green.emoji}+{PLAYER_CONFIG.blue.emoji} · 2v2
+            Rojo+Amarillo vs Verde+Azul · 2v2
           </p>
         )}
 
         {/* Match bet (coins): entry per player, winner takes the pot */}
         {!onlineSetup && (
           <div className="lobby-dice-picker">
-            <span className="lobby-dice-title">🪙 Apuesta de entrada (puntos)</span>
+            <span className="lobby-dice-title"><Coins size={13} className="lobby-ico" /> Apuesta de entrada (puntos)</span>
             <div className="lobby-dice-row">
               {[100, 250, 500, 1000, 2000, 3000].map((amt) => (
                 <button
@@ -419,7 +425,7 @@ export default function Lobby() {
               onClick={() => setSiblingMode(!siblingMode)}
               title="Tus fichas apiladas en una casilla corren juntas"
             >
-              👯 Piezas Hermanas: {siblingMode ? 'SÍ' : 'NO'}
+              <Users2 size={13} className="lobby-ico" /> Piezas Hermanas: {siblingMode ? 'SÍ' : 'NO'}
             </button>
           </div>
         )}
@@ -434,10 +440,10 @@ export default function Lobby() {
               onClick={startGame}
               whileTap={canStart ? { scale: 0.96 } : {}}
             >
-              🚀 {t('start')}
+              <Rocket size={16} className="lobby-ico" /> {t('start')}
             </motion.button>
           )}
-          <p className="lobby-hint">{isGuest ? `⏳ ${hint}` : hint}</p>
+          <p className="lobby-hint">{isGuest ? <><Hourglass size={12} className="lobby-ico" /> {hint}</> : hint}</p>
         </div>
         )}
       </div>
@@ -446,6 +452,7 @@ export default function Lobby() {
         .lobby {
           justify-content: center;
         }
+        .lobby-ico { vertical-align: -2px; display: inline; }
         .lobby-inner {
           gap: var(--gap-md);
           justify-content: center;

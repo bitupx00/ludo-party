@@ -1,3 +1,4 @@
+import { Trophy } from 'lucide-react';
 import { memo, useEffect, useMemo, useReducer, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import type { Piece as PieceType, Color } from '../game/types.ts';
@@ -12,7 +13,6 @@ import {
   centerSideColors,
 } from '../game/boardRotation.ts';
 import Piece from './Piece.tsx';
-import GifSticker from './GifSticker.tsx';
 import type { MemeFx } from '../game/memeFx.ts';
 import { STEP_DURATION, RETURN_STEP_DURATION } from '../game/anim.ts';
 import './Board.css';
@@ -396,7 +396,7 @@ function Board({ pieces, onPieceClick, perspective, memeFx }: BoardProps) {
             <polygon points="0,30 30,30 15,15" fill={PLAYER_CONFIG[bottomC].cssColor} stroke="#fff" strokeWidth="0.8" />
             <polygon points="0,0 0,30 15,15" fill={PLAYER_CONFIG[leftC].cssColor} stroke="#fff" strokeWidth="0.8" />
           </svg>
-          <span className="board-center-trophy">🏆</span>
+          <span className="board-center-trophy"><Trophy size={20} strokeWidth={2.2} /></span>
         </div>
       </div>
 
@@ -446,9 +446,9 @@ function Board({ pieces, onPieceClick, perspective, memeFx }: BoardProps) {
                 translate: `${flipX ? '-100%' : '0'} ${below ? '0' : '-100%'}`,
               }}
             >
-              {memeFx.gif.startsWith('/') || memeFx.gif.startsWith('http')
-                ? <img className="board-meme-img" src={memeFx.gif} alt="" draggable={false} />
-                : <GifSticker id={memeFx.gif} size={46} />}
+              {(memeFx.gif.startsWith('/') || memeFx.gif.startsWith('http')) && (
+                <img className="board-meme-img" src={memeFx.gif} alt="" draggable={false} />
+              )}
             </div>
           );
         })()}

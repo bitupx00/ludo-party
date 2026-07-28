@@ -6,11 +6,16 @@ import { tenorTrending, tenorSearch, tenorRegisterShare, type TenorGif } from '.
 import { useInvStore, recommendSounds, MEME_COST_COINS, MEME_COST_STARS, LINK_COST_STARS } from '../inventory.ts';
 import { loadProfile, getCoins } from '../profile.ts';
 import { memeSoundById, playMemeSound } from '../game/memeSounds.ts';
+import {
+  Backpack, Check, ChevronLeft, Coins, Dices, Film, Lock, Map as MapIcon,
+  Play, Search, Shapes, Star, Volume2,
+} from 'lucide-react';
 
 /**
- * 🎒 Inventory: equip your dice (96px previews, fully responsive), buy
- * memes for your collection (3,500 🪙 or 18 ⭐), link sounds to them
- * (15 ⭐ only, with automatic recommendations), and future pieces/boards.
+ * Inventory: buy + equip dice (8 vectorized skins, 3,000–40,000 puntos by
+ * tier), buy memes for your collection (3,500 puntos or 18 stars), link
+ * sounds to them (15 stars, with automatic recommendations), and future
+ * pieces/boards.
  */
 
 function DicePreview({ skinId, value = 6 }: { skinId: string; value?: number }) {
@@ -30,7 +35,9 @@ export default function InventoryScreen() {
   const [tab, setTab] = useState<'dados' | 'memes' | 'piezas' | 'tableros'>('dados');
   const [equipped, setEquipped] = useState(loadSkinPref);
   const memes = useInvStore((s) => s.memes);
+  const ownedDice = useInvStore((s) => s.dice);
   const buyMeme = useInvStore((s) => s.buyMeme);
+  const buyDice = useInvStore((s) => s.buyDice);
   const linkSound = useInvStore((s) => s.linkSound);
   const [available, setAvailable] = useState<TenorGif[]>([]);
   const [query, setQuery] = useState('');
@@ -62,33 +69,59 @@ export default function InventoryScreen() {
     <div className="screen">
       <div className="screen-inner inv-inner">
         <div className="inv-header">
-          <button className="inv-back" onClick={goHome}>‹</button>
-          <h1 className="inv-title">🎒 Inventario</h1>
-          <span className="inv-wallet">🪙{wallet.coins.toLocaleString('es')} · ⭐{wallet.stars}</span>
+          <button className="inv-back" onClick={goHome} aria-label="Volver"><ChevronLeft size={22} /></button>
+          <h1 className="inv-title"><Backpack size={19} className="inv-ico" /> Inventario</h1>
+          <span className="inv-wallet">
+            <Coins size={12} className="inv-ico" />{wallet.coins.toLocaleString('es')} · <Star size={12} className="inv-ico" />{wallet.stars}
+          </span>
         </div>
 
         <div className="inv-tabs">
           {(['dados', 'memes', 'piezas', 'tableros'] as const).map((tb) => (
             <button key={tb} className={`inv-tab ${tab === tb ? 'inv-tab--on' : ''}`} onClick={() => setTab(tb)}>
-              {tb === 'dados' ? '🎲 Dados' : tb === 'memes' ? '🎬 Memes' : tb === 'piezas' ? '♟️ Piezas' : '🗺️ Tableros'}
+              {tb === 'dados' ? <><Dices size={13} className="inv-ico" /> Dados</>
+                : tb === 'memes' ? <><Film size={13} className="inv-ico" /> Memes</>
+                : tb === 'piezas' ? <><Shapes size={13} className="inv-ico" /> Piezas</>
+                : <><MapIcon size={13} className="inv-ico" /> Tableros</>}
             </button>
           ))}
         </div>
 
         {tab === 'dados' && (
           <div className="inv-grid">
-            {DICE_SKINS.map((skin) => (
-              <button
-                key={skin.id}
-                className={`inv-card ${equipped === skin.id ? 'inv-card--on' : ''}`}
-                onClick={() => { saveSkinPref(skin.id); setEquipped(skin.id); }}
-              >
-                <DicePreview skinId={skin.id} />
-                <span className="inv-card-name">{skin.name}</span>
-                <span className="inv-card-tag">{equipped === skin.id ? '✅ Equipado' : 'Gratis'}</span>
-              </button>
-            ))}
-            <p className="inv-note">El dado equipado se usa en tus partidas (tú lo ves grande; los rivales lo ven en tu mini-dado). Más modelos con costo llegarán aquí.</p>
+            {DICE_SKINS.map((skin) => {
+              const owned = skin.price === 0 || ownedDice.includes(skin.id);
+              const isOn = equipped === skin.id;
+              const canAfford = wallet.coins >= skin.price;
+              return (
+                <button
+                  key={skin.id}
+                  className={`inv-card ${isOn ? 'inv-card--on' : ''} ${!owned ? 'inv-card--locked' : ''}`}
+                  onClick={() => {
+                    if (owned) { saveSkinPref(skin.id); setEquipped(skin.id); return; }
+                    if (buyDice(skin.id, skin.price)) {
+                      refreshWallet();
+                      saveSkinPref(skin.id);
+                      setEquipped(skin.id);
+                    }
+                  }}
+                  disabled={!owned && !canAfford}
+                >
+                  <DicePreview skinId={skin.id} />
+                  <span className="inv-card-name">{skin.name}</span>
+                  {isOn ? (
+                    <span className="inv-card-tag inv-card-tag--on"><Check size={10} className="inv-ico" /> Equipado</span>
+                  ) : owned ? (
+                    <span className="inv-card-tag">Tocar para equipar</span>
+                  ) : (
+                    <span className="inv-card-tag inv-card-tag--price">
+                      {canAfford ? <Coins size={10} className="inv-ico" /> : <Lock size={10} className="inv-ico" />} {skin.price.toLocaleString('es')}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            <p className="inv-note">El dado equipado se usa en tus partidas (tú lo ves grande; los rivales lo ven en tu mini-dado). Los modelos se compran con puntos: 3.000 a 40.000 según el diseño.</p>
           </div>
         )}
 
@@ -102,7 +135,7 @@ export default function InventoryScreen() {
                     <div key={m.id} className="inv-own">
                       <img src={m.preview || m.url} alt="meme" loading="lazy" />
                       <button className="inv-link-btn" onClick={() => setLinkFor(m.id)}>
-                        {m.sound ? `🔊 ${memeSoundById(m.sound)?.name ?? ''}` : `＋🔊 (⭐${LINK_COST_STARS})`}
+                        <Volume2 size={10} className="inv-ico" /> {m.sound ? (memeSoundById(m.sound)?.name ?? '') : `Vincular sonido (${LINK_COST_STARS} estrellas)`}
                       </button>
                     </div>
                   ))}
@@ -113,7 +146,7 @@ export default function InventoryScreen() {
             <div className="inv-search-row">
               <input className="inv-search" placeholder="Buscar memes…" value={query} maxLength={60}
                 onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && search()} />
-              <button className="inv-search-btn" onClick={search}>🔎</button>
+              <button className="inv-search-btn" onClick={search} aria-label="buscar"><Search size={16} /></button>
             </div>
             {loading && <p className="inv-note">Cargando…</p>}
             <div className="inv-shop-grid">
@@ -121,34 +154,34 @@ export default function InventoryScreen() {
                 <div key={gif.id} className="inv-shop-item">
                   <img src={gif.preview} alt="GIF" loading="lazy" />
                   <div className="inv-buy-row">
-                    <button className="inv-buy" disabled={wallet.coins < MEME_COST_COINS} onClick={() => handleBuy(gif, 'coins')}>🪙{MEME_COST_COINS / 100 / 10}k</button>
-                    <button className="inv-buy" disabled={wallet.stars < MEME_COST_STARS} onClick={() => handleBuy(gif, 'stars')}>⭐{MEME_COST_STARS}</button>
+                    <button className="inv-buy" disabled={wallet.coins < MEME_COST_COINS} onClick={() => handleBuy(gif, 'coins')}><Coins size={10} className="inv-ico" />{MEME_COST_COINS / 100 / 10}k</button>
+                    <button className="inv-buy" disabled={wallet.stars < MEME_COST_STARS} onClick={() => handleBuy(gif, 'stars')}><Star size={10} className="inv-ico" />{MEME_COST_STARS}</button>
                   </div>
                 </div>
               ))}
             </div>
-            <p className="inv-note">Powered by Tenor · Meme: {MEME_COST_COINS.toLocaleString('es')} 🪙 o {MEME_COST_STARS} ⭐ · Vincular sonido: solo ⭐{LINK_COST_STARS}. Tus memes aparecen en el panel 🎬 y al lanzar 🎁 (con su sonido vinculado).</p>
+            <p className="inv-note">Meme: {MEME_COST_COINS.toLocaleString('es')} puntos o {MEME_COST_STARS} estrellas · Vincular sonido: {LINK_COST_STARS} estrellas. Tus memes son lo ÚNICO usable en partida: aparecen en tu barra rápida, en el panel de memes y al lanzar con el botón de regalo (siempre con su sonido).</p>
           </div>
         )}
 
         {(tab === 'piezas' || tab === 'tableros') && (
-          <p className="inv-soon">🔧 {tab === 'piezas' ? 'Skins de piezas' : 'Tableros temáticos'} — próximamente. Se comprarán aquí con 🪙 y ⭐.</p>
+          <p className="inv-soon">{tab === 'piezas' ? 'Skins de piezas' : 'Tableros temáticos'} — próximamente. Se comprarán aquí con puntos y estrellas.</p>
         )}
 
         {linkFor && linked && (
           <div className="inv-modal-bg" onClick={() => setLinkFor(null)}>
             <div className="inv-modal" onClick={(e) => e.stopPropagation()}>
-              <p className="inv-sec">Vincular sonido (⭐{LINK_COST_STARS}) — recomendados:</p>
+              <p className="inv-sec">Vincular sonido ({LINK_COST_STARS} estrellas) — recomendados:</p>
               {recommendSounds(linked.id).map((sid) => (
                 <button key={sid} className="inv-snd" onClick={() => { playMemeSound(sid); }}>
-                  ▶ {memeSoundById(sid)?.name ?? sid}
+                  <span><Play size={11} className="inv-ico" /> {memeSoundById(sid)?.name ?? sid}</span>
                   <span className="inv-snd-buy" onClick={(e) => {
                     e.stopPropagation();
                     if (linkSound(linkFor, sid)) { refreshWallet(); setLinkFor(null); }
                   }}>Vincular</span>
                 </button>
               ))}
-              <p className="inv-note">Toca ▶ para escuchar; "Vincular" lo compra y lo deja fijo en este meme.</p>
+              <p className="inv-note">Toca el nombre para escucharlo; "Vincular" lo compra y lo deja fijo en este meme.</p>
             </div>
           </div>
         )}
@@ -166,6 +199,12 @@ export default function InventoryScreen() {
         .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
         .inv-card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; border-radius: var(--radius-lg); border: 2px solid rgba(255,255,255,.14); background: rgba(255,255,255,.07); cursor: pointer; }
         .inv-card--on { border-color: #ffd65a; background: rgba(255,214,90,.14); }
+        .inv-card--locked { opacity: .85; }
+        .inv-card:disabled { opacity: .45; cursor: default; }
+        .inv-ico { vertical-align: -2px; display: inline; }
+        .inv-back { display: flex; align-items: center; justify-content: center; }
+        .inv-card-tag--on { color: #7dffb8; }
+        .inv-card-tag--price { color: #ffd65a; }
         /* 96px dice, shrinking responsively on narrow screens */
         .inv-die { width: clamp(64px, 24vw, 96px); aspect-ratio: 1; border-radius: 18%; display: grid; grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); place-items: center; padding: 15%; background: radial-gradient(circle at 30% 25%, var(--d3-f1,#fff) 0%, var(--d3-f2,#f3eee2) 55%, var(--d3-f3,#ddd3bd) 100%); border: 2px solid var(--d3-bd, rgba(120,100,60,.3)); box-shadow: 0 6px 14px rgba(18,8,60,.35); }
         .inv-die-pip { width: 70%; height: 70%; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--d3-p1,#6b5cf0), var(--d3-p2,#4534b8) 70%, var(--d3-p3,#32247e)); }

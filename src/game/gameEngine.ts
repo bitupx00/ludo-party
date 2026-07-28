@@ -399,7 +399,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
         {
           id: crypto.randomUUID(),
           playerId: state.players[state.currentPlayerIndex].id,
-          text: '¡TRES TIRADAS EXTRA SEGUIDAS! 🎲🎲🎲 Turno perdido por tramposo 😤',
+          text: '¡TRES TIRADAS EXTRA SEGUIDAS! Turno perdido por tramposo',
           timestamp: Date.now(),
           kind: 'system',
         },

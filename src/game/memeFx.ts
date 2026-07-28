@@ -35,33 +35,12 @@ export interface MemeFx {
   delay: number;
 }
 
-/** Fallback: bundled animated stickers per occasion (used until the user
- *  installs real meme GIFs via scripts/download-gifs.mjs). */
-const FALLBACK_GIFS: Record<MemeEventKind, string[]> = {
-  death: ['craneo', 'llora', 'calavera'],
-  kill: ['diablito', 'fueguito', 'bomba'],
-  goal: ['fiesta', 'confeti', 'aplausos'],
-  passMover: ['jaja', 'risa', 'rofl'],
-  passSurvivor: ['grito', 'llora'],
-  block: ['rabia', 'furia'],
-  ownStack: ['amor', 'aplausos'],
-  enemyEntry: ['diablito', 'grito'],
-  escape: ['fueguito', 'rofl', 'jaja'],
-  gameStart: ['fiesta', 'confeti'],
-  allyNoKill: ['jaja'],
-  allyDeath: ['llora'],
-  allyKill: ['aplausos'],
-  enemyNear: ['grito'],
-  homeLane: ['fueguito', 'aplausos'],
-  teamWin: ['confeti', 'fiesta'],
-};
-
 const manifest = memeGifManifest as Partial<Record<MemeEventKind, string[]>>;
 
 /** Gif candidates for an occasion, best source first:
- *  1. Tenor pool (real community memes, fetched live by the host)
+ *  1. Tenor/Klipy pool (real community memes, fetched live by the host)
  *  2. downloaded meme files (scripts/download-gifs.mjs manifest)
- *  3. bundled animated stickers (always available). */
+ *  3. none — sound plays alone (emoji stickers were retired). */
 export function gifsForOccasion(kind: MemeEventKind): string[] {
   const tenor = tenorPoolFor(kind);
   if (tenor.length > 0) {
@@ -69,9 +48,9 @@ export function gifsForOccasion(kind: MemeEventKind): string[] {
     return tenor.map((g) => g.url);
   }
   fillPool(kind); // kick off the fetch for next time
-  const real = manifest[kind];
-  if (real && real.length > 0) return real;
-  return FALLBACK_GIFS[kind];
+  const real = (manifest[kind] ?? []).filter((g) => g.startsWith('/') || g.startsWith('http'));
+  if (real.length > 0) return real;
+  return [''];
 }
 
 function pick<T>(arr: readonly T[]): T {

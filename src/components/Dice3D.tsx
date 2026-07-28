@@ -1,3 +1,4 @@
+import { Dices, Hand } from 'lucide-react';
 import { styleOnce } from '../styleOnce.ts';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -81,7 +82,7 @@ export function MiniDice({ value, rolling, skin }: { value: number | null; rolli
           ))}
         </div>
       ) : (
-        <span className="mini-dice-icon">🎲</span>
+        <span className="mini-dice-icon"><Dices size={14} /></span>
       )}
     </div>
   );
@@ -159,7 +160,7 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, skin, onRoll }:
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
             >
-              👆 {t('rollDice')}
+              <Hand size={13} className="d3-ico" /> {t('rollDice')}
             </motion.span>
           )}
           {rolling && (
@@ -170,7 +171,7 @@ export default function Dice3D({ value, rollSeq, canRoll, isBot, skin, onRoll }:
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              🎲 {t('rolling')}
+              <Dices size={13} className="d3-ico" /> {t('rolling')}
             </motion.span>
           )}
         </AnimatePresence>

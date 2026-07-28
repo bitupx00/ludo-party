@@ -7,6 +7,7 @@ import {
   type PlayerProfile,
 } from '../profile.ts';
 import { useT } from '../i18n.ts';
+import { AlertTriangle, Check, ClipboardCopy, Star, Unlock, User } from 'lucide-react';
 
 /**
  * Player profile badge (home screen) + modal: shows the local "account"
@@ -33,7 +34,7 @@ function CopyRow({ label, value, secret }: { label: string; value: string; secre
         {revealed ? value : '••••'}
       </span>
       <button className="profile-row-copy" onClick={copy}>
-        {copied ? `✅ ${t('copiedCode')}` : `📋 ${t('copyCode')}`}
+        {copied ? <><Check size={12} className="pc-ico" /> {t('copiedCode')}</> : <><ClipboardCopy size={12} className="pc-ico" /> {t('copyCode')}</>}
       </button>
     </div>
   );
@@ -63,7 +64,7 @@ export default function ProfileCard() {
   return (
     <>
       <button className="profile-badge" onClick={() => { setProfile(loadProfile()); setOpen(true); }}>
-        👤 {profile ? `${profile.name} · ⭐${profile.points}` : t('profileTitle')}
+        <User size={13} className="pc-ico" /> {profile ? <>{profile.name} · <Star size={11} className="pc-ico" />{profile.points}</> : t('profileTitle')}
       </button>
 
       <AnimatePresence>
@@ -84,7 +85,7 @@ export default function ProfileCard() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="profile-header">
-                <span className="profile-title">👤 {t('profileTitle')}</span>
+                <span className="profile-title"><User size={14} className="pc-ico" /> {t('profileTitle')}</span>
                 <button className="profile-close" onClick={() => setOpen(false)} aria-label="✕">✕</button>
               </div>
 
@@ -92,7 +93,7 @@ export default function ProfileCard() {
                 <>
                   <div className="profile-summary">
                     <span className="profile-name">{profile.name}</span>
-                    <span className="profile-points">⭐ {profile.points} {t('profilePoints')}</span>
+                    <span className="profile-points"><Star size={12} className="pc-ico" /> {profile.points} {t('profilePoints')}</span>
                   </div>
                   <CopyRow label={t('profileId')} value={profile.id} />
                   <CopyRow label={t('profilePin')} value={profile.pin} secret />
@@ -124,11 +125,11 @@ export default function ProfileCard() {
                   disabled={!restoreCode.trim() || restorePin.length !== 4}
                   onClick={handleRestore}
                 >
-                  🔓 {t('profileRestoreBtn')}
+                  <Unlock size={12} className="pc-ico" /> {t('profileRestoreBtn')}
                 </button>
               </div>
-              {restoreState === 'ok' && <p className="profile-feedback profile-feedback--ok">✅ {t('profileRestoreOk')}</p>}
-              {restoreState === 'bad' && <p className="profile-feedback profile-feedback--bad">⚠️ {t('profileRestoreBad')}</p>}
+              {restoreState === 'ok' && <p className="profile-feedback profile-feedback--ok">{t('profileRestoreOk')}</p>}
+              {restoreState === 'bad' && <p className="profile-feedback profile-feedback--bad"><AlertTriangle size={11} className="pc-ico" /> {t('profileRestoreBad')}</p>}
             </motion.div>
 
             <style>{`

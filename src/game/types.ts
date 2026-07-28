@@ -170,9 +170,12 @@ export const HOME_STRETCH_ENTRY: Record<Color, number> = {
   blue: 11,
 };
 
+/** Avatar ICON keys (see components/AvatarIcon.tsx) — professional vector
+ *  icons replaced the old emoji set; the field name `emoji` survives for
+ *  wire/profile compatibility. */
 export const AVATAR_EMOJIS = [
-  '🎲', '🏃‍♂️', '🦊', '🐸', '🐱', '🦄', '🐝', '🎭',
-  '👑', '🤖', '👽', '🐉', '🦁', '🦅', '🐹', '🐧',
+  'dice', 'rocket', 'crown', 'ghost', 'cat', 'dog', 'bird', 'fish',
+  'rabbit', 'turtle', 'squirrel', 'skull', 'star', 'zap', 'flame', 'gamepad',
 ];
 
 /** UI-friendly alias for Color. */

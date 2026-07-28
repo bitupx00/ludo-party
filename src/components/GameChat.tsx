@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameMessage, Player } from '../game/types.ts';
 import { useT } from '../i18n.ts';
-import { isGifReaction, gifIdOf, isTenorReaction, tenorUrlOf } from '../game/gifs.ts';
-import { isSoundReaction, soundIdOf, memeSoundById } from '../game/memeSounds.ts';
-import GifSticker from './GifSticker.tsx';
+import { isMemeReaction, memePartsOf } from '../game/gifs.ts';
+import AvatarIcon from './AvatarIcon.tsx';
+import { MessageCircle, SendHorizontal, X } from 'lucide-react';
 
 interface GameChatProps {
   messages: GameMessage[];
@@ -75,8 +75,8 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
             <div className="chat-header">
-              <span className="chat-header-title">💬 {t('chatTitle')}</span>
-              <button className="chat-close" onClick={onToggle}>✕</button>
+              <span className="chat-header-title"><MessageCircle size={15} className="chat-title-ico" /> {t('chatTitle')}</span>
+              <button className="chat-close" onClick={onToggle}><X size={15} /></button>
             </div>
 
             <div className="chat-messages" ref={scrollRef}>
@@ -107,19 +107,15 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
                     >
                       {msgType !== 'system' && player && (
                         <span className="chat-bubble-sender">
-                          {player.emoji} {player.name}
+                          <AvatarIcon id={player.emoji} size={11} /> {player.name}
                         </span>
                       )}
                       <span className="chat-bubble-text">
                         {msg.sticker ? (
                           <span className="chat-sticker">
-                            {isGifReaction(msg.sticker)
-                              ? <GifSticker id={gifIdOf(msg.sticker)} size={72} />
-                              : isTenorReaction(msg.sticker)
-                              ? <img className="chat-tgif" src={tenorUrlOf(msg.sticker)} alt="GIF" />
-                              : isSoundReaction(msg.sticker)
-                                ? <span className="chat-snd">🔊 {memeSoundById(soundIdOf(msg.sticker))?.name ?? ''}</span>
-                                : msg.sticker}
+                            {isMemeReaction(msg.sticker)
+                              ? <img className="chat-tgif" src={memePartsOf(msg.sticker).url} alt="Meme" />
+                              : msg.sticker}
                           </span>
                         ) : (
                           msg.text
@@ -149,7 +145,7 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
                 disabled={!draft.trim()}
                 aria-label={t('send')}
               >
-                ➤
+                <SendHorizontal size={17} />
               </button>
             </div>
           </motion.div>
@@ -197,7 +193,12 @@ styleOnce('game-chat', `
         .chat-header-title {
           font-size: 1rem;
           font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
         }
+        .chat-title-ico { flex-shrink: 0; }
+        .chat-bubble-sender svg { vertical-align: -1px; margin-right: 2px; }
         .chat-close {
           width: 32px;
           height: 32px;

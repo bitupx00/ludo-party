@@ -70,7 +70,11 @@ function myColor(): Color | null {
 function setupSpeaking(color: Color, stream: MediaStream) {
   if (stream.getAudioTracks().length === 0) return;
   try {
-    audioCtx ??= new AudioContext();
+    // Older iOS Safari only ships the webkit-prefixed constructor
+    const AC = window.AudioContext
+      ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AC) return;
+    audioCtx ??= new AC();
     // Autoplay policy may start the context suspended — resumed by the
     // gesture listener installed in startAvSession.
     if (audioCtx.state === 'suspended') { void audioCtx.resume().catch(() => {}); }
@@ -296,7 +300,9 @@ async function ensureLocalStream(): Promise<MediaStream | null> {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: 'user' },
-      audio: true,
+      // Explicit processing constraints: without echoCancellation, iPhones
+      // on loudspeaker feed the game audio straight back into the call.
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     localStream = stream;
     calledPeers.clear();
@@ -311,7 +317,9 @@ async function ensureLocalStream(): Promise<MediaStream | null> {
     // Camera denied/unavailable — fall back to audio-only so voice chat
     // still works even without a camera.
     try {
-      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       localStream = audioStream;
       calledPeers.clear();
       callAttempts.clear();

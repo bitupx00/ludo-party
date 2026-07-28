@@ -8,7 +8,6 @@ import {
   getMovablePieces,
 } from './gameEngine';
 import { randomPick, CAPTURE_MESSAGES } from './stickers';
-import { GIFS, GIF_PREFIX } from './gifs';
 
 export const BOT_NAMES: Record<Color, string> = {
   red: 'Rex',
@@ -18,10 +17,10 @@ export const BOT_NAMES: Record<Color, string> = {
 };
 
 export const BOT_EMOJIS: Record<Color, string> = {
-  red: '🦖',
-  green: '🥝',
-  yellow: '🌞',
-  blue: '☁️',
+  red: 'flame',
+  green: 'turtle',
+  yellow: 'sun',
+  blue: 'cloud',
 };
 
 /** Create bot players to fill missing slots (up to 4 total). */
@@ -156,30 +155,19 @@ function findCaptureMove(
   return null;
 }
 
-/** Generate a random bot reaction message. */
+/** Generate a random bot reaction message (text-only, emoji-free). */
 export function getBotReaction(): { text: string; sticker?: string } {
-  const roll = Math.random();
-
-  if (roll < 0.3) {
-    const gif = randomPick(GIFS);
-    return {
-      text: gif.label,
-      sticker: `${GIF_PREFIX}${gif.id}`,
-    };
-  }
-
-  if (roll < 0.5) {
+  if (Math.random() < 0.4) {
     const taunts = [
-      '¡Ven a mi nivel! 😤',
-      'Eso fue fácil 🧠',
-      'Bot master race 🤖',
-      'Calculando... ¡captura ejecutada! 💥',
-      'Mi IA es mejor que tu suerte 🎯',
-      'Error 404: compasión no encontrada 😈',
-      'No es trampa, es inteligencia artificial 🧬',
+      '¡Ven a mi nivel!',
+      'Eso fue fácil',
+      'Bot master race',
+      'Calculando... ¡captura ejecutada!',
+      'Mi IA es mejor que tu suerte',
+      'Error 404: compasión no encontrada',
+      'No es trampa, es inteligencia artificial',
     ];
     return { text: randomPick(taunts) };
   }
-
   return { text: randomPick(CAPTURE_MESSAGES) };
 }

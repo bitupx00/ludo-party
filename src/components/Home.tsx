@@ -4,13 +4,19 @@ import { useGameStore } from '../store/gameStore.ts';
 import type { GameMode } from '../game/types.ts';
 import { useT, useLangStore, TIPS } from '../i18n.ts';
 import ProfileCard from './ProfileCard.tsx';
+import TutorialModal, { TUTORIAL_SEEN_KEY } from './TutorialModal.tsx';
 import { ensureProfile, getCoins, claimStatus, claimDaily, DAILY_REWARDS, DAY7_STAR_BONUS } from '../profile.ts';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Backpack, Bot, CircleHelp, Coins, Gamepad2, Gift, Globe, Handshake,
+  Lightbulb, Star, Trophy, Users,
+} from 'lucide-react';
 
-const MODES: Array<{ mode: GameMode; icon: string; titleKey: 'modeSolo' | 'modeLocal' | 'modeTeams' | 'modeOnline'; descKey: 'modeSoloDesc' | 'modeLocalDesc' | 'modeTeamsDesc' | 'modeOnlineDesc'; accent: string }> = [
-  { mode: 'online', icon: '🌐', titleKey: 'modeOnline', descKey: 'modeOnlineDesc', accent: '#9333ea' },
-  { mode: 'solo', icon: '🤖', titleKey: 'modeSolo', descKey: 'modeSoloDesc', accent: 'var(--color-blue)' },
-  { mode: 'local', icon: '👥', titleKey: 'modeLocal', descKey: 'modeLocalDesc', accent: 'var(--color-green)' },
-  { mode: 'teams', icon: '🤝', titleKey: 'modeTeams', descKey: 'modeTeamsDesc', accent: 'var(--color-red)' },
+const MODES: Array<{ mode: GameMode; Icon: LucideIcon; titleKey: 'modeSolo' | 'modeLocal' | 'modeTeams' | 'modeOnline'; descKey: 'modeSoloDesc' | 'modeLocalDesc' | 'modeTeamsDesc' | 'modeOnlineDesc'; accent: string }> = [
+  { mode: 'online', Icon: Globe, titleKey: 'modeOnline', descKey: 'modeOnlineDesc', accent: '#9333ea' },
+  { mode: 'solo', Icon: Bot, titleKey: 'modeSolo', descKey: 'modeSoloDesc', accent: 'var(--color-blue)' },
+  { mode: 'local', Icon: Users, titleKey: 'modeLocal', descKey: 'modeLocalDesc', accent: 'var(--color-green)' },
+  { mode: 'teams', Icon: Handshake, titleKey: 'modeTeams', descKey: 'modeTeamsDesc', accent: 'var(--color-red)' },
 ];
 
 export default function Home() {
@@ -24,7 +30,10 @@ export default function Home() {
   const onlineError = useGameStore((s) => s.onlineError);
   const [tipIndex, setTipIndex] = useState(0);
   const [dailyOpen, setDailyOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
+  // Guided tutorial: auto-opens the very first time the game loads
+  const [helpOpen, setHelpOpen] = useState(() => {
+    try { return !localStorage.getItem(TUTORIAL_SEEN_KEY); } catch { return false; }
+  });
   const [coins, setCoins] = useState(getCoins);
   const [claim, setClaim] = useState(claimStatus);
   const handleClaim = () => {
@@ -60,33 +69,33 @@ export default function Home() {
 
       {/* Language toggle */}
       <button className="home-lang" onClick={toggleLang} aria-label="Language">
-        {lang === 'es' ? '🇪🇸 ES' : '🇬🇧 EN'}
+        {lang === 'es' ? 'ES' : 'EN'}
       </button>
 
       {/* Local ranking */}
       <button className="home-rank" onClick={openRanking} aria-label={t('ranking')} title={t('ranking')}>
-        🏆
+        <Trophy size={18} />
       </button>
 
       {/* Daily reward + manual */}
       <button className={`home-rank home-daily ${claim.canClaim ? 'home-daily--ready' : ''}`} onClick={() => setDailyOpen(true)} aria-label="Recompensa diaria">
-        🎁
+        <Gift size={18} />
       </button>
       <button className="home-rank home-help" onClick={() => setHelpOpen(true)} aria-label="Cómo jugar">
-        ❓
+        <CircleHelp size={18} />
       </button>
       <button className="home-rank home-inv" onClick={openInventory} aria-label="Inventario">
-        🎒
+        <Backpack size={18} />
       </button>
       <button className="home-rank home-arc" onClick={openArcade} aria-label="Arcade">
-        🕹️
+        <Gamepad2 size={18} />
       </button>
-      <div className="home-coins" title="Puntos (monedas)">🪙 {coins.toLocaleString('es')}</div>
+      <div className="home-coins" title="Puntos (monedas)"><Coins size={13} className="home-coins-ico" /> {coins.toLocaleString('es')}</div>
 
       {dailyOpen && (
         <div className="home-modal-backdrop" onClick={() => setDailyOpen(false)}>
           <div className="home-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="home-modal-title">🎁 Recompensa diaria</h2>
+            <h2 className="home-modal-title"><Gift size={17} className="home-title-ico" /> Recompensa diaria</h2>
             <div className="home-cal">
               {DAILY_REWARDS.map((amt, i) => {
                 const day = i + 1;
@@ -95,36 +104,21 @@ export default function Home() {
                 return (
                   <div key={day} className={`home-cal-day ${done ? 'home-cal-day--done' : ''} ${isNext ? 'home-cal-day--next' : ''}`}>
                     <span className="home-cal-num">Día {day}</span>
-                    <span className="home-cal-amt">🪙{amt >= 1000 ? `${amt / 1000}k` : amt}</span>
-                    {day === 7 && <span className="home-cal-star">+{DAY7_STAR_BONUS}⭐</span>}
+                    <span className="home-cal-amt"><Coins size={10} className="home-coins-ico" />{amt >= 1000 ? `${amt / 1000}k` : amt}</span>
+                    {day === 7 && <span className="home-cal-star">+{DAY7_STAR_BONUS}<Star size={9} className="home-coins-ico" /></span>}
                   </div>
                 );
               })}
             </div>
             <button className="btn btn-primary home-modal-btn" disabled={!claim.canClaim} onClick={handleClaim}>
-              {claim.canClaim ? `Reclamar día ${claim.day}` : '✅ Reclamado hoy — vuelve mañana'}
+              {claim.canClaim ? `Reclamar día ${claim.day}` : 'Reclamado hoy — vuelve mañana'}
             </button>
             <p className="home-modal-note">Entra todos los días: la racha sube el premio. Si faltas un día, vuelve al día 1.</p>
           </div>
         </div>
       )}
 
-      {helpOpen && (
-        <div className="home-modal-backdrop" onClick={() => setHelpOpen(false)}>
-          <div className="home-modal home-modal--help" onClick={(e) => e.stopPropagation()}>
-            <h2 className="home-modal-title">❓ Cómo jugar LudoPata'S</h2>
-            <div className="home-help-body">
-              <p><b>🎲 El juego:</b> saca tus 4 fichas de casa (con 6 o 1), da la vuelta al tablero y llévalas a la meta con el número exacto. El 6 y el 1 dan tiro extra; matar o llegar a meta también (¡6 + kill = doble tiro!). Tres tiros extra seguidos cancelan la jugada. Los turnos van en sentido horario y tienes 20s por turno.</p>
-              <p><b>🌐 Modos:</b> Online (2-4 humanos con cámara y voz), vs Bots, Pasar y Jugar (mismo teléfono) y Equipos 2v2 (🔥 Fuego: rojo+amarillo vs 🌲 Bosque: verde+azul — ganan cuando las 8 fichas del equipo llegan; el que termina ayuda moviendo las fichas de su aliado).</p>
-              <p><b>⭐ Star:</b> ganas 1 por cada 6 o 1 que saques. Se gastan en la tienda de dados de la suerte (arma un dado para tu próxima tirada, 50% de que salga tu número; cada compra sube +1⭐ el precio; tócalo otra vez para cancelar con reembolso).</p>
-              <p><b>🪙 Puntos:</b> la moneda del juego. Empiezas con 3.000 y reclamas mínimo 1.000 diarios (racha semanal: día 7 = 30.000 + 100⭐). Las partidas se apuestan en puntos (100 a 3.000 de entrada) y el ganador se lleva el pozo.</p>
-              <p><b>🎁 Memes:</b> toca el regalo en el avatar de un rival y lánzale un meme: vuela, suena y se le queda pegado 1 minuto. Sonidos del panel: máximo 1 por turno. También puedes silenciar jugadores (🔊 en su avatar).</p>
-              <p><b>🏆 Ranking:</b> victorias, capturas y metas de este dispositivo. ¡Y elige tu modelo de dado en el lobby!</p>
-            </div>
-            <button className="btn btn-secondary home-modal-btn" onClick={() => setHelpOpen(false)}>Entendido</button>
-          </div>
-        </div>
-      )}
+      {helpOpen && <TutorialModal onClose={() => setHelpOpen(false)} />}
 
       <div className="screen-inner home-inner">
         {/* Logo */}
@@ -159,7 +153,7 @@ export default function Home() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            ⚠️ {t(onlineError as Parameters<typeof t>[0])}
+            {t(onlineError as Parameters<typeof t>[0])}
           </motion.p>
         )}
 
@@ -184,7 +178,7 @@ export default function Home() {
               transition={{ delay: 0.4 + i * 0.1, type: 'spring', stiffness: 260, damping: 22 }}
               whileTap={{ scale: 0.97 }}
             >
-              <span className="home-mode-icon">{m.icon}</span>
+              <span className="home-mode-icon"><m.Icon size={26} /></span>
               <span className="home-mode-text">
                 <span className="home-mode-title">{t(m.titleKey)}</span>
                 <span className="home-mode-desc">{t(m.descKey)}</span>
@@ -205,7 +199,7 @@ export default function Home() {
               transition={{ duration: 0.3 }}
               className="home-tip"
             >
-              💡 {tips[tipIndex]}
+              <Lightbulb size={13} className="home-tip-ico" /> {tips[tipIndex]}
             </motion.p>
           </AnimatePresence>
         </div>
@@ -223,6 +217,12 @@ export default function Home() {
           gap: var(--gap-lg);
           max-width: 440px;
         }
+        .home-rank svg, .home-coins svg { color: #ffd65a; }
+        .home-rank { display: flex; align-items: center; justify-content: center; }
+        .home-coins-ico { vertical-align: -2px; display: inline; }
+        .home-title-ico { vertical-align: -3px; margin-right: 4px; }
+        .home-tip-ico { vertical-align: -2px; margin-right: 2px; }
+        .home-mode-icon svg { color: #fff; }
         .home-rank {
           position: absolute;
           top: calc(60px + env(safe-area-inset-top));
@@ -287,8 +287,6 @@ export default function Home() {
         .home-cal-star { font-size: 0.6rem; font-weight: 800; color: #ffd65a; }
         .home-modal-btn { width: 100%; }
         .home-modal-note { font-size: 0.72rem; color: var(--color-text-muted); text-align: center; font-weight: 700; }
-        .home-help-body { display: flex; flex-direction: column; gap: 9px; font-size: 0.82rem; line-height: 1.45; color: var(--color-text-secondary); }
-        .home-help-body b { color: var(--color-text); }
         .home-lang {
           position: absolute;
           top: calc(14px + env(safe-area-inset-top));

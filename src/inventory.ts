@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { loadProfile, saveProfile, coinsToStars } from './profile';
-import { EVENT_POOLS, MEME_SOUNDS } from './game/memeSounds';
+import { EVENT_POOLS, MEME_SOUNDS, THROW_SOUNDS } from './game/memeSounds';
 
 /**
  * Player inventory (device-local, like the wallet): purchased memes with
@@ -38,16 +38,35 @@ function saveInv(list: OwnedMeme[]) {
   try { localStorage.setItem(INV_KEY, JSON.stringify(list.slice(0, 200))); } catch { /* noop */ }
 }
 
+const DICE_KEY = 'ludo-party-dice-owned';
+
+function loadDice(): string[] {
+  try {
+    const raw = localStorage.getItem(DICE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter((d) => typeof d === 'string') : [];
+  } catch { return []; }
+}
+
+function saveDice(list: string[]) {
+  try { localStorage.setItem(DICE_KEY, JSON.stringify(list)); } catch { /* noop */ }
+}
+
 interface InvStore {
   memes: OwnedMeme[];
+  /** Purchased dice skin ids ('clasico' is always owned implicitly). */
+  dice: string[];
   /** Buy with coins (3,500) or stars (18). Returns false if can't afford. */
   buyMeme: (meme: Omit<OwnedMeme, 'sound'>, payWith: 'coins' | 'stars') => boolean;
+  /** Buy a dice skin with puntos (price from DICE_SKINS). */
+  buyDice: (skinId: string, price: number) => boolean;
   /** Link a sound to an owned meme — 15 ⭐ only. */
   linkSound: (memeId: string, soundId: string) => boolean;
 }
 
 export const useInvStore = create<InvStore>((set, get) => ({
   memes: loadInv(),
+  dice: loadDice(),
 
   buyMeme: (meme, payWith) => {
     if (get().memes.some((m) => m.id === meme.id)) return false;
@@ -67,6 +86,21 @@ export const useInvStore = create<InvStore>((set, get) => ({
     return true;
   },
 
+  buyDice: (skinId, price) => {
+    if (skinId === 'clasico' || get().dice.includes(skinId)) return false;
+    const p = loadProfile();
+    if (!p) return false;
+    if (price > 0) {
+      if ((p.coins ?? 0) < price) return false;
+      p.coins -= price;
+      saveProfile(p);
+    }
+    const dice = [...get().dice, skinId];
+    saveDice(dice);
+    set({ dice });
+    return true;
+  },
+
   linkSound: (memeId, soundId) => {
     if (!MEME_SOUNDS.some((s) => s.id === soundId)) return false;
     if (!get().memes.some((m) => m.id === memeId)) return false;
@@ -80,6 +114,16 @@ export const useInvStore = create<InvStore>((set, get) => ({
     return true;
   },
 }));
+
+/** Every meme ALWAYS travels with a sound: the linked one if bought, or a
+ *  deterministic fallback picked from the meme id so all clients agree. */
+export function soundForMeme(meme: OwnedMeme): string {
+  if (meme.sound) return meme.sound;
+  let h = 0;
+  const key = meme.id || meme.url;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return THROW_SOUNDS[h % THROW_SOUNDS.length];
+}
 
 /** Recommended sounds for a meme — same occasion logic the pieces use:
  *  keyword-match the meme id/name against the event pools. */

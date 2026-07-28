@@ -7,10 +7,10 @@ import { useGameStore, type Reaction } from '../store/gameStore.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useT } from '../i18n.ts';
 import { MiniDice } from './Dice3D.tsx';
-import { isGifReaction, gifIdOf, gifById, isTenorReaction, tenorUrlOf } from '../game/gifs.ts';
-import { isSoundReaction, soundIdOf, memeSoundById, playMemeSound } from '../game/memeSounds.ts';
-import { playSfx } from '../sound.ts';
-import GifSticker from './GifSticker.tsx';
+import { isMemeReaction, memePartsOf } from '../game/gifs.ts';
+import { memeSoundById, playMemeSound } from '../game/memeSounds.ts';
+import AvatarIcon from './AvatarIcon.tsx';
+import { Bot, Flag, Flame, Gift, MicOff, TreePine, Volume2, VolumeX } from 'lucide-react';
 
 /** Attach a stream to a media element and keep playback alive: autoplay
  *  with sound is often blocked until a user gesture (mobile especially),
@@ -19,11 +19,20 @@ function useStreamPlayback(ref: React.RefObject<HTMLMediaElement | null>, stream
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // iOS Safari: legacy attribute complements the playsInline prop —
+    // without it some WebViews fullscreen the video on play().
+    el.setAttribute('webkit-playsinline', 'true');
     if (el.srcObject !== stream) el.srcObject = stream;
     const tryPlay = () => { void el.play().catch(() => { /* retried on gesture */ }); };
     tryPlay();
     document.addEventListener('pointerdown', tryPlay);
-    return () => document.removeEventListener('pointerdown', tryPlay);
+    // Coming back from the app switcher pauses media on iOS — resume.
+    const onVisible = () => { if (!document.hidden) tryPlay(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('pointerdown', tryPlay);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [ref, stream]);
 }
 
@@ -77,15 +86,6 @@ interface AvatarBadgeProps {
 
 const REACTION_VISIBLE_MS = 2600;
 
-/** A sound reaction ALWAYS shows a meme gif with it — picked
- *  deterministically from the sound id so every device shows the same. */
-const SOUND_GIF_POOL = ['jaja', 'grito', 'craneo', 'rabia', 'aplausos', 'llora', 'payaso', 'rofl'];
-function gifForSound(soundId: string): string {
-  let h = 0;
-  for (let i = 0; i < soundId.length; i++) h = (h * 31 + soundId.charCodeAt(i)) >>> 0;
-  return SOUND_GIF_POOL[h % SOUND_GIF_POOL.length];
-}
-
 function AvatarBadge({
   player,
   isCurrent,
@@ -121,19 +121,15 @@ function AvatarBadge({
   const showVideo = hasVideoTrack && (!isLocalCam || cameraOn);
 
   // Show the reaction bubble briefly whenever a new reaction arrives —
-  // panel sounds (limited to 1 per player per turn, validated host-side)
-  // play on every client; gif stickers play their small sfx.
+  // every purchased meme carries a paired sound (limited to 1 per player
+  // per turn, validated host-side) that plays on every client.
   useEffect(() => {
     if (!reaction) return;
     setBubbleVisible(true);
     // A silenced player's sounds never play on THIS device (bubble still shows)
-    if (!isMuted) {
-      if (isSoundReaction(reaction.emoji)) {
-        playMemeSound(soundIdOf(reaction.emoji));
-      } else if (isGifReaction(reaction.emoji)) {
-        const gif = gifById(gifIdOf(reaction.emoji));
-        if (gif) playSfx(gif.sfx);
-      }
+    if (!isMuted && isMemeReaction(reaction.emoji)) {
+      const snd = memePartsOf(reaction.emoji).sound;
+      if (snd) playMemeSound(snd);
     }
     const timer = setTimeout(() => setBubbleVisible(false), REACTION_VISIBLE_MS);
     return () => clearTimeout(timer);
@@ -160,14 +156,14 @@ function AvatarBadge({
           {showVideo && stream ? (
             <AvatarVideo stream={stream} mirrored={isLocalCam} muted={isLocalCam || isMuted} />
           ) : (
-            <span className="avatar-badge-emoji">{player.emoji}</span>
+            <span className="avatar-badge-emoji"><AvatarIcon id={player.emoji} size={24} /></span>
           )}
           {/* Remote audio still plays when there's no video to show —
               unless this device silenced the player */}
           {!showVideo && stream && !isLocalCam && !isMuted && stream.getAudioTracks().length > 0 && (
             <AvatarAudio stream={stream} />
           )}
-          {isLocalCam && !micOn && <span className="avatar-badge-mic-off">🔇</span>}
+          {isLocalCam && !micOn && <span className="avatar-badge-mic-off"><MicOff size={10} /></span>}
           {isSpeaking && <span className="avatar-badge-speaking" />}
           {isCurrent && <span className="avatar-badge-ring" />}
         </div>
@@ -186,38 +182,36 @@ function AvatarBadge({
           {bubbleVisible && reaction && (
             <motion.div
               key={reaction.key}
-              className={`avatar-reaction-bubble ${isGifReaction(reaction.emoji) || isTenorReaction(reaction.emoji) ? 'avatar-reaction-bubble--gif' : ''}`}
+              className={`avatar-reaction-bubble ${isMemeReaction(reaction.emoji) ? 'avatar-reaction-bubble--gif' : ''}`}
               initial={{ opacity: 0, scale: 0.3, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.5, y: -8 }}
               transition={{ type: 'spring', stiffness: 500, damping: 22 }}
             >
-              {isGifReaction(reaction.emoji)
-                ? <GifSticker id={gifIdOf(reaction.emoji)} size={58} />
-                : isTenorReaction(reaction.emoji)
-                  ? <img className="avatar-tgif" src={tenorUrlOf(reaction.emoji)} alt="GIF" draggable={false} />
-                  : isSoundReaction(reaction.emoji)
-                    ? (
-                      <span className="avatar-snd-wrap">
-                        <GifSticker id={gifForSound(soundIdOf(reaction.emoji))} size={30} />
-                        <span className="avatar-snd">{memeSoundById(soundIdOf(reaction.emoji))?.name ?? ''}</span>
-                      </span>
-                    )
-                    : reaction.emoji}
+              {isMemeReaction(reaction.emoji)
+                ? (
+                  <span className="avatar-snd-wrap">
+                    <img className="avatar-tgif" src={memePartsOf(reaction.emoji).url} alt="Meme" draggable={false} />
+                    {memePartsOf(reaction.emoji).sound && (
+                      <span className="avatar-snd">{memeSoundById(memePartsOf(reaction.emoji).sound)?.name ?? ''}</span>
+                    )}
+                  </span>
+                )
+                : reaction.emoji}
             </motion.div>
           )}
         </AnimatePresence>
 
         {showTeamBadge && (
           <span className="avatar-team-badge" title={t(TEAM_INFO[teamOf(player.color)].nameKey)}>
-            {TEAM_INFO[teamOf(player.color)].emoji}
+            {teamOf(player.color) === 'fuego' ? <Flame size={12} /> : <TreePine size={12} />}
           </span>
         )}
 
         {/* Meme stuck on the avatar: the last one thrown at this player */}
-        {pinnedMeme && (
+        {pinnedMeme && isMemeReaction(pinnedMeme) && (
           <span className="avatar-pinned-meme">
-            <GifSticker id={pinnedMeme.startsWith('gif:') ? pinnedMeme.slice(4) : pinnedMeme} size={30} />
+            <img className="avatar-pinned-img" src={memePartsOf(pinnedMeme).url} alt="" draggable={false} />
           </span>
         )}
 
@@ -229,7 +223,7 @@ function AvatarBadge({
             aria-label={t('throwMeme')}
             title={t('throwMeme')}
           >
-            🎁
+            <Gift size={13} />
           </button>
         )}
 
@@ -241,7 +235,7 @@ function AvatarBadge({
             aria-label={isMuted ? t('unmutePlayer') : t('mutePlayer')}
             title={isMuted ? t('unmutePlayer') : t('mutePlayer')}
           >
-            {isMuted ? '🔇' : '🔊'}
+            {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
           </button>
         )}
       </div>
@@ -249,12 +243,12 @@ function AvatarBadge({
       <div className="avatar-badge-info">
         <span className="avatar-badge-name">
           {player.name}
-          {player.isBot && <span className="avatar-badge-bot">🤖</span>}
+          {player.isBot && <span className="avatar-badge-bot"><Bot size={11} /></span>}
         </span>
         <span className="avatar-badge-sub">
           {isCurrent && isThinking
             ? t('thinking')
-            : `🏁 ${finishedCount}/4`}
+            : <><Flag size={9} className="avatar-flag-ico" /> {finishedCount}/4</>}
         </span>
       </div>
 
@@ -550,5 +544,15 @@ styleOnce('avatar-badge', `
         @media (max-width: 380px) {
           .avatar-badge-name { max-width: 22vw; font-size: 0.75rem; }
         }
-      
+        /* Vector avatar + lucide icon alignment */
+        .avatar-badge-emoji { display: flex; align-items: center; justify-content: center; color: #fff; }
+        .avatar-badge-emoji svg { display: block; filter: drop-shadow(0 1px 2px rgba(18, 8, 60, 0.4)); }
+        .avatar-badge-bot { display: inline-flex; vertical-align: -1px; margin-left: 3px; opacity: 0.75; }
+        .avatar-flag-ico { vertical-align: -1px; }
+        .avatar-badge-sub svg { display: inline; }
+        .avatar-gift-btn, .avatar-mute-btn { display: flex; align-items: center; justify-content: center; }
+        .avatar-team-badge { display: flex; align-items: center; justify-content: center; }
+        .avatar-pinned-img { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; display: block; }
+        .avatar-badge-mic-off { display: flex; align-items: center; justify-content: center; }
+
 `);

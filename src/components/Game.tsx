@@ -15,14 +15,16 @@ import { PLAYER_CONFIG } from '../game/types.ts';
 import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
 import { useSoundStore, playSfx } from '../sound.ts';
-import { QUICK_GIFS, GIF_PREFIX, isGifReaction, gifIdOf, gifById, isTenorReaction, tenorUrlOf } from '../game/gifs.ts';
-import { isSoundReaction, soundIdOf, memeSoundById, playMemeSound } from '../game/memeSounds.ts';
+import { isMemeReaction, memePartsOf, memePayload } from '../game/gifs.ts';
+import { memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import type { MemeFx } from '../game/memeFx.ts';
 import type { MemeThrow } from '../store/gameStore.ts';
-import { THROW_PACK } from '../game/gifs.ts';
-import { useFavStore } from '../favorites.ts';
-import GifSticker from './GifSticker.tsx';
+import { useInvStore, soundForMeme } from '../inventory.ts';
 import { useT } from '../i18n.ts';
+import {
+  Ban, Camera, CameraOff, Dices, Flame, Gift, Hand, MessageCircle, Mic, MicOff,
+  Plus, RadioTower, SmilePlus, Star, Target, Volume2, VolumeX,
+} from 'lucide-react';
 
 /** How long the 3D dice spin animation takes to visually settle (see
  *  Dice3D's 950ms settle timer) — inputs stay locked until then. */
@@ -52,7 +54,7 @@ function ThrowFlight({ fx, onDone }: { fx: MemeThrow; onDone: () => void }) {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const gifId = fx.gif.startsWith('gif:') ? fx.gif.slice(4) : fx.gif;
+  const gifUrl = isMemeReaction(fx.gif) ? memePartsOf(fx.gif).url : '';
   return (
     <motion.div
       className="throw-fly"
@@ -66,7 +68,7 @@ function ThrowFlight({ fx, onDone }: { fx: MemeThrow; onDone: () => void }) {
       }}
       transition={{ duration: THROW_FLIGHT_MS / 1000, ease: 'easeIn' }}
     >
-      <GifSticker id={gifId} size={48} />
+      {gifUrl && <img className="throw-fly-img" src={gifUrl} alt="" draggable={false} />}
     </motion.div>
   );
 }
@@ -290,22 +292,18 @@ export default function Game() {
     }
   }, [phase, diceSettled, selectPiece]);
 
-  // Quick bar: the user's FAVORITES (⭐ in the picker) first, and the most
-  // recent send last — falls back to a default gif set when empty.
-  const favs = useFavStore((s) => s.favs);
-  const recent = useFavStore((s) => s.recent);
-  const recordRecent = useFavStore((s) => s.recordRecent);
-  const quickItems = useMemo(() => {
-    const items = favs.slice(0, 6);
-    if (recent && !items.includes(recent)) items.push(recent);
-    return items.length > 0 ? items : QUICK_GIFS.map((id) => `${GIF_PREFIX}${id}`);
-  }, [favs, recent]);
+  // Quick bar: the user's PURCHASED memes (inventory) — nothing else is
+  // sendable. Every meme travels with its linked (or fallback) sound.
+  const ownedMemes = useInvStore((s) => s.memes);
+  const quickItems = useMemo(
+    () => ownedMemes.slice(0, 6).map((m) => memePayload(soundForMeme(m), m.url)),
+    [ownedMemes],
+  );
 
   const sendQuick = useCallback((payload: string) => {
     playSfx('pop');
-    recordRecent(payload);
     sendReaction(payload);
-  }, [recordRecent, sendReaction]);
+  }, [sendReaction]);
 
   // Long-press on a quick-bar item shows WHICH sound/gif it is (tooltip)
   // instead of sending it — release hides it shortly after.
@@ -313,9 +311,9 @@ export default function Game() {
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
   const quickLabel = useCallback((payload: string) => {
-    if (isSoundReaction(payload)) return `🔊 ${memeSoundById(soundIdOf(payload))?.name ?? ''}`;
-    if (isGifReaction(payload)) return gifById(gifIdOf(payload))?.label ?? '';
-    if (isTenorReaction(payload)) return 'GIF';
+    if (isMemeReaction(payload)) {
+      return memeSoundById(memePartsOf(payload).sound)?.name ?? 'Meme';
+    }
     return payload;
   }, []);
   const quickPressStart = useCallback((payload: string) => {
@@ -336,9 +334,8 @@ export default function Game() {
   }, [sendQuick]);
 
   const handleStickerSelect = useCallback((emoji: string) => {
-    recordRecent(emoji);
     sendReaction(emoji);
-  }, [recordRecent, sendReaction]);
+  }, [sendReaction]);
 
   if (players.length === 0) return null;
 
@@ -385,7 +382,7 @@ export default function Game() {
             <span className="game-turn-dot" />
             <span className="game-turn-text">
               {isHumanTurn && phase === 'rolling'
-                ? `${currentPlayer?.emoji} ${t('yourTurn')}`
+                ? t('yourTurn')
                 : `${t('turnOf')} ${currentPlayer?.name ?? ''}`}
             </span>
           </div>
@@ -394,7 +391,7 @@ export default function Game() {
             onClick={toggleMuted}
             aria-label={muted ? 'unmute' : 'mute'}
           >
-            {muted ? '🔇' : '🔊'}
+            {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
           </button>
         </div>
 
@@ -431,7 +428,7 @@ export default function Game() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
               >
-                🚫 {t('thirdSix')}
+                <Ban size={14} className="game-status-ico" /> {t('thirdSix')}
               </motion.div>
             ) : (diceValue === 6 || diceValue === 1) && phase === 'moving' ? (
               <motion.div
@@ -441,7 +438,7 @@ export default function Game() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
               >
-                🔥 {t('extraTurn')} ({diceValue === 1 ? t('rolledOne') : t('rolledSix')})
+                <Flame size={14} className="game-status-ico" /> {t('extraTurn')} ({diceValue === 1 ? t('rolledOne') : t('rolledSix')})
               </motion.div>
             ) : phase === 'moving' && myTurn && movableIds.length > 1 ? (
               <motion.div
@@ -451,7 +448,7 @@ export default function Game() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
               >
-                👇 {t('tapPiece')}
+                <Hand size={14} className="game-status-ico" /> {t('tapPiece')}
               </motion.div>
             ) : null}
           </AnimatePresence>
@@ -471,7 +468,7 @@ export default function Game() {
                 aria-label="camera"
                 title={avActive ? (camOn ? t('turnCameraOff') : t('turnCameraOn')) : t('enableAv')}
               >
-                {!avActive ? '📷' : camOn ? '📷' : '🚫'}
+                {!avActive || camOn ? <Camera size={17} /> : <CameraOff size={17} />}
               </button>
               <button
                 className={`game-av-btn ${avActive && !micOn ? 'game-av-btn--off' : ''} ${avActive ? 'game-av-btn--on' : ''}`}
@@ -479,7 +476,7 @@ export default function Game() {
                 aria-label="microphone"
                 title={avActive ? (micOn ? t('turnMicOff') : t('turnMicOn')) : t('enableAv')}
               >
-                {!avActive ? '🎤' : micOn ? '🎤' : '🔇'}
+                {!avActive || micOn ? <Mic size={17} /> : <MicOff size={17} />}
               </button>
             </div>
           )}
@@ -498,11 +495,7 @@ export default function Game() {
                 aria-label={payload}
                 title={quickLabel(payload)}
               >
-                {isGifReaction(payload)
-                  ? <GifSticker id={gifIdOf(payload)} size={27} />
-                  : isTenorReaction(payload)
-                    ? <img className="game-reaction-tgif" src={tenorUrlOf(payload)} alt="GIF" draggable={false} />
-                    : <span className="game-reaction-snd">🔊</span>}
+                <img className="game-reaction-tgif" src={memePartsOf(payload).url} alt="Meme" draggable={false} />
                 {tipFor === payload && (
                   <span className="game-reaction-tip">{quickLabel(payload)}</span>
                 )}
@@ -514,7 +507,7 @@ export default function Game() {
               whileTap={{ scale: 0.8 }}
               aria-label="stickers"
             >
-              ＋
+              <Plus size={18} />
             </motion.button>
           </div>
 
@@ -524,7 +517,7 @@ export default function Game() {
               onClick={() => setChatOpen(!chatOpen)}
               aria-label={t('chatTitle')}
             >
-              💬
+              <MessageCircle size={20} />
               {unreadCount > 0 && !chatOpen && (
                 <span className="game-chat-unread">{Math.min(unreadCount, 99)}</span>
               )}
@@ -538,11 +531,11 @@ export default function Game() {
               aria-label={t('luckyTitle')}
               title={t('luckyTitle')}
             >
-              🎯
-              <span className="game-shop-points">⭐{shopPoints}</span>
+              <Target size={20} />
+              <span className="game-shop-points"><Star size={10} className="game-star-ico" />{shopPoints}</span>
               {shopPlayer?.pendingLucky ? (
                 <span className="game-shop-armed" title={t('luckyArmed')}>
-                  🎲{shopPlayer.pendingLucky}
+                  <Dices size={11} className="game-star-ico" />{shopPlayer.pendingLucky}
                 </span>
               ) : null}
             </button>
@@ -566,7 +559,7 @@ export default function Game() {
               onClick={() => setStickersOpen(true)}
               aria-label="stickers"
             >
-              😂
+              <SmilePlus size={20} />
             </button>
           </div>
         </div>
@@ -611,7 +604,7 @@ export default function Game() {
       {/* Connection lost: rebuilding the link to the host in the background */}
       {onlineReconnecting && (
         <div className="game-reconnecting">
-          📡 {t('reconnecting')}
+          <RadioTower size={15} className="game-status-ico" /> {t('reconnecting')}
         </div>
       )}
 
@@ -636,24 +629,28 @@ export default function Game() {
               onClick={(e) => e.stopPropagation()}
             >
               <span className="throw-picker-title">
-                🎁 {t('throwMemeTo')} {players.find((p) => p.id === giftTarget)?.name ?? ''}
+                <Gift size={16} className="game-status-ico" /> {t('throwMemeTo')} {players.find((p) => p.id === giftTarget)?.name ?? ''}
               </span>
-              <div className="throw-picker-grid">
-                {THROW_PACK.map((id) => (
-                  <motion.button
-                    key={id}
-                    className="throw-picker-item"
-                    whileTap={{ scale: 0.82 }}
-                    onClick={() => {
-                      throwMeme(giftTarget, `gif:${id}`);
-                      setGiftTarget(null);
-                    }}
-                  >
-                    <GifSticker id={id} size={44} />
-                  </motion.button>
-                ))}
-              </div>
-              <span className="throw-picker-note">🔊 1 {t('luckyReady') === 'listo' ? 'lanzamiento por turno' : 'throw per turn'}</span>
+              {ownedMemes.length > 0 ? (
+                <div className="throw-picker-grid">
+                  {ownedMemes.slice(0, 12).map((m) => (
+                    <motion.button
+                      key={m.id}
+                      className="throw-picker-item"
+                      whileTap={{ scale: 0.82 }}
+                      onClick={() => {
+                        throwMeme(giftTarget, memePayload(soundForMeme(m), m.url));
+                        setGiftTarget(null);
+                      }}
+                    >
+                      <img className="throw-picker-img" src={m.preview || m.url} alt="Meme" draggable={false} />
+                    </motion.button>
+                  ))}
+                </div>
+              ) : (
+                <span className="throw-picker-empty">{t('noMemesOwned')}</span>
+              )}
+              <span className="throw-picker-note">1 {t('luckyReady') === 'listo' ? 'lanzamiento por turno' : 'throw per turn'}</span>
             </motion.div>
           </motion.div>
         )}
@@ -1020,10 +1017,30 @@ styleOnce('game', `
           justify-content: center;
           padding: 0 4px;
         }
+        /* Lucide icon alignment + purchased-meme imagery */
+        .game-status-ico { vertical-align: -2px; margin-right: 2px; }
+        .game-star-ico { vertical-align: -1px; margin-right: 1px; color: #ffd65a; }
+        .game-hud-side-btn svg, .game-reaction-btn--more svg, .game-av-btn svg,
+        .game-mute svg { display: block; margin: 0 auto; }
+        .game-hud-side-btn { display: inline-flex; align-items: center; justify-content: center; }
+        .throw-fly-img {
+          width: 48px; height: 48px; object-fit: cover;
+          border-radius: 12px;
+          box-shadow: 0 6px 16px rgba(8, 2, 30, 0.5);
+        }
+        .throw-picker-img {
+          width: 52px; height: 52px; object-fit: cover;
+          border-radius: 10px; display: block;
+        }
+        .throw-picker-empty {
+          font-size: 0.78rem; font-weight: 700;
+          color: var(--color-text-secondary);
+          text-align: center; padding: 10px 6px;
+        }
         /* Short screens: tighten */
         @media (max-height: 700px) {
           .game-column { gap: 2px; }
           .game-status-slot { min-height: 20px; }
         }
-      
+
 `);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CaptureEffect } from '../game/types.ts';
 import { playSfx, vibrate } from '../sound.ts';
+import { Flame, Skull, Star, Trophy, Zap } from 'lucide-react';
 // CRITICAL: without this import the overlay renders UNSTYLED — a plain
 // in-flow div whose ±350px particle bursts blow the page open sideways,
 // visibly shoving the whole board every time a piece reaches the goal
@@ -14,30 +15,10 @@ interface CaptureOverlayProps {
 }
 
 const EFFECT_CONFIGS = {
-  'skull-rain': {
-    emoji: '💀',
-    count: 20,
-    animation: 'skull-rain',
-    duration: 2.5,
-  },
-  'fire-burst': {
-    emoji: '🔥',
-    count: 16,
-    animation: 'fire-burst',
-    duration: 2,
-  },
-  'lightning': {
-    emoji: '⚡',
-    count: 1,
-    animation: 'lightning',
-    duration: 2,
-  },
-  'star-burst': {
-    emoji: '⭐',
-    count: 16,
-    animation: 'star-burst',
-    duration: 2,
-  },
+  'skull-rain': { Icon: Skull, color: '#cbd5e1', count: 20, animation: 'skull-rain', duration: 2.5 },
+  'fire-burst': { Icon: Flame, color: '#fb923c', count: 16, animation: 'fire-burst', duration: 2 },
+  'lightning': { Icon: Zap, color: '#fde047', count: 1, animation: 'lightning', duration: 2 },
+  'star-burst': { Icon: Star, color: '#ffd65a', count: 16, animation: 'star-burst', duration: 2 },
 };
 
 function EffectParticles({ type }: { type: string }) {
@@ -72,7 +53,7 @@ function EffectParticles({ type }: { type: string }) {
               top: '50%',
             } as React.CSSProperties}
           >
-            {config.emoji}
+            <config.Icon size={22} color={config.color} fill={config.color} />
           </span>
         );
       })}
@@ -158,8 +139,9 @@ export default function CaptureOverlay({ effects, onDismiss }: CaptureOverlayPro
             animate={{ scale: 1, rotate: 0, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.1 }}
           >
+            {shown.type === 'win' && <Trophy size={15} className="capture-toast-ico" />}
             {shown.label
-              ?? (shown.type === 'capture' ? '💥 ¡CAPTURA!' : shown.type === 'win' ? '🏆 ¡VICTORIA!' : '⭐ ¡BIEN!')}
+              ?? (shown.type === 'capture' ? '¡CAPTURA!' : shown.type === 'win' ? '¡VICTORIA!' : '¡BIEN!')}
           </motion.div>
         </motion.div>
       )}

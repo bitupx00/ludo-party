@@ -1,3 +1,4 @@
+import { Crown, Home as HomeIcon, RotateCcw, Star, Trophy } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -107,7 +108,7 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
           animate={{ y: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 0.5 }}
         >
-          👑
+          <Crown size={40} strokeWidth={2} />
         </motion.div>
 
         <div className="win-pawns">
@@ -152,7 +153,7 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2 }}
         >
-          ⭐ 🏆 ⭐
+          <Star size={20} /> <Trophy size={26} /> <Star size={20} />
         </motion.div>
 
         <motion.div
@@ -167,7 +168,7 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
               onClick={playAgain}
               whileTap={{ scale: 0.94 }}
             >
-              🔄 {t('playAgain')}
+              <RotateCcw size={15} className="ws-ico" /> {t('playAgain')}
             </motion.button>
           )}
           <motion.button
@@ -175,7 +176,7 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
             onClick={goHome}
             whileTap={{ scale: 0.94 }}
           >
-            🏠 {t('mainMenu')}
+            <HomeIcon size={15} className="ws-ico" /> {t('mainMenu')}
           </motion.button>
         </motion.div>
       </motion.div>

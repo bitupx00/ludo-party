@@ -64,7 +64,7 @@ export const useRankStore = create<RankStore>((set, get) => ({
   recordMatch: (results) => {
     const byKey = new Map(get().entries.map((e) => [e.name.trim().toLowerCase(), { ...e }]));
     for (const r of results) {
-      const name = r.name.replace(/ 🤖$/, '').trim();
+      const name = r.name.replace(/ \(bot\)$| 🤖$/, '').trim();
       if (!name) continue;
       const key = name.toLowerCase();
       const entry = byKey.get(key) ?? { name, games: 0, wins: 0, kills: 0, goals: 0, lastPlayed: 0 };

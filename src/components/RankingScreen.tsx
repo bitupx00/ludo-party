@@ -1,3 +1,4 @@
+import { Crosshair, Flag, Gamepad2, Medal, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore.ts';
 import { useRankStore, sortRanking } from '../ranking.ts';
@@ -11,14 +12,14 @@ export default function RankingScreen() {
   const entries = useRankStore((s) => s.entries);
   const ranked = sortRanking(entries);
 
-  const medal = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`);
+  const medal = (i: number) => (i < 3 ? <Medal size={15} className={`rk-medal rk-medal--${i}`} /> : `${i + 1}`);
 
   return (
     <div className="screen ranking">
       <div className="screen-inner ranking-inner">
         <div className="ranking-header">
           <button className="ranking-back" onClick={goHome} aria-label={t('mainMenu')}>‹</button>
-          <h1 className="ranking-title">🏆 {t('ranking')}</h1>
+          <h1 className="ranking-title"><Trophy size={19} className="rk-ico" /> {t('ranking')}</h1>
         </div>
 
         {ranked.length === 0 ? (
@@ -34,10 +35,10 @@ export default function RankingScreen() {
             <div className="ranking-row ranking-row--head">
               <span className="rk-pos">#</span>
               <span className="rk-name">{t('rankPlayer')}</span>
-              <span className="rk-stat" title={t('rankWins')}>🏆</span>
-              <span className="rk-stat" title={t('rankGames')}>🎮</span>
-              <span className="rk-stat" title={t('rankKills')}>💥</span>
-              <span className="rk-stat" title={t('rankGoals')}>🏁</span>
+              <span className="rk-stat" title={t('rankWins')}><Trophy size={12} /></span>
+              <span className="rk-stat" title={t('rankGames')}><Gamepad2 size={12} /></span>
+              <span className="rk-stat" title={t('rankKills')}><Crosshair size={12} /></span>
+              <span className="rk-stat" title={t('rankGoals')}><Flag size={12} /></span>
             </div>
             {ranked.map((e, i) => (
               <motion.div
