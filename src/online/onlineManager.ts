@@ -112,9 +112,32 @@ export function getStoredTicket(): { code: string; name: string } | null {
   return t ? { code: t.code, name: t.name } : null;
 }
 
+/* ─── TURN (Metered) ────────────────────────────────────────────────
+ * Strict mobile NATs can't connect WebRTC without a TURN relay. The
+ * credentials come from our serverless endpoint (/api/turn — Metered key
+ * stays server-side). Fails soft: no endpoint/no key → default STUN. */
+
+let iceServersCache: RTCIceServer[] | null = null;
+
+async function getIceServers(): Promise<RTCIceServer[]> {
+  if (iceServersCache) return iceServersCache;
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 3500);
+    const res = await fetch('/api/turn', { signal: ctrl.signal });
+    clearTimeout(timeout);
+    const list = (await res.json()) as RTCIceServer[];
+    if (Array.isArray(list) && list.length > 0) {
+      iceServersCache = list;
+      return list;
+    }
+  } catch { /* offline/dev — STUN fallback */ }
+  return [];
+}
+
 /* ─── Peer configuration (local override for dev/testing) ─────────── */
 
-function peerOptions(): PeerOptions {
+function peerOptions(ice: RTCIceServer[] = []): PeerOptions {
   const host = import.meta.env.VITE_PEER_HOST as string | undefined;
   if (host) {
     return {
@@ -124,7 +147,10 @@ function peerOptions(): PeerOptions {
       secure: false,
     };
   }
-  return {}; // PeerJS public cloud broker
+  if (ice.length > 0) {
+    return { config: { iceServers: ice } };
+  }
+  return {}; // PeerJS public cloud broker, default STUN
 }
 
 export function generateRoomCode(): string {
@@ -303,10 +329,11 @@ function dropGuest(peerId: string) {
   broadcastRoster();
 }
 
-export function hostRoom(code: string): Promise<void> {
+export async function hostRoom(code: string): Promise<void> {
   leftVoluntarily = false;
+  const ice = await getIceServers();
   return new Promise((resolve, reject) => {
-    const p = new Peer(`${ROOM_PREFIX}${code}`, peerOptions());
+    const p = new Peer(`${ROOM_PREFIX}${code}`, peerOptions(ice));
     peer = p;
 
     p.on('open', () => {
@@ -511,13 +538,14 @@ function attemptReconnect(attempt: number) {
     });
 }
 
-function joinRoomInternal(code: string, name: string): Promise<void> {
+async function joinRoomInternal(code: string, name: string): Promise<void> {
   leftVoluntarily = false;
+  const ice = await getIceServers();
   return new Promise((resolve, reject) => {
     let settled = false;
     let connectAttempts = 0;
 
-    const p = new Peer(peerOptions());
+    const p = new Peer(peerOptions(ice));
     peer = p;
 
     const timeout = setTimeout(() => fail('timeout'), JOIN_TIMEOUT_MS);

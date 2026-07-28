@@ -43,7 +43,13 @@ export function loadProfile(): PlayerProfile | null {
     if (!raw) return null;
     const p = JSON.parse(raw) as PlayerProfile;
     if (!p.id || !p.pin || typeof p.points !== 'number') return null;
-    if (typeof p.coins !== 'number') p.coins = 3000; // migrate old profiles
+    if (typeof p.coins !== 'number') {
+      // One-time migration bonus for EXISTING accounts: the 3,000 starting
+      // coins plus 15 ⭐ of welcome (only fires once — coins get defined).
+      p.coins = 3000;
+      p.points = Math.max(0, Math.min(99999, p.points + 15));
+      saveProfile(p);
+    }
     return p;
   } catch {
     return null;
@@ -89,6 +95,15 @@ export function setProfilePoints(points: number) {
 /* ─── Coins ("puntos") + daily rewards ─────────────────────────────── */
 
 const MAX_COINS = 99999999;
+
+/** Fixed exchange rate for pricing anything in both currencies:
+ *  200 puntos = 1 ⭐ (e.g. 3,000 pts ⇒ 15 ⭐). Star prices are always
+ *  ceil(coins / COINS_PER_STAR). */
+export const COINS_PER_STAR = 200;
+
+export function coinsToStars(coins: number): number {
+  return Math.ceil(coins / COINS_PER_STAR);
+}
 
 export function getCoins(): number {
   // No profile yet = the starting balance everyone begins with
