@@ -161,7 +161,7 @@ async function getIceServers(): Promise<RTCIceServer[]> {
 
 /* ─── Peer configuration (local override for dev/testing) ─────────── */
 
-function peerOptions(ice: RTCIceServer[] = [], iceTransportPolicy?: RTCIceTransportPolicy): PeerOptions {
+function peerOptions(ice: RTCIceServer[] = []): PeerOptions {
   const host = import.meta.env.VITE_PEER_HOST as string | undefined;
   if (host) {
     return {
@@ -172,9 +172,24 @@ function peerOptions(ice: RTCIceServer[] = [], iceTransportPolicy?: RTCIceTransp
     };
   }
   if (ice.length > 0) {
-    return { config: { iceServers: ice, ...(iceTransportPolicy ? { iceTransportPolicy } : {}) } };
+    return { config: { iceServers: ice } };
   }
   return {}; // PeerJS public cloud broker, default STUN
+}
+
+/** TURN-only view of an ICE list. Forcing relay via
+ *  iceTransportPolicy:'relay' is the textbook way, but iOS/Safari 26.0–26.5
+ *  has a WebKit regression where that policy gathers ZERO ICE candidates
+ *  (fixed only in Safari 26.6, released 2026-07-27) — iPhone 17s ship with
+ *  iOS 26, so the policy is a guaranteed dead end on them. Stripping the
+ *  STUN entries and keeping the default policy achieves the same practical
+ *  effect (relay candidates carry the connection) on every browser. */
+function turnOnly(ice: RTCIceServer[]): RTCIceServer[] {
+  const turns = ice.filter((s) => {
+    const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+    return urls.some((u) => u.startsWith('turn'));
+  });
+  return turns.length > 0 ? turns : ice;
 }
 
 export function generateRoomCode(): string {
@@ -567,15 +582,14 @@ function attemptReconnect(attempt: number) {
  *  short-circuit straight to the caller instead of burning a relay retry. */
 const JOIN_TERMINAL_REASONS = new Set(['room-not-found', 'room-full', 'in-game']);
 
-/** One join attempt under a FIXED ice policy. Resolves on 'welcome'; on
- *  failure rejects with `${reason}::${diagnostic}` — the diagnostic names
+/** One join attempt against a FIXED ICE server list. Resolves on 'welcome';
+ *  on failure rejects with `${reason}::${diagnostic}` — the diagnostic names
  *  exactly which stage died (broker vs ICE, and the last ICE state reached)
  *  so a failure we can't reproduce locally still tells us where to look. */
 function attemptJoin(
   code: string,
   name: string,
   ice: RTCIceServer[],
-  iceTransportPolicy: RTCIceTransportPolicy | undefined,
   budgetMs: number,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -584,7 +598,7 @@ function attemptJoin(
     let brokerOpened = false;
     let lastIceState = 'new';
 
-    const p = new Peer(peerOptions(ice, iceTransportPolicy));
+    const p = new Peer(peerOptions(ice));
     peer = p;
 
     const timeout = setTimeout(() => fail('timeout'), budgetMs);
@@ -720,26 +734,24 @@ function attemptJoin(
 /**
  * Two-phase join. Phase 1 allows every ICE candidate type (direct P2P when
  * possible — fastest, works fine on shared/permissive networks). If that
- * times out or the WebRTC link never opens, phase 2 retries FORCING
- * TURN-relay-only: real phones behind carrier-grade NAT routinely can't
- * complete a direct/STUN path at all, and relay-only is what actually gets
- * them connected — this is the fix that targets exactly the failure mode
- * reported on real Android and real iPhone hardware (never reproducible
- * from this sandbox: the egress proxy can't reach the live domain, and the
- * iOS Simulator rides the host Mac's own network rather than a real
- * carrier NAT, so "works in the simulator" never validated this path).
+ * times out or the WebRTC link never opens, phase 2 retries with a
+ * TURN-only server list: real phones behind carrier-grade NAT routinely
+ * can't complete a direct/STUN path at all, and relayed candidates are what
+ * actually get them connected. Deliberately NOT iceTransportPolicy:'relay'
+ * — see turnOnly() for the iOS/Safari 26 regression that policy hits on
+ * exactly the devices (iPhone 17 line) this retry exists to save.
  */
 async function joinRoomInternal(code: string, name: string): Promise<void> {
   leftVoluntarily = false;
   const ice = await getIceServers();
   try {
-    await attemptJoin(code, name, ice, undefined, JOIN_PHASE1_MS);
+    await attemptJoin(code, name, ice, JOIN_PHASE1_MS);
     return;
   } catch (e1) {
     const [reason1, diag1] = (e1 as Error).message.split('::');
     if (JOIN_TERMINAL_REASONS.has(reason1)) throw new Error(reason1);
     try {
-      await attemptJoin(code, name, ice, 'relay', JOIN_PHASE2_MS);
+      await attemptJoin(code, name, turnOnly(ice), JOIN_PHASE2_MS);
       return;
     } catch (e2) {
       const [reason2, diag2] = (e2 as Error).message.split('::');
@@ -747,7 +759,7 @@ async function joinRoomInternal(code: string, name: string): Promise<void> {
       // Both phases failed — this detail lands in onlineErrorDetail so the
       // NEXT report tells us precisely where to look instead of just
       // "timeout" again.
-      throw new Error(`${reason2}::t1(directo)=${diag1} t2(relay)=${diag2}`);
+      throw new Error(`${reason2}::t1(directo)=${diag1} t2(turn)=${diag2}`);
     }
   }
 }
