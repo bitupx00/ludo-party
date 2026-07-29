@@ -68,15 +68,21 @@ export default function Home() {
   // but never before the device has a registered account (the register
   // modal only lives on this screen, so leaving would skip it).
   useEffect(() => {
-    if (needsRegister) return;
     try {
-      const room = new URLSearchParams(window.location.search).get('room');
-      if (room) openLobby('online');
+      const url = new URL(window.location.href);
+      const room = url.searchParams.get('room');
+      if (!room) return;
+      // ONE-SHOT: strip the param so going back to the menu never bounces
+      // you into the lobby again (the old loop trapped link visitors).
+      url.searchParams.delete('room');
+      window.history.replaceState({}, '', url.pathname + url.search);
+      useGameStore.setState({ pendingRoomCode: room.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) });
+      openLobby('online'); // registration (if needed) happens IN the lobby
     } catch {
       /* noop */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsRegister]);
+  }, []);
 
   return (
     <div className="screen home">

@@ -22,6 +22,8 @@ import type { MemeFx } from '../game/memeFx.ts';
 import type { MemeThrow } from '../store/gameStore.ts';
 import { useInvStore, soundForMeme } from '../inventory.ts';
 import { useT } from '../i18n.ts';
+import TutorialModal, { TUTORIAL_SEEN_KEY } from './TutorialModal.tsx';
+import { BookOpen } from 'lucide-react';
 import {
   Ban, Camera, CameraOff, Dices, Flame, Gift, Hand, MessageCircle, Mic, MicOff,
   Plus, RadioTower, SmilePlus, Star, Target, Volume2, VolumeX,
@@ -109,6 +111,12 @@ export default function Game() {
   const [chatOpen, setChatOpen] = useState(false);
   const [stickersOpen, setStickersOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  // In-game manual: auto-opens for FIRST-TIME players (dismiss anytime —
+  // tap outside or ✕ — and it hides ITSELF when your turn arrives so it
+  // never blocks play).
+  const [manualOpen, setManualOpen] = useState(() => {
+    try { return !localStorage.getItem(TUTORIAL_SEEN_KEY); } catch { return false; }
+  });
   const [unreadCount, setUnreadCount] = useState(0);
 
   const currentPlayer = players[currentPlayerIndex];
@@ -202,6 +210,9 @@ export default function Game() {
   const myTurn = onlineRole === 'none'
     ? !isBot
     : currentPlayer?.id === localPlayerId;
+  useEffect(() => {
+    if (myTurn && phase === 'rolling') setManualOpen(false);
+  }, [myTurn, phase]);
   const canRoll = phase === 'rolling' && !winner;
 
   // Lucky-dice shop: whose points this device shows/spends — online →
@@ -388,6 +399,14 @@ export default function Game() {
                 : `${t('turnOf')} ${currentPlayer?.name ?? ''}`}
             </span>
           </div>
+          <button
+            className="game-exit game-manual"
+            onClick={() => setManualOpen(true)}
+            aria-label="Manual"
+            title="Manual de juego"
+          >
+            <BookOpen size={17} />
+          </button>
           <button
             className="game-exit game-mute"
             onClick={toggleMuted}
@@ -673,6 +692,9 @@ export default function Game() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* In-game manual overlay (quick to dismiss, auto-hides on your turn) */}
+      {manualOpen && <TutorialModal onClose={() => setManualOpen(false)} />}
 
       {/* Win screen */}
       {winner && <WinScreen winnerColor={winner} />}

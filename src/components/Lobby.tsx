@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore.ts';
 import type { Color, Player } from '../game/types.ts';
@@ -9,6 +9,7 @@ import { loadProfile, getCoins } from '../profile.ts';
 import { useT } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
 import AvatarIcon from './AvatarIcon.tsx';
+import RegisterModal from './RegisterModal.tsx';
 import {
   AlertTriangle, Bot, Check, ClipboardCopy, Coins, Crown, Flame, Handshake,
   Hourglass, Home as HomeIcon, LogIn, RefreshCw, Rocket, Share2, Star,
@@ -20,13 +21,11 @@ export default function Lobby() {
   // Prefill with the device profile's name (persistent "account")
   const [nameInput, setNameInput] = useState(() => loadProfile()?.name ?? '');
   // Deep link: /?room=CODE pre-fills the join code
-  const [codeInput, setCodeInput] = useState(() => {
-    try {
-      return new URLSearchParams(window.location.search).get('room')?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) ?? '';
-    } catch {
-      return '';
-    }
-  });
+  const pendingRoomCode = useGameStore((s) => s.pendingRoomCode);
+  const [codeInput, setCodeInput] = useState(() => pendingRoomCode ?? '');
+  // Shared-link flow: lobby FIRST, register here if needed, then auto-join
+  const [needsRegister, setNeedsRegister] = useState(() => !!pendingRoomCode && !loadProfile());
+  const autoJoined = useState({ done: false })[0];
   const [copied, setCopied] = useState(false);
   // Seat ticket from a previous online session on this device: offers a
   // one-tap "rejoin your room" shortcut (the seat is reclaimed by token).
@@ -53,6 +52,17 @@ export default function Lobby() {
   const goHome = useGameStore((s) => s.goHome);
   const createOnlineRoom = useGameStore((s) => s.createOnlineRoom);
   const joinOnlineRoom = useGameStore((s) => s.joinOnlineRoom);
+
+  // Auto-join from a shared link once an account exists
+  useEffect(() => {
+    if (!pendingRoomCode || needsRegister || autoJoined.done || onlineRole !== 'none') return;
+    const prof = loadProfile();
+    if (!prof) return;
+    autoJoined.done = true;
+    useGameStore.setState({ pendingRoomCode: null });
+    void joinOnlineRoom(pendingRoomCode, prof.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRoomCode, needsRegister]);
 
   const playersByColor = new Map<Color, Player>(players.map((p) => [p.color, p]));
 
@@ -142,6 +152,7 @@ export default function Lobby() {
 
   return (
     <div className="screen lobby">
+      {needsRegister && <RegisterModal onDone={() => setNeedsRegister(false)} />}
       <div className="screen-inner lobby-inner">
         {/* Header */}
         <div className="lobby-header">

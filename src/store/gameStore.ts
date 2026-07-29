@@ -141,6 +141,9 @@ interface GameStore {
    *  like iPhone/Safari quirks). */
   onlineErrorDetail: string | null;
   onlineConnecting: boolean;
+  /** Room code captured from a shared link — consumed by the lobby (it
+   *  never blocks navigation; the URL param is stripped on arrival). */
+  pendingRoomCode: string | null;
   /** Guest: the link to the host dropped and is being rebuilt in the background. */
   onlineReconnecting: boolean;
 
@@ -244,6 +247,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   localPlayerId: null,
   onlineError: null,
   onlineErrorDetail: null,
+  pendingRoomCode: null,
   onlineConnecting: false,
   onlineReconnecting: false,
 
