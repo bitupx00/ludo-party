@@ -74,11 +74,15 @@ export default function BoardHex({ showIndexes = false, pieces = [], onPieceClic
   pieces?: HexBoardPiece[];
   onPieceClick?: (pieceId: string) => void;
 }) {
-  // Stacked pieces on a cell fan out slightly so every pawn stays visible
+  // Stacked pieces on a SHARED cell fan out slightly so every pawn stays
+  // visible. Base pieces (-1) each have their own slot — never fanned;
+  // lane cells are per-color; ring cells are global.
+  const stackKey = (pc: HexBoardPiece) =>
+    pc.position === -1 ? `base:${pc.id}` : `${pc.position >= 78 ? pc._color : ''}:${pc.position}`;
   const stackIndex = new Map<string, number>();
   const stackTotals = new Map<string, number>();
   for (const pc of pieces) {
-    const key = `${pc.position >= 78 ? pc._color : ''}:${pc.position}`;
+    const key = stackKey(pc);
     stackIndex.set(pc.id, stackTotals.get(key) ?? 0);
     stackTotals.set(key, (stackTotals.get(key) ?? 0) + 1);
   }
@@ -183,7 +187,7 @@ export default function BoardHex({ showIndexes = false, pieces = [], onPieceClic
           {pieces.map((pc) => {
             const idx = parseInt(pc.id.slice(-1), 10) % 4;
             const pos = hexPiecePosition(pc._color as HexColor, pc.position, idx);
-            const key = `${pc.position >= 78 ? pc._color : ''}:${pc.position}`;
+            const key = stackKey(pc);
             const n = stackTotals.get(key) ?? 1;
             const i = stackIndex.get(pc.id) ?? 0;
             const spread = n > 1 ? (i - (n - 1) / 2) * 1.8 : 0;
@@ -229,9 +233,10 @@ styleOnce('board-hex', `
     border: none;
     background: transparent;
     padding: 0;
-    /* translate (NOT transform): centers the pawn on its cell and lifts
-       its feet onto the square */
-    translate: -50% -72%;
+    /* translate (NOT transform): centers the pawn on its cell — same
+       -58% vertical anchor the 4p board uses (verified via controlled
+       position simulation: -72% floated every pawn half a cell high). */
+    translate: -50% -58%;
     pointer-events: auto;
     cursor: default;
     transition: left 260ms ease, top 260ms ease;

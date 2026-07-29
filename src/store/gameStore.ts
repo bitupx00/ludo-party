@@ -1008,7 +1008,8 @@ function applyMemeThrow(
   // Ownership lives on the sender's device; the host validates shape.
   if (!isMemeReaction(gifPayload) || gifPayload.length > 400) return;
   const parts = memePartsOf(gifPayload);
-  if (!/^https:\/\//.test(parts.url)) return;
+  // https (Klipy/Tenor) or same-origin bundled memes
+  if (!/^(https:\/\/|\/)/.test(parts.url)) return;
   // Rate limit: shares the 1-sound-per-turn budget
   if ((from.lastSoundTurn ?? -1) === s.turnCount) return;
   const sound = MEME_SOUNDS.some((sn) => sn.id === parts.sound)
