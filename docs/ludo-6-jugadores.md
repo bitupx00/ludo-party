@@ -8,7 +8,9 @@
 - ⏳ Fase 2 (motor), Fase 3 (lobby/online), Fase 4 (validación) — abajo.
 
 ## Geometría (fuente de verdad: `boardPath6.ts`)
-- Estrella de 6 brazos a 60°, todo en coordenadas polares → % del tablero
+- HEXÁGONO completo (flat-top, como el tablero comercial clásico): 6
+  radios de 3 columnas, bases circulares en las esquinas, flechas de
+  salida y estrellas de refugio. Todo en coordenadas polares → % del tablero
   (sin grid CSS). El SVG del tablero y la capa de fichas comparten las
   mismas coordenadas vía `hexPiecePosition()` (mismo patrón que el 4p).
 - **Anillo: 78 casillas** (13 por brazo), sentido horario. Patrón por
@@ -19,10 +21,10 @@
   horaria de su brazo.
 - **Salida**: `HEX_ENTRY[c] = 13k + 8` (columna de bajada, pegada a la
   base). **Entrada al pasillo**: `13k + 6` (la punta del propio brazo).
-  Recorrido: **76 casillas de anillo + 5 de pasillo + meta = 82 pasos**
-  (vs 56 del tablero de 4 → partidas ~45% más largas, estándar en 6p).
+  Recorrido: **76 casillas de anillo + 6 de pasillo (numerado 1-6) + meta = 83 pasos**
+  (vs 56 del tablero de 4 → partidas ~48% más largas, estándar en 6p).
 - **Codificación de posición**: `-1` base · `0..77` anillo ·
-  `78..82` pasillo propio · `83` meta (`HEX_GOAL`).
+  `78..83` pasillo propio · `84` meta (`HEX_GOAL`).
 - **Seguras (12)**: `13k+1` y `13k+8` de cada brazo (2 por sector,
   equivalente a las 8 del tablero de 4).
 - Helpers listos para el motor: `hexNextLogical`, `hexCalculateNewPosition`

@@ -20,7 +20,7 @@ function BoardHexPreview() {
       </h1>
       <BoardHex showIndexes={new URLSearchParams(window.location.search).has('idx')} />
       <p style={{ textAlign: 'center', fontSize: '0.75rem', opacity: 0.75 }}>
-        78 casillas · 6 salidas · 12 seguras · pasillos de 5 · añade &idx para ver los índices
+        78 casillas · 6 salidas · 12 seguras · pasillos de 6 · añade &idx para ver los índices
       </p>
     </div>
   )

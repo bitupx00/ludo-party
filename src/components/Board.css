@@ -4,10 +4,11 @@
   position: relative;
   /* svh (NOT dvh): dvh grows when the mobile browser bar hides, which
      resized the board mid-game and pushed the layout downward. svh is
-     stable. Width runs almost edge to edge. */
-  width: min(100vw - 8px, 58svh, 560px);
+     stable. Ludo Club look: the board runs FULL edge-to-edge and sits a
+     touch lower in the column (margin-top biases the free space up). */
+  width: min(100vw, 62svh, 600px);
   aspect-ratio: 1;
-  margin: 0 auto;
+  margin: 6px auto 0;
   flex-shrink: 0;
 }
 

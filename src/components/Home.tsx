@@ -5,7 +5,8 @@ import type { GameMode } from '../game/types.ts';
 import { useT, useLangStore, TIPS } from '../i18n.ts';
 import ProfileCard from './ProfileCard.tsx';
 import TutorialModal, { TUTORIAL_SEEN_KEY } from './TutorialModal.tsx';
-import { ensureProfile, getCoins, claimStatus, claimDaily, DAILY_REWARDS, DAY7_STAR_BONUS } from '../profile.ts';
+import RegisterModal from './RegisterModal.tsx';
+import { ensureProfile, getCoins, claimStatus, claimDaily, loadProfile, DAILY_REWARDS, DAY7_STAR_BONUS } from '../profile.ts';
 import type { LucideIcon } from 'lucide-react';
 import {
   Backpack, Bot, CircleHelp, Coins, Gamepad2, Gift, Globe, Handshake,
@@ -30,10 +31,21 @@ export default function Home() {
   const onlineError = useGameStore((s) => s.onlineError);
   const [tipIndex, setTipIndex] = useState(0);
   const [dailyOpen, setDailyOpen] = useState(false);
+  // Mandatory registration: with no profile on this device the register
+  // window ALWAYS shows (create account or restore one) — nothing else
+  // is reachable until the account exists and the wallet is persisted.
+  const [needsRegister, setNeedsRegister] = useState(() => !loadProfile());
   // Guided tutorial: auto-opens the very first time the game loads
+  // (AFTER registration when the account is new).
   const [helpOpen, setHelpOpen] = useState(() => {
-    try { return !localStorage.getItem(TUTORIAL_SEEN_KEY); } catch { return false; }
+    try { return !!loadProfile() && !localStorage.getItem(TUTORIAL_SEEN_KEY); } catch { return false; }
   });
+  const handleRegistered = () => {
+    setNeedsRegister(false);
+    setCoins(getCoins());
+    setClaim(claimStatus());
+    try { if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) setHelpOpen(true); } catch { /* noop */ }
+  };
   const [coins, setCoins] = useState(getCoins);
   const [claim, setClaim] = useState(claimStatus);
   const handleClaim = () => {
@@ -51,8 +63,11 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [tips.length]);
 
-  // Deep link: opening /?room=CODE jumps straight to the online lobby
+  // Deep link: opening /?room=CODE jumps straight to the online lobby —
+  // but never before the device has a registered account (the register
+  // modal only lives on this screen, so leaving would skip it).
   useEffect(() => {
+    if (needsRegister) return;
     try {
       const room = new URLSearchParams(window.location.search).get('room');
       if (room) openLobby('online');
@@ -60,7 +75,7 @@ export default function Home() {
       /* noop */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [needsRegister]);
 
   return (
     <div className="screen home">
@@ -119,6 +134,8 @@ export default function Home() {
       )}
 
       {helpOpen && <TutorialModal onClose={() => setHelpOpen(false)} />}
+
+      {needsRegister && <RegisterModal onDone={handleRegistered} />}
 
       <div className="screen-inner home-inner">
         {/* Logo */}
