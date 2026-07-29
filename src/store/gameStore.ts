@@ -88,6 +88,7 @@ export const SNAPSHOT_KEYS = [
   'reactions',
   'memeFx',
   'memeThrow',
+  'lastPieceByPlayer',
   'betAmount',
   'matchId',
 ] as const;
@@ -124,6 +125,9 @@ interface GameStore {
   /** Latest thrown meme (gift button) — synced so every device animates
    *  the same flight and pins it on the target. */
   memeThrow: MemeThrow | null;
+  /** playerId → id of the piece that player moved most recently. Synced so
+   *  every client lands a self-thrown meme on the same piece. */
+  lastPieceByPlayer: Record<string, string>;
   /** Entry bet in coins per human player (winner takes the pot). */
   betAmount: number;
   /** Unique id per started match (bet settlement dedup). */
@@ -240,6 +244,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   reactions: {},
   memeFx: null,
   memeThrow: null,
+  lastPieceByPlayer: {},
   betAmount: 100,
   matchId: null,
   onlineRole: 'none',
@@ -295,6 +300,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactions: {},
       memeFx: null,
       memeThrow: null,
+      lastPieceByPlayer: {},
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -329,6 +335,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactions: {},
       memeFx: null,
       memeThrow: null,
+      lastPieceByPlayer: {},
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -554,6 +561,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactions: {},
       memeFx: null,
       memeThrow: null,
+      lastPieceByPlayer: {},
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -761,6 +769,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactions: {},
       memeFx: null,
       memeThrow: null,
+      lastPieceByPlayer: {},
       matchId: createId(),
           messages: [
         {
@@ -907,6 +916,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactions: {},
       memeFx: null,
       memeThrow: null,
+      lastPieceByPlayer: {},
       onlineRole: 'none',
       roomCode: null,
       localPlayerId: null,
@@ -955,6 +965,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reactions: {},
       memeFx: null,
       memeThrow: null,
+      lastPieceByPlayer: {},
       matchId: createId(),
           messages: [
         {
@@ -1378,6 +1389,12 @@ function executeMove(
   let newState = movePiece({ ...state }, pieceId, diceValue);
   const movedAfter = newState.players[controlledIdx].pieces.find((p) => p.id === pieceId);
 
+  // Remember the piece this player just played (self-thrown memes land on it)
+  const lastPieceByPlayer = {
+    ...state.lastPieceByPlayer,
+    [state.players[currentPlayerIndex].id]: pieceId,
+  };
+
   // Structural event detection (no message sniffing):
   // capture = an opponent piece that was on the board is now back at base
   const mover = state.players[currentPlayerIndex];
@@ -1462,6 +1479,7 @@ function executeMove(
     }
     set({
       ...newState,
+      lastPieceByPlayer,
       ...(memeFx ? { memeFx } : {}),
       messages: pushMessage(newState.messages, {
           id: createId(),
@@ -1489,7 +1507,7 @@ function executeMove(
       }),
     };
   }
-  set(memeFx ? { ...advanced, memeFx } : advanced);
+  set(memeFx ? { ...advanced, lastPieceByPlayer, memeFx } : { ...advanced, lastPieceByPlayer });
 
   // Schedule bot turn if next player is a bot
   scheduleBotTurn(set, get);

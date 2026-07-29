@@ -383,43 +383,54 @@ styleOnce('avatar-badge', `
         .avatar-reaction-bubble {
           position: absolute;
           top: -14px;
-          right: -12px;
-          min-width: 34px;
-          max-width: 46vw;
+          /* LEFT-side avatars open TOWARD the board (rightward) so nothing
+             ever grows past the screen edge and gets hidden. */
+          left: -6px;
+          right: auto;
+          width: max-content;
+          max-width: min(44vw, 220px);
           min-height: 32px;
-          padding: 5px 9px;
-          border-radius: 17px 17px 17px 4px;
-          background: rgba(255, 255, 255, 0.82);
-          backdrop-filter: blur(2px);
-          box-shadow: 0 4px 10px rgba(18, 8, 60, 0.35);
+          padding: 3px 4px;
           display: flex;
           align-items: center;
-          justify-content: center;
-          /* Text reactions (frases, bots) wrap in a readable size instead
-             of one giant clipped line */
-          font-size: 0.74rem;
+          justify-content: flex-start;
+          /* No bubble base: readable by contrast alone (white + dark halo).
+             Words always wrap COMPLETE at spaces — never letter-by-letter. */
+          font-size: 0.78rem;
           font-weight: 800;
           line-height: 1.25;
-          color: #1d1440;
-          text-align: center;
-          word-break: break-word;
+          color: #fff;
+          text-shadow: 0 1px 3px rgba(10, 4, 36, 0.95), 0 0 8px rgba(10, 4, 36, 0.75);
+          text-align: left;
+          white-space: normal;
+          word-break: normal;
+          overflow-wrap: break-word;
           z-index: 60;
           pointer-events: none;
         }
         .avatar-badge--right .avatar-reaction-bubble {
-          right: auto;
-          left: -12px;
-          border-radius: 17px 17px 4px 17px;
+          left: auto;
+          right: -6px;
+          justify-content: flex-end;
+          text-align: right;
         }
         .avatar-pinned-meme {
           position: absolute;
           top: -10px;
-          right: -10px;
+          /* Toward the board (inner side) — at the screen edge the outer
+             side clips the meme out of view. */
+          left: calc(100% - 12px);
+          right: auto;
           z-index: 6;
           rotate: 12deg;
           filter: drop-shadow(0 2px 4px rgba(18, 8, 60, 0.5));
           animation: pinned-splat 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
           pointer-events: none;
+        }
+        .avatar-badge--right .avatar-pinned-meme {
+          left: auto;
+          right: calc(100% - 12px);
+          rotate: -12deg;
         }
         @keyframes pinned-splat {
           0% { scale: 2.2; opacity: 0; rotate: -30deg; }
@@ -464,16 +475,17 @@ styleOnce('avatar-badge', `
           font-size: 0.68rem;
           font-weight: 800;
           font-family: var(--font-display);
-          color: #241865;
+          color: #fff;
+          text-shadow: 0 1px 3px rgba(10, 4, 36, 0.95), 0 0 8px rgba(10, 4, 36, 0.75);
           white-space: nowrap;
-          max-width: 150px;
-          overflow: hidden;
-          text-overflow: ellipsis;
           padding: 0 4px;
+        }
+        .avatar-tgif {
+          box-shadow: 0 4px 12px rgba(10, 4, 36, 0.55);
         }
         .avatar-reaction-bubble--gif {
           min-width: 70px;
-          height: 70px;
+          min-height: 70px;
           top: -38px;
         }
         .avatar-badge-dice {

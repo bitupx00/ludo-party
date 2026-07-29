@@ -197,6 +197,7 @@ export default function BoardHex({ showIndexes = false, pieces = [], onPieceClic
               <button
                 key={pc.id}
                 className={`hexboard-piece ${pc._isMovable ? 'hexboard-piece--movable' : ''}`}
+                data-piece-id={pc.id}
                 style={{ left: `${pos.x + spread}%`, top: `${top}%` }}
                 onClick={() => pc._isMovable && onPieceClick?.(pc.id)}
                 aria-label={pc.id}

@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   loadProfile,
+  saveProfile,
   exportProfileCode,
   importProfileCode,
   type PlayerProfile,
@@ -40,6 +41,10 @@ function CopyRow({ label, value, secret }: { label: string; value: string; secre
   );
 }
 
+/** Hidden dev mode: open+close the profile 3 times, then enter the key. */
+const DEV_KEY = 'adminbitupx';
+const DEV_FLAG = 'lp-dev-mode';
+
 export default function ProfileCard() {
   const t = useT();
   const [profile, setProfile] = useState<PlayerProfile | null>(loadProfile);
@@ -47,6 +52,41 @@ export default function ProfileCard() {
   const [restoreCode, setRestoreCode] = useState('');
   const [restorePin, setRestorePin] = useState('');
   const [restoreState, setRestoreState] = useState<'idle' | 'ok' | 'bad'>('idle');
+
+  // Dev mode: 3 open/close cycles reveal a key prompt; the right key
+  // unlocks a panel to credit puntos/estrellas (kept for this session).
+  const openCycles = useRef(0);
+  const [devPromptVisible, setDevPromptVisible] = useState(false);
+  const [devKeyInput, setDevKeyInput] = useState('');
+  const [devUnlocked, setDevUnlocked] = useState(() => {
+    try { return sessionStorage.getItem(DEV_FLAG) === '1'; } catch { return false; }
+  });
+  const [devAmount, setDevAmount] = useState('');
+  const [devMsg, setDevMsg] = useState<string | null>(null);
+
+  const tryDevKey = () => {
+    if (devKeyInput.trim() === DEV_KEY) {
+      setDevUnlocked(true);
+      setDevPromptVisible(false);
+      try { sessionStorage.setItem(DEV_FLAG, '1'); } catch { /* noop */ }
+    } else {
+      setDevKeyInput('');
+    }
+  };
+
+  const devCredit = (kind: 'coins' | 'stars') => {
+    const n = Math.floor(Number(devAmount));
+    if (!Number.isFinite(n) || n === 0) return;
+    const p = loadProfile();
+    if (!p) return;
+    if (kind === 'coins') p.coins = Math.max(0, (p.coins ?? 0) + n);
+    else p.points = Math.max(0, (p.points ?? 0) + n);
+    saveProfile(p);
+    setProfile(p);
+    setDevAmount('');
+    setDevMsg(`${n > 0 ? '+' : ''}${n.toLocaleString('es')} ${kind === 'coins' ? 'puntos' : 'estrellas'} aplicados a ${p.name}`);
+    setTimeout(() => setDevMsg(null), 2500);
+  };
 
   const handleRestore = useCallback(() => {
     const restored = importProfileCode(restoreCode, restorePin);
@@ -63,7 +103,15 @@ export default function ProfileCard() {
 
   return (
     <>
-      <button className="profile-badge" onClick={() => { setProfile(loadProfile()); setOpen(true); }}>
+      <button
+        className="profile-badge"
+        onClick={() => {
+          setProfile(loadProfile());
+          openCycles.current += 1;
+          if (openCycles.current >= 3 && !devUnlocked) setDevPromptVisible(true);
+          setOpen(true);
+        }}
+      >
         <User size={13} className="pc-ico" /> {profile ? <>{profile.name} · <Star size={11} className="pc-ico" />{profile.points} · <Coins size={11} className="pc-ico" />{(profile.coins ?? 0).toLocaleString('es')}</> : t('profileTitle')}
       </button>
 
@@ -134,6 +182,50 @@ export default function ProfileCard() {
               </div>
               {restoreState === 'ok' && <p className="profile-feedback profile-feedback--ok">{t('profileRestoreOk')}</p>}
               {restoreState === 'bad' && <p className="profile-feedback profile-feedback--bad"><AlertTriangle size={11} className="pc-ico" /> {t('profileRestoreBad')}</p>}
+
+              {devPromptVisible && !devUnlocked && (
+                <>
+                  <div className="profile-divider">Modo dev</div>
+                  <div className="profile-restore-row">
+                    <input
+                      className="profile-input"
+                      type="password"
+                      placeholder="Clave de acceso…"
+                      value={devKeyInput}
+                      onChange={(e) => setDevKeyInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && tryDevKey()}
+                    />
+                    <button className="btn btn-green profile-restore-btn" onClick={tryDevKey}>
+                      <Unlock size={12} className="pc-ico" /> Entrar
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {devUnlocked && (
+                <>
+                  <div className="profile-divider">Modo dev — acreditar saldo</div>
+                  <div className="profile-restore-row">
+                    <input
+                      className="profile-input"
+                      type="number"
+                      placeholder="Cantidad (ej. 5000)…"
+                      value={devAmount}
+                      onChange={(e) => setDevAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="profile-restore-row">
+                    <button className="btn btn-green profile-restore-btn profile-dev-btn" onClick={() => devCredit('coins')}>
+                      + Puntos
+                    </button>
+                    <button className="btn btn-green profile-restore-btn profile-dev-btn" onClick={() => devCredit('stars')}>
+                      + Estrellas
+                    </button>
+                  </div>
+                  {devMsg && <p className="profile-feedback profile-feedback--ok">{devMsg}</p>}
+                  <p className="profile-hint">Acredita al perfil de ESTE dispositivo. Para otro jugador, pídele entrar aquí desde su teléfono.</p>
+                </>
+              )}
             </motion.div>
 
             <style>{`

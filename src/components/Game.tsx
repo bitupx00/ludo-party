@@ -47,9 +47,15 @@ function ThrowFlight({ fx, onDone }: { fx: MemeThrow; onDone: () => void }) {
         ? { x: r.x + r.width / 2, y: r.y + r.height / 2 }
         : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     };
+    // Self-throw: the meme flies to the player's LAST PLAYED piece on the
+    // board (falls back to their avatar if none moved yet).
+    const selfPieceId = fx.from === fx.to
+      ? useGameStore.getState().lastPieceByPlayer[fx.from]
+      : undefined;
+    const pieceEl = selfPieceId ? document.querySelector(`[data-piece-id="${selfPieceId}"]`) : null;
     return {
       a: center(document.querySelector(`[data-badge-for="${fx.from}"]`)),
-      b: center(document.querySelector(`[data-badge-for="${fx.to}"]`)),
+      b: center(pieceEl ?? document.querySelector(`[data-badge-for="${fx.to}"]`)),
     };
   });
   useEffect(() => {
@@ -73,6 +79,29 @@ function ThrowFlight({ fx, onDone }: { fx: MemeThrow; onDone: () => void }) {
     >
       {gifUrl && <img className="throw-fly-img" src={gifUrl} alt="" draggable={false} />}
     </motion.div>
+  );
+}
+
+/** Meme sitting on a board piece (self-throw): follows the piece's DOM
+ *  position while visible, so board resizes/animations don't detach it. */
+function PiecePin({ pieceId, gif }: { pieceId: string; gif: string }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const track = () => {
+      const el = document.querySelector(`[data-piece-id="${pieceId}"]`);
+      const r = el?.getBoundingClientRect();
+      setPos(r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null);
+    };
+    track();
+    const timer = setInterval(track, 250);
+    return () => clearInterval(timer);
+  }, [pieceId]);
+  const url = isMemeReaction(gif) ? memePartsOf(gif).url : '';
+  if (!pos || !url) return null;
+  return (
+    <div className="piece-pin" style={{ left: pos.x, top: pos.y }}>
+      <img className="piece-pin-img" src={url} alt="" draggable={false} />
+    </div>
   );
 }
 
@@ -152,8 +181,12 @@ export default function Game() {
   // Thrown memes (gift button): animate the flight on every device, play
   // the impact sound, and pin the meme on the target's avatar for a minute.
   const PIN_MS = 60000;
+  /** Self-thrown memes sit on the piece only while the sound plays. */
+  const PIECE_PIN_MS = 5000;
   const [flight, setFlight] = useState<MemeThrow | null>(null);
   const [pinned, setPinned] = useState<Record<string, string>>({});
+  const [piecePin, setPiecePin] = useState<{ pieceId: string; gif: string; key: number } | null>(null);
+  const piecePinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const seenThrowKey = useRef<number>(useGameStore.getState().memeThrow?.key ?? 0);
   const [giftTarget, setGiftTarget] = useState<string | null>(null);
@@ -167,6 +200,17 @@ export default function Game() {
       if (!fx) return null;
       // The thrower may be silenced on this device — no impact sound then
       if (!useVideoStore.getState().mutedPlayers[fx.from]) playMemeSound(fx.sound);
+      // Self-throw: land on the player's last played piece, visible only
+      // while the sound plays, then vanish without touching anything else.
+      const selfPieceId = fx.from === fx.to
+        ? useGameStore.getState().lastPieceByPlayer[fx.from]
+        : undefined;
+      if (selfPieceId && document.querySelector(`[data-piece-id="${selfPieceId}"]`)) {
+        setPiecePin({ pieceId: selfPieceId, gif: fx.gif, key: fx.key });
+        if (piecePinTimer.current) clearTimeout(piecePinTimer.current);
+        piecePinTimer.current = setTimeout(() => setPiecePin(null), PIECE_PIN_MS);
+        return null;
+      }
       setPinned((p) => ({ ...p, [fx.to]: fx.gif }));
       if (pinTimers.current[fx.to]) clearTimeout(pinTimers.current[fx.to]);
       pinTimers.current[fx.to] = setTimeout(() => {
@@ -179,7 +223,10 @@ export default function Game() {
       return null;
     });
   }, []);
-  useEffect(() => () => { Object.values(pinTimers.current).forEach(clearTimeout); }, []);
+  useEffect(() => () => {
+    Object.values(pinTimers.current).forEach(clearTimeout);
+    if (piecePinTimer.current) clearTimeout(piecePinTimer.current);
+  }, []);
 
   // ⏱ 20s turn timer: the acting device (host/local) forces an auto-roll
   // or auto-move when the current human runs out of time; every device
@@ -648,6 +695,9 @@ export default function Game() {
       {/* Thrown meme in flight */}
       {flight && <ThrowFlight fx={flight} onDone={handleFlightDone} />}
 
+      {/* Self-thrown meme resting on the last played piece (sound-length only) */}
+      {piecePin && <PiecePin key={piecePin.key} pieceId={piecePin.pieceId} gif={piecePin.gif} />}
+
       {/* Throw-meme picker (gift button on an avatar) */}
       <AnimatePresence>
         {giftTarget && (
@@ -933,6 +983,25 @@ styleOnce('game', `
           translate: -50% -50%;
           pointer-events: none;
           filter: drop-shadow(0 6px 10px rgba(18, 8, 60, 0.5));
+        }
+        .piece-pin {
+          position: fixed;
+          z-index: 165;
+          translate: -50% -88%;
+          pointer-events: none;
+          animation: piece-pin-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          filter: drop-shadow(0 4px 8px rgba(18, 8, 60, 0.55));
+        }
+        @keyframes piece-pin-in {
+          from { scale: 1.8; opacity: 0; }
+          to { scale: 1; opacity: 1; }
+        }
+        .piece-pin-img {
+          width: 46px;
+          height: 46px;
+          border-radius: 10px;
+          object-fit: cover;
+          display: block;
         }
         .throw-backdrop {
           position: fixed;

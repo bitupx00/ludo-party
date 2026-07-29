@@ -69,6 +69,7 @@ function Piece({ piece, xs, ys, layout, stepDuration = STEP_DURATION, onClick }:
   return (
     <motion.div
       className="piece-slot"
+      data-piece-id={piece.id}
       style={{ zIndex: traveling ? 30 : canMove ? 20 : 10 }}
       initial={false}
       animate={{
