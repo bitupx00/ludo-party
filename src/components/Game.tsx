@@ -1037,6 +1037,10 @@ styleOnce('game', `
         }
         /* Lucide icon alignment + purchased-meme imagery */
         .game-status-ico { vertical-align: -2px; margin-right: 2px; }
+        /* Reaction bubbles open TOWARD the board (not into the screen
+           edge): top row → below the avatar; bottom row → above it. */
+        .game-badges--top .avatar-reaction-bubble { top: auto; bottom: -46px; border-radius: 4px 17px 17px 17px; }
+        .game-badges--bottom .avatar-reaction-bubble { top: auto; bottom: calc(100% + 10px); }
         .game-star-ico { vertical-align: -1px; margin-right: 1px; color: #ffd65a; }
         .game-hud-side-btn svg, .game-reaction-btn--more svg, .game-av-btn svg,
         .game-mute svg { display: block; margin: 0 auto; }

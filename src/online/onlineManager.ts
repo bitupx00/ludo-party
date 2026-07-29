@@ -63,7 +63,7 @@ const ROOM_PREFIX = 'ludo-party-room-';
 
 /* ─── Tuning ───────────────────────────────────────────────────────── */
 
-const JOIN_TIMEOUT_MS = 20000;
+const JOIN_TIMEOUT_MS = 15000; // relayed links on mobile take longer
 /** Connect attempts before reporting "room not found" (broker errors are often transient). */
 const JOIN_CONNECT_ATTEMPTS = 3;
 const JOIN_RETRY_DELAY_MS = 1600;
@@ -132,8 +132,19 @@ async function getIceServers(): Promise<RTCIceServer[]> {
       iceServersCache = list;
       return list;
     }
-  } catch { /* offline/dev — STUN fallback */ }
-  return [];
+  } catch { /* offline/dev — fall through to the public relay */ }
+  // No METERED_API_KEY (or the endpoint failed): fall back to the free
+  // public OpenRelay TURN (metered.ca) — without ANY relay, phones on
+  // cellular/different NATs never complete the P2P link and joins die
+  // with 'timeout' (exactly the field failure reported on phones).
+  const fallback: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ];
+  iceServersCache = fallback;
+  return fallback;
 }
 
 /* ─── Peer configuration (local override for dev/testing) ─────────── */

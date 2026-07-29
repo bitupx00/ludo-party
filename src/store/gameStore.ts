@@ -1075,7 +1075,7 @@ function chatFromPlayer(
     messages: pushMessage(s.messages, {
       id: createId(),
       playerId: player.id,
-      text: trimmed.slice(0, 200),
+      text: trimmed.slice(0, 25),
       timestamp: Date.now(),
       kind: 'chat',
     }),

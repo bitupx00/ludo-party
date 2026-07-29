@@ -36,6 +36,12 @@ export const RARITY_INFO: Record<DiceRarity, { name: string; color: string }> = 
 };
 
 /* ── Pattern library (pure CSS gradients — tile without background-size) ── */
+/** Cartoon paw-print tile (inline SVG, transparent background). */
+function PAW(color: string): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><g fill='${color}'><ellipse cx='24' cy='28' rx='7' ry='6'/><circle cx='15' cy='19' r='3.2'/><circle cx='21.5' cy='15.5' r='3.2'/><circle cx='28.5' cy='15.5' r='3.2'/><circle cx='34' cy='19' r='3.2'/></g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 const PAT = {
   stripes: (c: string) => `repeating-linear-gradient(45deg, ${c} 0 7%, transparent 7% 18%)`,
   candy: (c: string) => `repeating-linear-gradient(-45deg, ${c} 0 10%, transparent 10% 22%)`,
@@ -301,6 +307,32 @@ export const DICE_SKINS: DiceSkin[] = [
   mk('terremoto', 'Terremoto', 'Elementales', 'legendario', 38000,
     ['#6e4a2b', '#4a2f1a', '#2b1a0d'], ['#ffcf8c', '#f2a852', '#cc7d24'],
     { pattern: PAT.marble('rgba(40,25,12,.5)'), glowC: 'rgba(255,180,110,.45)', effect: 'fire' }),
+
+  /* ── ANIMALITOS (cartoon, huellitas en la cara) ── */
+  mk('perrito', 'Perrito', 'Animalitos', 'raro', 8000,
+    ['#f5d9b0', '#e0b478', '#b3823f'], ['#6b4423', '#4d2f16', '#311d0c'],
+    { pattern: PAW('rgba(107,68,35,.28)') }),
+  mk('gatito', 'Gatito', 'Animalitos', 'raro', 8000,
+    ['#e8e3f5', '#c5bbe0', '#948ab8'], ['#3d3358', '#2b2340', '#191426'],
+    { pattern: PAW('rgba(61,51,88,.25)') }),
+  mk('panda', 'Panda', 'Animalitos', 'raro', 9000,
+    ['#ffffff', '#eef1f4', '#ccd4dc'], ['#20242b', '#14171c', '#0a0c0f'],
+    { pattern: PAW('rgba(32,36,43,.3)') }),
+  mk('zorrito', 'Zorrito', 'Animalitos', 'raro', 9000,
+    ['#ffc190', '#f2933f', '#c4671a'], ['#ffffff', '#ffeede', '#ffd9b8'],
+    { pattern: PAW('rgba(255,255,255,.35)') }),
+  mk('ranita', 'Ranita', 'Animalitos', 'raro', 10000,
+    ['#c8f2a0', '#8fd955', '#5aa829'], ['#20520e', '#173a09', '#0d2205'],
+    { pattern: PAW('rgba(32,82,14,.28)') }),
+  mk('conejito', 'Conejito', 'Animalitos', 'epico', 14000,
+    ['#fff3f6', '#ffd3e0', '#f0a8c0'], ['#8c3355', '#6b243f', '#471628'],
+    { pattern: PAW('rgba(140,51,85,.25)'), glowC: 'rgba(240,168,192,.5)' }),
+  mk('pinguino', 'Pingüino', 'Animalitos', 'epico', 16000,
+    ['#2c3a4c', '#1b2634', '#0d141d'], ['#ffd166', '#f2b23c', '#cc8c14'],
+    { pattern: PAW('rgba(255,209,102,.22)'), glowC: 'rgba(120,160,200,.4)' }),
+  mk('leoncito', 'Leoncito', 'Animalitos', 'legendario', 30000,
+    ['#ffd98c', '#f0b04a', '#c98420'], ['#6b3a08', '#4d2905', '#301903'],
+    { pattern: PAW('rgba(107,58,8,.3)'), glowC: 'rgba(255,190,90,.55)', effect: 'sparkle' }),
 
   /* ── 10 · REALEZA (épico/legendario) ── */
   mk('rosa', 'Rosa', 'Realeza', 'raro', 3000,

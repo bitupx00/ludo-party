@@ -389,7 +389,8 @@ styleOnce('avatar-badge', `
           min-height: 32px;
           padding: 5px 9px;
           border-radius: 17px 17px 17px 4px;
-          background: #fff;
+          background: rgba(255, 255, 255, 0.82);
+          backdrop-filter: blur(2px);
           box-shadow: 0 4px 10px rgba(18, 8, 60, 0.35);
           display: flex;
           align-items: center;

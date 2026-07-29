@@ -137,7 +137,7 @@ export default function GameChat({ messages, players, isOpen, onToggle, onSendMe
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSend()}
-                maxLength={200}
+                maxLength={25}
               />
               <button
                 className="chat-send-btn"
