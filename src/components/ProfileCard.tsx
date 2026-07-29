@@ -7,7 +7,7 @@ import {
   type PlayerProfile,
 } from '../profile.ts';
 import { useT } from '../i18n.ts';
-import { AlertTriangle, Check, ClipboardCopy, Star, Unlock, User } from 'lucide-react';
+import { AlertTriangle, Check, ClipboardCopy, Coins, Star, Unlock, User } from 'lucide-react';
 
 /**
  * Player profile badge (home screen) + modal: shows the local "account"
@@ -64,7 +64,7 @@ export default function ProfileCard() {
   return (
     <>
       <button className="profile-badge" onClick={() => { setProfile(loadProfile()); setOpen(true); }}>
-        <User size={13} className="pc-ico" /> {profile ? <>{profile.name} · <Star size={11} className="pc-ico" />{profile.points}</> : t('profileTitle')}
+        <User size={13} className="pc-ico" /> {profile ? <>{profile.name} · <Star size={11} className="pc-ico" />{profile.points} · <Coins size={11} className="pc-ico" />{(profile.coins ?? 0).toLocaleString('es')}</> : t('profileTitle')}
       </button>
 
       <AnimatePresence>
@@ -93,7 +93,11 @@ export default function ProfileCard() {
                 <>
                   <div className="profile-summary">
                     <span className="profile-name">{profile.name}</span>
-                    <span className="profile-points"><Star size={12} className="pc-ico" /> {profile.points} {t('profilePoints')}</span>
+                    <span className="profile-points">
+                      <Star size={12} className="pc-ico" /> {profile.points} {t('profilePoints')}
+                      {' · '}
+                      <Coins size={12} className="pc-ico" /> {(profile.coins ?? 0).toLocaleString('es')} puntos
+                    </span>
                   </div>
                   <CopyRow label={t('profileId')} value={profile.id} />
                   <CopyRow label={t('profilePin')} value={profile.pin} secret />

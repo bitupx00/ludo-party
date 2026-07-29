@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore.ts';
 import { DICE_SKINS, DICE_COLLECTIONS, RARITY_INFO, loadSkinPref, saveSkinPref } from '../game/diceSkins.ts';
 import { PIP_MAP } from './Dice3D.tsx';
@@ -7,7 +7,7 @@ import { useInvStore, recommendSounds, allSoundIds, MEME_COST_COINS, MEME_COST_S
 import { loadProfile, getCoins } from '../profile.ts';
 import { memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import {
-  Backpack, Check, ChevronLeft, Coins, Dices, Film, Lock, Map as MapIcon,
+  Backpack, Check, ChevronLeft, ChevronRight, Coins, Dices, Film, Lock, Map as MapIcon,
   Play, Search, Shapes, Star, Volume2,
 } from 'lucide-react';
 
@@ -47,22 +47,49 @@ export default function InventoryScreen() {
   const [soundQuery, setSoundQuery] = useState('');
   const [wallet, setWallet] = useState({ coins: getCoins(), stars: loadProfile()?.points ?? 0 });
   const refreshWallet = () => setWallet({ coins: getCoins(), stars: loadProfile()?.points ?? 0 });
+  const [page, setPage] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef(0);
+  const flash = (msg: string) => {
+    setNotice(msg);
+    window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 3000);
+  };
 
   useEffect(() => {
     if (tab !== 'memes' || available.length > 0) return;
     setLoading(true);
-    tenorTrending(30).then(setAvailable).catch(() => {}).finally(() => setLoading(false));
+    tenorTrending(90).then(setAvailable).catch(() => {}).finally(() => setLoading(false));
   }, [tab, available.length]);
 
   const search = () => {
     setLoading(true);
-    (query.trim() ? tenorSearch(query.trim(), 30) : tenorTrending(30))
+    setPage(0);
+    (query.trim() ? tenorSearch(query.trim(), 90) : tenorTrending(90))
       .then(setAvailable).catch(() => setAvailable([])).finally(() => setLoading(false));
   };
 
   const handleBuy = (gif: TenorGif, payWith: 'coins' | 'stars') => {
+    if (payWith === 'coins' && wallet.coins < MEME_COST_COINS) {
+      flash(`Te faltan ${(MEME_COST_COINS - wallet.coins).toLocaleString('es')} puntos para este meme (cuesta ${MEME_COST_COINS.toLocaleString('es')}).`);
+      return;
+    }
+    if (payWith === 'stars' && wallet.stars < MEME_COST_STARS) {
+      flash(`Te faltan ${MEME_COST_STARS - wallet.stars} estrellas para este meme (cuesta ${MEME_COST_STARS}).`);
+      return;
+    }
     const ok = buyMeme({ id: gif.id, url: gif.url, preview: gif.preview }, payWith);
     if (ok) { tenorRegisterShare(gif.id, query || 'inventario'); refreshWallet(); }
+    else flash('No se pudo completar la compra. Intenta de nuevo.');
+  };
+
+  const tryLink = (memeId: string, sid: string) => {
+    if (wallet.stars < LINK_COST_STARS) {
+      flash(`Vincular un sonido cuesta ${LINK_COST_STARS} estrellas y tienes ${wallet.stars}.`);
+      return;
+    }
+    if (linkSound(memeId, sid)) { refreshWallet(); setLinkFor(null); }
+    else flash('No se pudo vincular el sonido. Intenta de nuevo.');
   };
 
   const linked = memes.find((m) => m.id === linkFor);
@@ -74,7 +101,7 @@ export default function InventoryScreen() {
           <button className="inv-back" onClick={goHome} aria-label="Volver"><ChevronLeft size={22} /></button>
           <h1 className="inv-title"><Backpack size={19} className="inv-ico" /> Inventario</h1>
           <span className="inv-wallet">
-            <Coins size={12} className="inv-ico" />{wallet.coins.toLocaleString('es')} · <Star size={12} className="inv-ico" />{wallet.stars}
+            <Coins size={12} className="inv-ico" />{wallet.coins.toLocaleString('es')} <em>puntos</em> · <Star size={12} className="inv-ico" />{wallet.stars} <em>estrellas</em>
           </span>
         </div>
 
@@ -110,13 +137,18 @@ export default function InventoryScreen() {
                         className={`inv-card ${isOn ? 'inv-card--on' : ''} ${!owned ? 'inv-card--locked' : ''}`}
                         onClick={() => {
                           if (owned) { saveSkinPref(skin.id); setEquipped(skin.id); return; }
+                          if (!canAfford) {
+                            flash(`Te faltan ${(skin.price - wallet.coins).toLocaleString('es')} puntos para "${skin.name}" (cuesta ${skin.price.toLocaleString('es')}).`);
+                            return;
+                          }
                           if (buyDice(skin.id, skin.price)) {
                             refreshWallet();
                             saveSkinPref(skin.id);
                             setEquipped(skin.id);
+                          } else {
+                            flash('No se pudo completar la compra. Intenta de nuevo.');
                           }
                         }}
-                        disabled={!owned && !canAfford}
                       >
                         <span className="inv-rarity" style={{ color: rar.color, borderColor: rar.color }}>{rar.name}</span>
                         <DicePreview skinId={skin.id} />
@@ -163,17 +195,38 @@ export default function InventoryScreen() {
               <button className="inv-search-btn" onClick={search} aria-label="buscar"><Search size={16} /></button>
             </div>
             {loading && <p className="inv-note">Cargando…</p>}
-            <div className="inv-shop-grid">
-              {available.filter((g) => !memes.some((m) => m.id === g.id)).map((gif) => (
-                <div key={gif.id} className="inv-shop-item">
-                  <img src={gif.preview} alt="GIF" loading="lazy" />
-                  <div className="inv-buy-row">
-                    <button className="inv-buy" disabled={wallet.coins < MEME_COST_COINS} onClick={() => handleBuy(gif, 'coins')}><Coins size={10} className="inv-ico" />{MEME_COST_COINS / 100 / 10}k</button>
-                    <button className="inv-buy" disabled={wallet.stars < MEME_COST_STARS} onClick={() => handleBuy(gif, 'stars')}><Star size={10} className="inv-ico" />{MEME_COST_STARS}</button>
+            {(() => {
+              const pool = available.filter((g) => !memes.some((m) => m.id === g.id));
+              const pages = Math.max(1, Math.ceil(pool.length / 30));
+              const cur = Math.min(page, pages - 1);
+              const visible = pool.slice(cur * 30, cur * 30 + 30);
+              return (
+                <>
+                  <div className="inv-shop-grid">
+                    {visible.map((gif) => (
+                      <div key={gif.id} className="inv-shop-item">
+                        <img src={gif.preview} alt="GIF" loading="lazy" />
+                        <div className="inv-buy-row">
+                          <button className={`inv-buy ${wallet.coins < MEME_COST_COINS ? 'inv-buy--poor' : ''}`} onClick={() => handleBuy(gif, 'coins')}><Coins size={10} className="inv-ico" />{MEME_COST_COINS / 100 / 10}k</button>
+                          <button className={`inv-buy ${wallet.stars < MEME_COST_STARS ? 'inv-buy--poor' : ''}`} onClick={() => handleBuy(gif, 'stars')}><Star size={10} className="inv-ico" />{MEME_COST_STARS}</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
+                  {pages > 1 && (
+                    <div className="inv-pager">
+                      <button className="inv-pager-btn" disabled={cur === 0} onClick={() => setPage(cur - 1)} aria-label="Anteriores">
+                        <ChevronLeft size={16} />
+                      </button>
+                      <span className="inv-pager-info">{cur + 1} / {pages}</span>
+                      <button className="inv-pager-btn" disabled={cur >= pages - 1} onClick={() => setPage(cur + 1)} aria-label="Ver más">
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             <p className="inv-note">Meme: {MEME_COST_COINS.toLocaleString('es')} puntos o {MEME_COST_STARS} estrellas · Vincular sonido: {LINK_COST_STARS} estrellas. Tus memes son lo ÚNICO usable en partida: aparecen en tu barra rápida, en el panel de memes y al lanzar con el botón de regalo (siempre con su sonido).</p>
           </div>
         )}
@@ -191,7 +244,7 @@ export default function InventoryScreen() {
                   <span><Play size={11} className="inv-ico" /> {memeSoundById(sid)?.name ?? sid}</span>
                   <span className="inv-snd-buy" onClick={(e) => {
                     e.stopPropagation();
-                    if (linkSound(linkFor, sid)) { refreshWallet(); setLinkFor(null); }
+                    tryLink(linkFor, sid);
                   }}>Vincular</span>
                 </button>
               ))}
@@ -217,7 +270,7 @@ export default function InventoryScreen() {
                           <span><Play size={11} className="inv-ico" /> {memeSoundById(sid)?.name ?? sid}</span>
                           <span className="inv-snd-buy" onClick={(e) => {
                             e.stopPropagation();
-                            if (linkSound(linkFor, sid)) { refreshWallet(); setLinkFor(null); }
+                            tryLink(linkFor, sid);
                           }}>Vincular</span>
                         </button>
                       ))}
@@ -228,14 +281,24 @@ export default function InventoryScreen() {
             </div>
           </div>
         )}
+
+        {notice && <div className="inv-notice" role="alert">{notice}</div>}
       </div>
 
       <style>{`
         .inv-inner { max-width: 480px; gap: 12px; padding-top: calc(14px + env(safe-area-inset-top)); }
-        .inv-header { display: flex; align-items: center; gap: 10px; }
+        .inv-header { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 20; background: linear-gradient(180deg, var(--color-bg, #2a1a70) 78%, transparent); padding-bottom: 6px; }
         .inv-back { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,.22); background: rgba(255,255,255,.1); color: var(--color-text); font-size: 1.5rem; cursor: pointer; }
         .inv-title { font-family: var(--font-display); font-size: 1.3rem; font-weight: 800; flex: 1; }
-        .inv-wallet { font-family: var(--font-display); font-size: .78rem; font-weight: 800; color: #ffd65a; }
+        .inv-wallet { font-family: var(--font-display); font-size: .78rem; font-weight: 800; color: #ffd65a; text-align: right; }
+        .inv-wallet em { font-style: normal; font-size: .62rem; color: var(--color-text-secondary); }
+        .inv-notice { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 130; width: min(92vw, 420px); background: linear-gradient(165deg, #5c1830, #3d1020); border: 2px solid #ff7d9c; border-radius: 14px; color: #ffd3de; font-size: .8rem; font-weight: 800; padding: 11px 14px; text-align: center; box-shadow: 0 10px 30px rgba(8,2,30,.6); animation: inv-notice-in .22s ease-out; }
+        @keyframes inv-notice-in { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        .inv-buy--poor { opacity: .55; }
+        .inv-pager { display: flex; align-items: center; justify-content: center; gap: 14px; }
+        .inv-pager-btn { width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(255,214,90,.5); background: rgba(255,214,90,.12); color: #ffd65a; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .inv-pager-btn:disabled { opacity: .3; cursor: default; }
+        .inv-pager-info { font-family: var(--font-display); font-size: .8rem; font-weight: 800; color: var(--color-text-secondary); }
         .inv-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
         .inv-tab { padding: 7px 12px; border-radius: var(--radius-full); border: none; background: rgba(255,255,255,.1); color: var(--color-text-secondary); font-family: var(--font-display); font-size: .78rem; font-weight: 800; cursor: pointer; }
         .inv-tab--on { background: rgba(255,214,90,.2); color: #ffd65a; }
