@@ -5,7 +5,7 @@ import type { Color, Player } from '../game/types.ts';
 import { COLORS, PLAYER_CONFIG } from '../game/types.ts';
 import { BOT_NAMES, BOT_EMOJIS } from '../game/aiPlayer.ts';
 import { getStoredTicket } from '../online/onlineManager.ts';
-import { loadProfile } from '../profile.ts';
+import { loadProfile, getCoins } from '../profile.ts';
 import { useT } from '../i18n.ts';
 import PawnSVG from './PawnSVG.tsx';
 import AvatarIcon from './AvatarIcon.tsx';
@@ -405,20 +405,25 @@ export default function Lobby() {
         {/* Match bet (coins): entry per player, winner takes the pot */}
         {!onlineSetup && (
           <div className="lobby-dice-picker">
-            <span className="lobby-dice-title"><Coins size={13} className="lobby-ico" /> Apuesta de entrada (puntos)</span>
+            <span className="lobby-dice-title">
+              <Coins size={13} className="lobby-ico" /> Apuesta de entrada (puntos) · tienes {getCoins().toLocaleString('es')}
+            </span>
             <div className="lobby-dice-row">
               {[100, 250, 500, 1000, 2000, 3000].map((amt) => (
                 <button
                   key={amt}
                   className={`lobby-bet-option ${betAmount === amt ? 'lobby-dice-option--active' : ''}`}
-                  disabled={isGuest}
+                  disabled={isGuest || amt > getCoins()}
+                  title={amt > getCoins() ? 'No te alcanzan los puntos' : undefined}
                   onClick={() => setBet(amt)}
                 >
                   {amt >= 1000 ? `${amt / 1000}k` : amt}
                 </button>
               ))}
             </div>
-            <span className="lobby-dice-name">El ganador se lleva el pozo{isGuest ? ' · la elige el host' : ''}</span>
+            <span className="lobby-dice-name">
+              Entrada: {betAmount.toLocaleString('es')} puntos por jugador · el ganador se lleva el pozo{isGuest ? ' · la elige el host' : ''}
+            </span>
             <button
               className={`lobby-bet-option ${siblingMode ? 'lobby-dice-option--active' : ''}`}
               disabled={isGuest}
@@ -798,6 +803,13 @@ export default function Lobby() {
           font-family: var(--font-display);
           font-weight: 800;
           font-size: 0.8rem;
+        }
+        /* AFTER .lobby-bet-option: same specificity, so source order decides
+           — this is what highlights the chosen bet. */
+        .lobby-bet-option.lobby-dice-option--active {
+          border-color: #ffd65a;
+          background: rgba(255, 214, 90, 0.18);
+          color: #ffd65a;
           cursor: pointer;
           touch-action: manipulation;
         }

@@ -270,6 +270,10 @@ export function startProfileSync() {
       try {
         if (localStorage.getItem('ludo-party-paid') !== state.matchId) {
           localStorage.setItem('ludo-party-paid', state.matchId);
+          // A device can reach a match without a profile (e.g. cleared
+          // storage) — settling against nothing would silently eat the
+          // whole bet flow, so create the wallet first.
+          ensureProfile(me.name ?? '');
           addCoins(-bet);
         }
         if (state.phase === 'finished' && state.winner &&

@@ -1,4 +1,4 @@
-import { Crown, Home as HomeIcon, RotateCcw, Star, Trophy } from 'lucide-react';
+import { Coins, Crown, Home as HomeIcon, RotateCcw, Star, Trophy } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -24,7 +24,10 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
   const canRestart = onlineRole !== 'guest';
 
   const localPlayerId = useGameStore((s) => s.localPlayerId);
+  const betAmount = useGameStore((s) => s.betAmount);
   const isTeams = useGameStore.getState().teamsMode === true;
+  // Pot = entry × humans (min 2: solo-vs-bots doubles your entry)
+  const potWon = betAmount * Math.max(players.filter((p) => !p.isBot).length, 2);
   const teammateColor = TEAMMATE[winnerColor];
   const winnerPlayer = players.find((p) => p.color === winnerColor);
   const teammatePlayer = players.find((p) => p.color === teammateColor);
@@ -156,6 +159,18 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
           <Star size={20} /> <Trophy size={26} /> <Star size={20} />
         </motion.div>
 
+        {/* Bet pot: what this match's winner takes home */}
+        {betAmount > 0 && (
+          <motion.p
+            className="win-pot"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1.3 }}
+          >
+            <Coins size={14} className="win-pot-ico" /> Pozo: +{potWon.toLocaleString('es')} puntos para {isTeams ? 'el equipo ganador' : 'el ganador'}
+          </motion.p>
+        )}
+
         <motion.div
           className="win-actions"
           initial={{ y: 20, opacity: 0 }}
@@ -243,6 +258,17 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
           font-size: 1.2rem;
           animation: float 3s ease-in-out infinite;
         }
+        .win-pot {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 0.92rem;
+          color: #ffd65a;
+          background: rgba(255, 214, 90, 0.14);
+          border: 2px solid rgba(255, 214, 90, 0.45);
+          border-radius: var(--radius-full);
+          padding: 8px 16px;
+        }
+        .win-pot-ico { vertical-align: -2px; }
         .win-actions {
           margin-top: var(--gap-md);
           display: flex;
