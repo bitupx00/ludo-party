@@ -126,19 +126,40 @@ export function soundForMeme(meme: OwnedMeme): string {
 }
 
 /** Recommended sounds for a meme — same occasion logic the pieces use:
- *  keyword-match the meme id/name against the event pools. */
+ *  keyword-match the meme id/name against the event pools, plus a few
+ *  extra picks from the full catalog (deterministic per-meme, so two
+ *  memes in the same category don't always show the exact same list). */
 export function recommendSounds(memeIdOrName: string): string[] {
   const k = memeIdOrName.toLowerCase();
   const pick = (kind: keyof typeof EVENT_POOLS) => [...EVENT_POOLS[kind]];
-  if (/(craneo|calavera|skull|muert|rip|dead)/.test(k)) return pick('death');
-  if (/(bomba|boom|explo|pew|kill|elimina)/.test(k)) return pick('kill');
-  if (/(jaja|risa|rofl|laugh|lol|payaso|clown)/.test(k)) return [...pick('passMover'), 'vinuela', 'scouts'];
-  if (/(llora|cry|sad|buaa|triste)/.test(k)) return ['miau', 'ohnonono', ...pick('allyDeath')];
-  if (/(rabia|furia|angry|grr)/.test(k)) return ['queasco', 'perraloca', 'tuproblema'];
-  if (/(amor|love|corazon|kiss|beso)/.test(k)) return ['ajena', 'meamaba', 'cincomin'];
-  if (/(fiesta|party|confeti|gol|win|victoria)/.test(k)) return [...pick('goal'), ...pick('teamWin'), 'excelente'];
-  if (/(corre|run|escape|rapido|fast|mcqueen)/.test(k)) return [...pick('escape'), 'mcqueen', 'correperra'];
-  if (/(diablo|devil|evil)/.test(k)) return ['diablos', 'ayuwoki'];
-  if (/(popo|caca|poop|fart|asco)/.test(k)) return ['queasco', 'bruh', 'guayaco'];
-  return ['bruh', 'buenasbuenas', 'excelente', 'ohnonono'];
+  let base: string[];
+  if (/(craneo|calavera|skull|muert|rip|dead)/.test(k)) base = pick('death');
+  else if (/(bomba|boom|explo|pew|kill|elimina)/.test(k)) base = pick('kill');
+  else if (/(jaja|risa|rofl|laugh|lol|payaso|clown)/.test(k)) base = [...pick('passMover'), 'vinuela', 'scouts'];
+  else if (/(llora|cry|sad|buaa|triste)/.test(k)) base = ['miau', 'ohnonono', ...pick('allyDeath')];
+  else if (/(rabia|furia|angry|grr)/.test(k)) base = ['queasco', 'perraloca', 'tuproblema'];
+  else if (/(amor|love|corazon|kiss|beso)/.test(k)) base = ['ajena', 'meamaba', 'cincomin'];
+  else if (/(fiesta|party|confeti|gol|win|victoria)/.test(k)) base = [...pick('goal'), ...pick('teamWin'), 'excelente'];
+  else if (/(corre|run|escape|rapido|fast|mcqueen)/.test(k)) base = [...pick('escape'), 'mcqueen', 'correperra'];
+  else if (/(diablo|devil|evil)/.test(k)) base = ['diablos', 'ayuwoki'];
+  else if (/(popo|caca|poop|fart|asco)/.test(k)) base = ['queasco', 'bruh', 'guayaco'];
+  else base = ['bruh', 'buenasbuenas', 'excelente', 'ohnonono'];
+
+  let h = 0;
+  for (let i = 0; i < memeIdOrName.length; i++) h = (h * 31 + memeIdOrName.charCodeAt(i)) >>> 0;
+  const pool = MEME_SOUNDS.map((s) => s.id).filter((id) => !base.includes(id));
+  const extras: string[] = [];
+  const used = new Set<number>();
+  for (let i = 0; i < 5 && used.size < pool.length; i++) {
+    let idx = (h + i * 17) % pool.length;
+    while (used.has(idx)) idx = (idx + 1) % pool.length;
+    used.add(idx);
+    extras.push(pool[idx]);
+  }
+  return [...base, ...extras];
+}
+
+/** Every sound in the catalog, for the "más sonidos" browse-all view. */
+export function allSoundIds(): string[] {
+  return MEME_SOUNDS.map((s) => s.id);
 }

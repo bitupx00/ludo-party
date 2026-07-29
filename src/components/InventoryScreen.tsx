@@ -3,7 +3,7 @@ import { useGameStore } from '../store/gameStore.ts';
 import { DICE_SKINS, DICE_COLLECTIONS, RARITY_INFO, loadSkinPref, saveSkinPref } from '../game/diceSkins.ts';
 import { PIP_MAP } from './Dice3D.tsx';
 import { tenorTrending, tenorSearch, tenorRegisterShare, type TenorGif } from '../game/tenor.ts';
-import { useInvStore, recommendSounds, MEME_COST_COINS, MEME_COST_STARS, LINK_COST_STARS } from '../inventory.ts';
+import { useInvStore, recommendSounds, allSoundIds, MEME_COST_COINS, MEME_COST_STARS, LINK_COST_STARS } from '../inventory.ts';
 import { loadProfile, getCoins } from '../profile.ts';
 import { memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import {
@@ -43,6 +43,8 @@ export default function InventoryScreen() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [linkFor, setLinkFor] = useState<string | null>(null);
+  const [showAllSounds, setShowAllSounds] = useState(false);
+  const [soundQuery, setSoundQuery] = useState('');
   const [wallet, setWallet] = useState({ coins: getCoins(), stars: loadProfile()?.points ?? 0 });
   const refreshWallet = () => setWallet({ coins: getCoins(), stars: loadProfile()?.points ?? 0 });
 
@@ -146,7 +148,7 @@ export default function InventoryScreen() {
                   {memes.map((m) => (
                     <div key={m.id} className="inv-own">
                       <img src={m.preview || m.url} alt="meme" loading="lazy" />
-                      <button className="inv-link-btn" onClick={() => setLinkFor(m.id)}>
+                      <button className="inv-link-btn" onClick={() => { setLinkFor(m.id); setShowAllSounds(false); setSoundQuery(''); }}>
                         <Volume2 size={10} className="inv-ico" /> {m.sound ? (memeSoundById(m.sound)?.name ?? '') : `Vincular sonido (${LINK_COST_STARS} estrellas)`}
                       </button>
                     </div>
@@ -193,6 +195,35 @@ export default function InventoryScreen() {
                   }}>Vincular</span>
                 </button>
               ))}
+
+              {!showAllSounds ? (
+                <button className="inv-more-snd" onClick={() => setShowAllSounds(true)}>
+                  <Volume2 size={12} className="inv-ico" /> Más sonidos ({allSoundIds().length} disponibles)
+                </button>
+              ) : (
+                <>
+                  <p className="inv-sec">Todos los sonidos:</p>
+                  <div className="inv-search-row">
+                    <input className="inv-search" type="text" placeholder="Buscar sonido…"
+                      value={soundQuery} autoFocus
+                      onChange={(e) => setSoundQuery(e.target.value)} />
+                    <Search size={14} className="inv-ico" />
+                  </div>
+                  <div className="inv-snd-all">
+                    {allSoundIds()
+                      .filter((sid) => (memeSoundById(sid)?.name ?? sid).toLowerCase().includes(soundQuery.toLowerCase()))
+                      .map((sid) => (
+                        <button key={sid} className="inv-snd" onClick={() => { playMemeSound(sid); }}>
+                          <span><Play size={11} className="inv-ico" /> {memeSoundById(sid)?.name ?? sid}</span>
+                          <span className="inv-snd-buy" onClick={(e) => {
+                            e.stopPropagation();
+                            if (linkSound(linkFor, sid)) { refreshWallet(); setLinkFor(null); }
+                          }}>Vincular</span>
+                        </button>
+                      ))}
+                  </div>
+                </>
+              )}
               <p className="inv-note">Toca el nombre para escucharlo; "Vincular" lo compra y lo deja fijo en este meme.</p>
             </div>
           </div>
@@ -244,6 +275,8 @@ export default function InventoryScreen() {
         .inv-modal { width: min(380px,100%); max-height: 70vh; overflow-y: auto; background: linear-gradient(165deg,#3d2b8f,#241865); border: 2px solid rgba(255,214,90,.45); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
         .inv-snd { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: none; border-radius: 10px; background: rgba(255,255,255,.1); color: var(--color-text); font-size: .78rem; font-weight: 700; padding: 9px 10px; cursor: pointer; text-align: left; }
         .inv-snd-buy { background: #ffd65a; color: #241865; border-radius: 8px; padding: 3px 9px; font-weight: 800; font-size: .7rem; }
+        .inv-more-snd { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1.5px dashed rgba(255,214,90,.5); border-radius: 10px; background: rgba(255,214,90,.08); color: #ffd65a; font-size: .78rem; font-weight: 800; padding: 9px 10px; cursor: pointer; }
+        .inv-snd-all { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
       `}</style>
     </div>
   );
