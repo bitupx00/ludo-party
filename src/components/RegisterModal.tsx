@@ -61,7 +61,7 @@ export default function RegisterModal({ onDone }: { onDone: (profile: PlayerProf
               Crear cuenta y recibir el bono
             </button>
             <p className="reg-bonus">
-              <Coins size={13} className="reg-ico" /> Bono de bienvenida: <b>10.000 puntos</b> + recompensa diaria
+              <Coins size={13} className="reg-ico" /> Bono de bienvenida: <b>10.000 puntos</b> + <b>100 estrellas</b> + recompensa diaria
             </p>
             <p className="reg-note">
               <ShieldCheck size={12} className="reg-ico" /> Al crearla se genera tu ID y tu PIN

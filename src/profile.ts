@@ -85,7 +85,7 @@ export function ensureProfile(name: string): PlayerProfile {
     id: randomId(6),
     pin: String(Math.floor(1000 + Math.random() * 9000)),
     name: clean || 'Jugador',
-    points: 0,
+    points: 100, // welcome bonus: every new account starts with 100 stars
     coins: 10000,
     bonus10k: true,
     createdAt: Date.now(),
