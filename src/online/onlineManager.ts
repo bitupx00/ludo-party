@@ -63,7 +63,15 @@ const ROOM_PREFIX = 'ludo-party-room-';
 
 /* ─── Tuning ───────────────────────────────────────────────────────── */
 
-const JOIN_TIMEOUT_MS = 15000; // relayed links on mobile take longer
+/** Phase 1: try every candidate type (direct P2P when possible — fastest). */
+const JOIN_PHASE1_MS = 8000;
+/** Phase 2 (only if phase 1 times out): force TURN-relay-only. This is what
+ *  actually gets real phones behind carrier-grade NAT connected — direct/STUN
+ *  paths routinely fail on cellular data, which is exactly the failure this
+ *  sandbox can't reproduce (no real iPhone/Android on a real mobile network,
+ *  and the iOS Simulator rides the host Mac's own network, never a carrier
+ *  NAT — which is why "works in the simulator" proved nothing here). */
+const JOIN_PHASE2_MS = 11000;
 /** Connect attempts before reporting "room not found" (broker errors are often transient). */
 const JOIN_CONNECT_ATTEMPTS = 3;
 const JOIN_RETRY_DELAY_MS = 1600;
@@ -139,9 +147,13 @@ async function getIceServers(): Promise<RTCIceServer[]> {
   // with 'timeout' (exactly the field failure reported on phones).
   const fallback: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
     { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
     { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    // TLS on 443 — indistinguishable from normal HTTPS traffic to carrier
+    // deep-packet-inspection firewalls, the most restrictive case in practice.
+    { urls: 'turns:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
   ];
   iceServersCache = fallback;
   return fallback;
@@ -149,7 +161,7 @@ async function getIceServers(): Promise<RTCIceServer[]> {
 
 /* ─── Peer configuration (local override for dev/testing) ─────────── */
 
-function peerOptions(ice: RTCIceServer[] = []): PeerOptions {
+function peerOptions(ice: RTCIceServer[] = [], iceTransportPolicy?: RTCIceTransportPolicy): PeerOptions {
   const host = import.meta.env.VITE_PEER_HOST as string | undefined;
   if (host) {
     return {
@@ -160,7 +172,7 @@ function peerOptions(ice: RTCIceServer[] = []): PeerOptions {
     };
   }
   if (ice.length > 0) {
-    return { config: { iceServers: ice } };
+    return { config: { iceServers: ice, ...(iceTransportPolicy ? { iceTransportPolicy } : {}) } };
   }
   return {}; // PeerJS public cloud broker, default STUN
 }
@@ -550,23 +562,40 @@ function attemptReconnect(attempt: number) {
     });
 }
 
-async function joinRoomInternal(code: string, name: string): Promise<void> {
-  leftVoluntarily = false;
-  const ice = await getIceServers();
+/** Semantic failures the host explicitly reported — retrying with a
+ *  different ICE policy can't fix "that room doesn't exist", so these
+ *  short-circuit straight to the caller instead of burning a relay retry. */
+const JOIN_TERMINAL_REASONS = new Set(['room-not-found', 'room-full', 'in-game']);
+
+/** One join attempt under a FIXED ice policy. Resolves on 'welcome'; on
+ *  failure rejects with `${reason}::${diagnostic}` — the diagnostic names
+ *  exactly which stage died (broker vs ICE, and the last ICE state reached)
+ *  so a failure we can't reproduce locally still tells us where to look. */
+function attemptJoin(
+  code: string,
+  name: string,
+  ice: RTCIceServer[],
+  iceTransportPolicy: RTCIceTransportPolicy | undefined,
+  budgetMs: number,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
     let connectAttempts = 0;
+    let brokerOpened = false;
+    let lastIceState = 'new';
 
-    const p = new Peer(peerOptions(ice));
+    const p = new Peer(peerOptions(ice, iceTransportPolicy));
     peer = p;
 
-    const timeout = setTimeout(() => fail('timeout'), JOIN_TIMEOUT_MS);
+    const timeout = setTimeout(() => fail('timeout'), budgetMs);
+
+    const diagnose = () => (!brokerOpened ? 'sin-broker' : `ice=${lastIceState}`);
 
     const fail = (reason: string) => {
       clearTimeout(timeout);
       if (!settled) {
         settled = true;
-        reject(new Error(reason));
+        reject(new Error(`${reason}::${diagnose()}`));
         destroySession();
       }
     };
@@ -575,6 +604,9 @@ async function joinRoomInternal(code: string, name: string): Promise<void> {
       connectAttempts++;
       const conn = p.connect(`${ROOM_PREFIX}${code}`, { reliable: true });
       hostConn = conn;
+      conn.peerConnection?.addEventListener('iceconnectionstatechange', () => {
+        lastIceState = conn.peerConnection?.iceConnectionState ?? lastIceState;
+      });
 
       conn.on('open', () => {
         // Present our seat ticket if we were in THIS room before — the
@@ -640,13 +672,16 @@ async function joinRoomInternal(code: string, name: string): Promise<void> {
       conn.on('close', () => {
         if (leftVoluntarily) return;
         if (!settled) { fail('connection-failed'); return; }
+        // A stale/torn-down attempt's own teardown fires 'close' too — only
+        // react if this connection is still the one actually in play.
+        if (peer !== p || hostConn !== conn) return;
         // Live session dropped — try to silently rebuild it before
         // declaring the host gone.
         scheduleGuestReconnect();
       });
     };
 
-    p.on('open', tryConnect);
+    p.on('open', () => { brokerOpened = true; tryConnect(); });
 
     // Incoming camera/mic calls (mesh AV) — answered by the AV layer.
     p.on('call', (call) => {
@@ -680,6 +715,41 @@ async function joinRoomInternal(code: string, name: string): Promise<void> {
       }
     });
   });
+}
+
+/**
+ * Two-phase join. Phase 1 allows every ICE candidate type (direct P2P when
+ * possible — fastest, works fine on shared/permissive networks). If that
+ * times out or the WebRTC link never opens, phase 2 retries FORCING
+ * TURN-relay-only: real phones behind carrier-grade NAT routinely can't
+ * complete a direct/STUN path at all, and relay-only is what actually gets
+ * them connected — this is the fix that targets exactly the failure mode
+ * reported on real Android and real iPhone hardware (never reproducible
+ * from this sandbox: the egress proxy can't reach the live domain, and the
+ * iOS Simulator rides the host Mac's own network rather than a real
+ * carrier NAT, so "works in the simulator" never validated this path).
+ */
+async function joinRoomInternal(code: string, name: string): Promise<void> {
+  leftVoluntarily = false;
+  const ice = await getIceServers();
+  try {
+    await attemptJoin(code, name, ice, undefined, JOIN_PHASE1_MS);
+    return;
+  } catch (e1) {
+    const [reason1, diag1] = (e1 as Error).message.split('::');
+    if (JOIN_TERMINAL_REASONS.has(reason1)) throw new Error(reason1);
+    try {
+      await attemptJoin(code, name, ice, 'relay', JOIN_PHASE2_MS);
+      return;
+    } catch (e2) {
+      const [reason2, diag2] = (e2 as Error).message.split('::');
+      if (JOIN_TERMINAL_REASONS.has(reason2)) throw new Error(reason2);
+      // Both phases failed — this detail lands in onlineErrorDetail so the
+      // NEXT report tells us precisely where to look instead of just
+      // "timeout" again.
+      throw new Error(`${reason2}::t1(directo)=${diag1} t2(relay)=${diag2}`);
+    }
+  }
 }
 
 /* ─── Shared ───────────────────────────────────────────────────────── */
