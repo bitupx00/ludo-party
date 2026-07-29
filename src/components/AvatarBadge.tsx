@@ -385,16 +385,24 @@ styleOnce('avatar-badge', `
           top: -14px;
           right: -12px;
           min-width: 34px;
-          height: 34px;
-          padding: 0 6px;
+          max-width: 46vw;
+          min-height: 32px;
+          padding: 5px 9px;
           border-radius: 17px 17px 17px 4px;
           background: #fff;
           box-shadow: 0 4px 10px rgba(18, 8, 60, 0.35);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.2rem;
-          z-index: 30;
+          /* Text reactions (frases, bots) wrap in a readable size instead
+             of one giant clipped line */
+          font-size: 0.74rem;
+          font-weight: 800;
+          line-height: 1.25;
+          color: #1d1440;
+          text-align: center;
+          word-break: break-word;
+          z-index: 60;
           pointer-events: none;
         }
         .avatar-badge--right .avatar-reaction-bubble {
@@ -423,8 +431,11 @@ styleOnce('avatar-badge', `
           width: 22px;
           height: 22px;
           border-radius: 50%;
-          border: 1.5px solid rgba(255, 214, 90, 0.6);
+          border: 1.5px solid rgba(255, 214, 90, 0.9);
           background: rgba(20, 9, 46, 0.85);
+          /* Gold icon — the default (near-black) was invisible on the
+             dark chip */
+          color: #ffd65a;
           font-size: 0.62rem;
           line-height: 1;
           cursor: pointer;

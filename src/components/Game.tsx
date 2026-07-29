@@ -362,7 +362,7 @@ export default function Game() {
         showTeamBadge={teamsMode === true && !hexMode}
         diceValue={showTurnDice ? (phase === 'moving' && diceSettled ? diceValue : null) : undefined}
         diceRolling={showTurnDice && (phase === 'rolling' || (phase === 'moving' && !diceSettled))}
-        onGift={onlineRole !== 'none' && player.id === localPlayerId ? undefined : setGiftTarget}
+        onGift={setGiftTarget}
         pinnedMeme={pinned[player.id] ?? null}
         timerKey={isCurrent ? timerKey : null}
       />
@@ -594,7 +594,11 @@ export default function Game() {
         isOpen={stickersOpen}
         onClose={() => setStickersOpen(false)}
         onStickerSelect={handleStickerSelect}
-        onPhraseSelect={sendChatMessage}
+        onPhraseSelect={(text) => {
+          // Quick phrases show as a bubble on your avatar AND land in chat
+          sendChatMessage(text);
+          sendReaction(text.slice(0, 80));
+        }}
         soundsLocked={(shopPlayer?.lastSoundTurn ?? -1) === turnCount}
       />
 

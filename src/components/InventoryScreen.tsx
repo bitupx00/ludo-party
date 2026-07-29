@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/gameStore.ts';
-import { DICE_SKINS, loadSkinPref, saveSkinPref } from '../game/diceSkins.ts';
+import { DICE_SKINS, DICE_COLLECTIONS, RARITY_INFO, loadSkinPref, saveSkinPref } from '../game/diceSkins.ts';
 import { PIP_MAP } from './Dice3D.tsx';
 import { tenorTrending, tenorSearch, tenorRegisterShare, type TenorGif } from '../game/tenor.ts';
 import { useInvStore, recommendSounds, MEME_COST_COINS, MEME_COST_STARS, LINK_COST_STARS } from '../inventory.ts';
@@ -88,40 +88,52 @@ export default function InventoryScreen() {
         </div>
 
         {tab === 'dados' && (
-          <div className="inv-grid">
-            {DICE_SKINS.map((skin) => {
-              const owned = skin.price === 0 || ownedDice.includes(skin.id);
-              const isOn = equipped === skin.id;
-              const canAfford = wallet.coins >= skin.price;
-              return (
-                <button
-                  key={skin.id}
-                  className={`inv-card ${isOn ? 'inv-card--on' : ''} ${!owned ? 'inv-card--locked' : ''}`}
-                  onClick={() => {
-                    if (owned) { saveSkinPref(skin.id); setEquipped(skin.id); return; }
-                    if (buyDice(skin.id, skin.price)) {
-                      refreshWallet();
-                      saveSkinPref(skin.id);
-                      setEquipped(skin.id);
-                    }
-                  }}
-                  disabled={!owned && !canAfford}
-                >
-                  <DicePreview skinId={skin.id} />
-                  <span className="inv-card-name">{skin.name}</span>
-                  {isOn ? (
-                    <span className="inv-card-tag inv-card-tag--on"><Check size={10} className="inv-ico" /> Equipado</span>
-                  ) : owned ? (
-                    <span className="inv-card-tag">Tocar para equipar</span>
-                  ) : (
-                    <span className="inv-card-tag inv-card-tag--price">
-                      {canAfford ? <Coins size={10} className="inv-ico" /> : <Lock size={10} className="inv-ico" />} {skin.price.toLocaleString('es')}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            <p className="inv-note">El dado equipado se usa en tus partidas (tú lo ves grande; los rivales lo ven en tu mini-dado). Los modelos se compran con puntos: 3.000 a 40.000 según el diseño.</p>
+          <div className="inv-dice-cols">
+            <p className="inv-note">
+              {DICE_SKINS.length} dados en {DICE_COLLECTIONS.length} colecciones · 3.000 a 40.000 puntos por rareza.
+              El equipado se usa en tus partidas (los rivales lo ven en tu mini-dado).
+            </p>
+            {DICE_COLLECTIONS.map((col) => (
+              <div key={col}>
+                <p className="inv-sec inv-collection">{col}</p>
+                <div className="inv-grid">
+                  {DICE_SKINS.filter((sk) => sk.collection === col).map((skin) => {
+                    const owned = skin.price === 0 || ownedDice.includes(skin.id);
+                    const isOn = equipped === skin.id;
+                    const canAfford = wallet.coins >= skin.price;
+                    const rar = RARITY_INFO[skin.rarity];
+                    return (
+                      <button
+                        key={skin.id}
+                        className={`inv-card ${isOn ? 'inv-card--on' : ''} ${!owned ? 'inv-card--locked' : ''}`}
+                        onClick={() => {
+                          if (owned) { saveSkinPref(skin.id); setEquipped(skin.id); return; }
+                          if (buyDice(skin.id, skin.price)) {
+                            refreshWallet();
+                            saveSkinPref(skin.id);
+                            setEquipped(skin.id);
+                          }
+                        }}
+                        disabled={!owned && !canAfford}
+                      >
+                        <span className="inv-rarity" style={{ color: rar.color, borderColor: rar.color }}>{rar.name}</span>
+                        <DicePreview skinId={skin.id} />
+                        <span className="inv-card-name">{skin.name}</span>
+                        {isOn ? (
+                          <span className="inv-card-tag inv-card-tag--on"><Check size={10} className="inv-ico" /> Equipado</span>
+                        ) : owned ? (
+                          <span className="inv-card-tag">Tocar para equipar</span>
+                        ) : (
+                          <span className="inv-card-tag inv-card-tag--price">
+                            {canAfford ? <Coins size={10} className="inv-ico" /> : <Lock size={10} className="inv-ico" />} {skin.price.toLocaleString('es')}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -206,7 +218,10 @@ export default function InventoryScreen() {
         .inv-card-tag--on { color: #7dffb8; }
         .inv-card-tag--price { color: #ffd65a; }
         /* 96px dice, shrinking responsively on narrow screens */
-        .inv-die { width: clamp(64px, 24vw, 96px); aspect-ratio: 1; border-radius: 18%; display: grid; grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); place-items: center; padding: 15%; background: radial-gradient(circle at 30% 25%, var(--d3-f1,#fff) 0%, var(--d3-f2,#f3eee2) 55%, var(--d3-f3,#ddd3bd) 100%); border: 2px solid var(--d3-bd, rgba(120,100,60,.3)); box-shadow: 0 6px 14px rgba(18,8,60,.35); }
+        .inv-die { width: clamp(64px, 24vw, 96px); aspect-ratio: 1; border-radius: 18%; display: grid; grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); place-items: center; padding: 15%; background-image: var(--d3-pattern, linear-gradient(transparent, transparent)), radial-gradient(circle at 30% 25%, var(--d3-f1,#fff) 0%, var(--d3-f2,#f3eee2) 55%, var(--d3-f3,#ddd3bd) 100%); border: 2px solid var(--d3-bd, rgba(120,100,60,.3)); box-shadow: 0 6px 14px rgba(18,8,60,.35), 0 0 16px var(--d3-glow, transparent); }
+        .inv-dice-cols { display: flex; flex-direction: column; gap: 12px; }
+        .inv-collection { font-size: .95rem; color: #ffd65a; border-bottom: 1.5px solid rgba(255,214,90,.25); padding-bottom: 4px; }
+        .inv-rarity { font-size: .56rem; font-weight: 800; border: 1.2px solid; border-radius: 8px; padding: 1px 7px; text-transform: uppercase; letter-spacing: .5px; }
         .inv-die-pip { width: 70%; height: 70%; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--d3-p1,#6b5cf0), var(--d3-p2,#4534b8) 70%, var(--d3-p3,#32247e)); }
         .inv-die-pip--off { visibility: hidden; }
         .inv-card-name { font-family: var(--font-display); font-size: .8rem; font-weight: 800; }

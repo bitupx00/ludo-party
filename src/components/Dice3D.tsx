@@ -187,7 +187,7 @@ styleOnce('dice3d', `
           width: clamp(20px, 5.5vmin, 26px);
           height: clamp(20px, 5.5vmin, 26px);
           border-radius: 22%;
-          background: radial-gradient(circle at 30% 25%, var(--d3-f1, #ffffff) 0%, var(--d3-f2, #f3eee2) 55%, var(--d3-f3, #ddd3bd) 100%);
+          background-image: var(--d3-pattern, linear-gradient(transparent, transparent)), radial-gradient(circle at 30% 25%, var(--d3-f1, #ffffff) 0%, var(--d3-f2, #f3eee2) 55%, var(--d3-f3, #ddd3bd) 100%);
           border: 1.5px solid var(--d3-bd, rgba(120, 100, 60, 0.3));
           box-shadow: 0 2px 6px rgba(18, 8, 60, 0.4);
           display: flex;
@@ -247,6 +247,29 @@ styleOnce('dice3d', `
         .dice3d--fx-glow {
           filter: drop-shadow(0 10px 14px rgba(20, 8, 60, 0.45)) drop-shadow(0 0 14px var(--d3-glow, transparent));
         }
+        /* ── Animated skin effects (legendario tier) ── */
+        .dice3d--fx-rainbow { animation: d3-rainbow 5s linear infinite; }
+        .dice3d--fx-sparkle { animation: d3-sparkle 1.6s ease-in-out infinite; }
+        .dice3d--fx-fire { animation: d3-fire 0.9s ease-in-out infinite; }
+        .dice3d--fx-aura { animation: d3-aura 2.4s ease-in-out infinite; }
+        @keyframes d3-rainbow {
+          0% { filter: hue-rotate(0deg) drop-shadow(0 0 12px var(--d3-glow, transparent)); }
+          100% { filter: hue-rotate(360deg) drop-shadow(0 0 12px var(--d3-glow, transparent)); }
+        }
+        @keyframes d3-sparkle {
+          0%, 100% { filter: brightness(1) drop-shadow(0 0 10px var(--d3-glow, transparent)); }
+          40% { filter: brightness(1.28) drop-shadow(0 0 20px var(--d3-glow, transparent)); }
+          60% { filter: brightness(1.08) drop-shadow(0 0 14px var(--d3-glow, transparent)); }
+        }
+        @keyframes d3-fire {
+          0%, 100% { filter: brightness(1) drop-shadow(0 0 12px var(--d3-glow, rgba(255,120,30,.5))); }
+          30% { filter: brightness(1.18) drop-shadow(0 2px 20px var(--d3-glow, rgba(255,120,30,.6))); }
+          70% { filter: brightness(0.96) drop-shadow(0 -1px 10px var(--d3-glow, rgba(255,120,30,.45))); }
+        }
+        @keyframes d3-aura {
+          0%, 100% { filter: saturate(1) drop-shadow(0 0 10px var(--d3-glow, transparent)); }
+          50% { filter: saturate(1.5) drop-shadow(0 0 24px var(--d3-glow, transparent)); }
+        }
         @keyframes dice-nudge {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-7px); }
@@ -266,7 +289,7 @@ styleOnce('dice3d', `
           place-items: center;
           padding: 16%;
           border-radius: 18%;
-          background:
+          background-image: var(--d3-pattern, linear-gradient(transparent, transparent)),
             radial-gradient(circle at 30% 25%, var(--d3-f1, #ffffff) 0%, var(--d3-f2, #f3eee2) 55%, var(--d3-f3, #ddd3bd) 100%);
           border: 1px solid var(--d3-bd, rgba(120, 100, 60, 0.25));
           box-shadow: inset 0 0 10px rgba(120, 100, 60, 0.18);

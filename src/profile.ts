@@ -25,6 +25,8 @@ export interface PlayerProfile {
   /** Daily-claim tracking: last claim date (yyyy-mm-dd) + streak day 1-7. */
   lastClaim?: string;
   claimStreak?: number;
+  /** One-time 10,000-coin baseline bonus applied (migration flag). */
+  bonus10k?: boolean;
   createdAt: number;
 }
 
@@ -44,10 +46,18 @@ export function loadProfile(): PlayerProfile | null {
     const p = JSON.parse(raw) as PlayerProfile;
     if (!p.id || !p.pin || typeof p.points !== 'number') return null;
     if (typeof p.coins !== 'number') {
-      // One-time migration bonus for EXISTING accounts: the 3,000 starting
-      // coins plus 15 ⭐ of welcome (only fires once — coins get defined).
-      p.coins = 3000;
+      // One-time migration bonus for EXISTING accounts: starting coins
+      // plus 15 ⭐ of welcome (only fires once — coins get defined).
+      p.coins = 10000;
+      p.bonus10k = true;
       p.points = Math.max(0, Math.min(99999, p.points + 15));
+      saveProfile(p);
+    }
+    // Baseline raise 3,000 → 10,000: every EXISTING account gets a
+    // one-time +7,000 top-up so old and new players start equal.
+    if (!p.bonus10k) {
+      p.bonus10k = true;
+      p.coins = Math.min(99999999, (p.coins ?? 0) + 7000);
       saveProfile(p);
     }
     return p;
@@ -76,7 +86,8 @@ export function ensureProfile(name: string): PlayerProfile {
     pin: String(Math.floor(1000 + Math.random() * 9000)),
     name: clean || 'Jugador',
     points: 0,
-    coins: 3000,
+    coins: 10000,
+    bonus10k: true,
     createdAt: Date.now(),
   };
   saveProfile(fresh);
@@ -107,7 +118,7 @@ export function coinsToStars(coins: number): number {
 
 export function getCoins(): number {
   // No profile yet = the starting balance everyone begins with
-  return loadProfile()?.coins ?? 3000;
+  return loadProfile()?.coins ?? 10000;
 }
 
 export function addCoins(delta: number) {
@@ -224,7 +235,7 @@ export function importProfileCode(code: string, pin: string): PlayerProfile | nu
       pin: pin.trim(),
       name: (payload.name ?? 'Jugador').slice(0, 24),
       points: Math.max(0, Math.min(99999, Math.round(payload.points))),
-      coins: Math.max(0, Math.min(MAX_COINS, Math.round(payload.coins ?? 3000))),
+      coins: Math.max(0, Math.min(MAX_COINS, Math.round(payload.coins ?? 10000))),
       createdAt: Date.now(),
     };
     saveProfile(restored);

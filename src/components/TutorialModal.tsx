@@ -26,7 +26,7 @@ const STEPS: Step[] = [
     Icon: HomeIcon,
     title: 'Bienvenido a LudoPata’S',
     body: [
-      'Esta es tu **pantalla de inicio**. Arriba a la izquierda ves tu perfil con tus **estrellas** y tus **puntos**.',
+      'Esta es tu **pantalla de inicio**. Arriba a la izquierda ves tu perfil con tus **estrellas** y tus **puntos** (empiezas con **10.000**).',
       'Los botones de la derecha son: **Ranking** (trofeo), **Recompensa diaria** (regalo), **este tutorial**, **Inventario** (mochila) y **Arcade** (mando).',
       'Elige un modo para jugar: **Online**, **vs Bots**, **Pasar y Jugar** o **Equipos 2v2**.',
     ],

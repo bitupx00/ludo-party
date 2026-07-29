@@ -413,7 +413,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (action.a === 'reaction' && action.emoji) {
       // meme:/tgif: payloads carry a GIF URL — allow more room than text
-      const cap = action.emoji.startsWith('tgif:') || action.emoji.startsWith('meme:') ? 400 : 20;
+      const cap = action.emoji.startsWith('tgif:') || action.emoji.startsWith('meme:') ? 400 : 80;
       reactionFromPlayer(set, get, player, action.emoji.slice(0, cap));
       return;
     }
@@ -1003,7 +1003,7 @@ function applyMemeThrow(
   if (s.screen !== 'game') return;
   const from = s.players.find((p) => p.id === fromId);
   const to = s.players.find((p) => p.id === toId);
-  if (!from || !to || from.id === to.id) return;
+  if (!from || !to) return; // self-throws allowed — decorate your own avatar
   // Only PURCHASED memes are valid ammunition: `meme:<soundId>|<url>`.
   // Ownership lives on the sender's device; the host validates shape.
   if (!isMemeReaction(gifPayload) || gifPayload.length > 400) return;
@@ -1021,7 +1021,7 @@ function applyMemeThrow(
     messages: pushMessage(st.messages, {
       id: createId(),
       playerId: fromId,
-      text: `${from.name} le lanzó un meme a ${to.name}`,
+      text: from.id === to.id ? `${from.name} se puso un meme` : `${from.name} le lanzó un meme a ${to.name}`,
       timestamp: Date.now(),
       kind: 'system',
     }),
