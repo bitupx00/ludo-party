@@ -1,5 +1,31 @@
 import type { Color, GameState, Piece, Player, GameMessage, CaptureEffect } from './types';
-import { COLOR_CONFIG, HOME_STRETCH_ENTRY, TEAMMATE } from './types';
+import { COLOR_CONFIG, HOME_STRETCH_ENTRY, teammateOf } from './types';
+import {
+  HEX_RING_LEN, HEX_GOAL, HEX_ENTRY, HEX_LANE_ENTRANCE, HEX_SAFE_SQUARES,
+} from './hex/boardPath6';
+
+/* ── Ring parameters: classic 15×15 cross (52/57) vs hex board (78/84).
+ *    Every movement rule below reads these instead of hardcoding the 4p
+ *    numbers, so both boards share ONE engine. ── */
+const SAFE_4P = [0, 8, 13, 21, 26, 34, 39, 47];
+export function ringLen(hex?: boolean): number { return hex ? HEX_RING_LEN : 52; }
+export function finishOf(hex?: boolean): number { return hex ? HEX_GOAL : 57; }
+export function laneStartOf(hex?: boolean): number { return hex ? HEX_RING_LEN : 52; }
+export function entryOf(color: Color, hex?: boolean): number {
+  return hex ? HEX_ENTRY[color] : COLOR_CONFIG[color].entryIndex;
+}
+export function laneEntranceOf(color: Color, hex?: boolean): number {
+  return hex ? HEX_LANE_ENTRANCE[color] : HOME_STRETCH_ENTRY[color];
+}
+export function isSafeCell(pos: number, hex?: boolean): boolean {
+  return (hex ? HEX_SAFE_SQUARES : SAFE_4P).includes(pos);
+}
+/** Capture-group key for teams mode on either board. */
+function teamKeyOf(color: Color, hex?: boolean): string {
+  if (!hex) return color === 'red' || color === 'yellow' ? 'team-a' : 'team-b';
+  return color === 'red' || color === 'green' ? 'team-a'
+    : color === 'blue' || color === 'purple' ? 'team-b' : 'team-c';
+}
 import { getSquarePosition } from './boardPath';
 import { randomPick, CAPTURE_MESSAGES, ENTRY_MESSAGES, HOME_MESSAGES, SIX_MESSAGES } from './stickers';
 
@@ -75,40 +101,42 @@ export function calculateNewPosition(
   currentPos: number,
   steps: number,
   color: Color,
+  hex?: boolean,
 ): number {
+  const L = ringLen(hex);
+  const LANE = laneStartOf(hex);
+  const FIN = finishOf(hex);
+
   // Entering the board from home (position -1)
   if (currentPos === -1) {
-    return COLOR_CONFIG[color].entryIndex;
+    return entryOf(color, hex);
   }
 
-  // Already in home stretch (52-56); the goal itself is one MORE step (57)
-  if (currentPos >= 52) {
+  // Already in the home lane; the goal itself is one MORE step
+  if (currentPos >= LANE) {
     const newPos = currentPos + steps;
-    if (newPos > FINISH_POS) return -2; // Cannot overshoot the goal
+    if (newPos > FIN) return -2; // Cannot overshoot the goal
     return newPos;
   }
 
-  // On the main board (0-51)
-  const homeStretchEntry = HOME_STRETCH_ENTRY[color]; // last board square before HS
+  // On the main ring
+  const laneEntrance = laneEntranceOf(color, hex); // last ring square before the lane
 
-  // Calculate distance from current position to the home stretch entry
-  // going clockwise around the board.
+  // Distance from current position to the lane entrance, clockwise.
   let distToHS: number;
-  if (currentPos <= homeStretchEntry) {
-    distToHS = homeStretchEntry - currentPos;
+  if (currentPos <= laneEntrance) {
+    distToHS = laneEntrance - currentPos;
   } else {
-    // Wrapping: need to go past 51 and back to 0
-    distToHS = (52 - currentPos) + homeStretchEntry;
+    distToHS = (L - currentPos) + laneEntrance;
   }
 
   if (steps <= distToHS) {
-    // Stays on the main board
-    return (currentPos + steps) % 52;
+    return (currentPos + steps) % L;
   }
 
-  // steps > distToHS → enters home stretch
-  const hsPosition = 52 + (steps - distToHS - 1);
-  if (hsPosition > FINISH_POS) return -2; // Overshot the goal
+  // steps > distToHS → enters the home lane
+  const hsPosition = LANE + (steps - distToHS - 1);
+  if (hsPosition > FIN) return -2; // Overshot the goal
   return hsPosition;
 }
 
@@ -120,22 +148,22 @@ export function canEnterBoard(piece: Piece, diceValue: number): boolean {
 }
 
 /** Check if a piece can make a valid move with the given dice value. */
-export function canPieceMove(piece: Piece, diceValue: number, color: Color): boolean {
-  if (piece.position >= FINISH_POS) return false; // Already home, can't move
+export function canPieceMove(piece: Piece, diceValue: number, color: Color, hex?: boolean): boolean {
+  if (piece.position >= finishOf(hex)) return false; // Already home, can't move
 
   if (piece.position === -1) {
     return canEnterBoard(piece, diceValue);
   }
 
-  const newPos = calculateNewPosition(piece.position, diceValue, color);
+  const newPos = calculateNewPosition(piece.position, diceValue, color, hex);
   return newPos !== -2; // -2 means overshoot
 }
 
 // ─── Movable Pieces ──────────────────────────────────────────────────
 
 /** All 4 pieces already in the goal? */
-export function allPiecesFinished(player: Player): boolean {
-  return player.pieces.every((p) => p.position >= FINISH_POS);
+export function allPiecesFinished(player: Player, hex?: boolean): boolean {
+  return player.pieces.every((p) => p.position >= finishOf(hex));
 }
 
 /** Teams (Ludo Club): once a player's own 4 pieces are home, on their
@@ -144,9 +172,9 @@ export function allPiecesFinished(player: Player): boolean {
 export function controlledPlayer(state: GameState): Player | undefined {
   const current = state.players[state.currentPlayerIndex];
   if (!current) return undefined;
-  if (state.teamsMode && allPiecesFinished(current)) {
-    const mate = state.players.find((p) => p.color === TEAMMATE[current.color]);
-    if (mate && !allPiecesFinished(mate)) return mate;
+  if (state.teamsMode && allPiecesFinished(current, state.hexMode)) {
+    const mate = state.players.find((p) => p.color === teammateOf(current.color, state.hexMode));
+    if (mate && !allPiecesFinished(mate, state.hexMode)) return mate;
   }
   return current;
 }
@@ -160,7 +188,7 @@ export function getMovablePieces(state: GameState, diceValue: number): Piece[] {
   if (!controlled) return [];
 
   return controlled.pieces.filter((piece) =>
-    canPieceMove(piece, diceValue, controlled.color),
+    canPieceMove(piece, diceValue, controlled.color, state.hexMode),
   );
 }
 
@@ -174,10 +202,9 @@ export function getMovablePieces(state: GameState, diceValue: number): Piece[] {
  * - Lone opponent pieces on the square are all captured.
  */
 export function checkCapture(state: GameState, piece: Piece): Piece[] {
-  if (piece.position < 0 || piece.position >= 52) return [];
+  if (piece.position < 0 || piece.position >= ringLen(state.hexMode)) return [];
 
-  const GLOBAL_SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
-  if (GLOBAL_SAFE_SQUARES.includes(piece.position)) return [];
+  if (isSafeCell(piece.position, state.hexMode)) return [];
 
   const currentPlayer = state.players[state.currentPlayerIndex];
 
@@ -186,9 +213,9 @@ export function checkCapture(state: GameState, piece: Piece): Piece[] {
   const groups = new Map<string, Piece[]>();
   for (const player of state.players) {
     if (player.color === currentPlayer.color) continue;
-    if (state.teamsMode && TEAMMATE[currentPlayer.color] === player.color) continue;
+    if (state.teamsMode && teammateOf(currentPlayer.color, state.hexMode) === player.color) continue;
     const groupKey = state.teamsMode
-      ? (player.color === 'red' || player.color === 'yellow' ? 'team-a' : 'team-b')
+      ? teamKeyOf(player.color, state.hexMode)
       : player.color;
     for (const opponentPiece of player.pieces) {
       if (opponentPiece.position === piece.position) {
@@ -218,7 +245,7 @@ export function executeCapture(
   const newMessages: GameMessage[] = [
     ...state.messages,
     {
-      id: crypto.randomUUID(),
+      id: createId(),
       playerId: state.players[state.currentPlayerIndex].id,
       text: randomPick(CAPTURE_MESSAGES),
       timestamp: Date.now(),
@@ -268,9 +295,9 @@ export function movePiece(
   let newPos: number;
   if (piece.position === -1) {
     // Entering the board
-    newPos = COLOR_CONFIG[controlled.color].entryIndex;
+    newPos = entryOf(controlled.color, state.hexMode);
   } else {
-    newPos = calculateNewPosition(piece.position, diceValue, controlled.color);
+    newPos = calculateNewPosition(piece.position, diceValue, controlled.color, state.hexMode);
   }
 
   if (newPos === -2) return state; // Cannot move (overshoot)
@@ -280,7 +307,7 @@ export function movePiece(
   const convoy = new Set<string>([pieceId]);
   if (state.siblingMode && piece.position >= 0) {
     for (const p of controlled.pieces) {
-      if (p.id !== pieceId && p.position === piece.position && p.position < FINISH_POS) convoy.add(p.id);
+      if (p.id !== pieceId && p.position === piece.position && p.position < finishOf(state.hexMode)) convoy.add(p.id);
     }
   }
   let newState: GameState = {
@@ -291,7 +318,7 @@ export function movePiece(
             ...player,
             pieces: player.pieces.map((p) =>
               convoy.has(p.id)
-                ? { ...p, position: newPos, isSafe: newPos >= 52 || [0, 8, 13, 21, 26, 34, 39, 47].includes(newPos) }
+                ? { ...p, position: newPos, isSafe: newPos >= laneStartOf(state.hexMode) || isSafeCell(newPos, state.hexMode) }
                 : p,
             ),
           }
@@ -307,7 +334,7 @@ export function movePiece(
       messages: [
         ...newState.messages,
         {
-          id: crypto.randomUUID(),
+          id: createId(),
           playerId: currentPlayer.id,
           text: randomPick(ENTRY_MESSAGES),
           timestamp: Date.now(),
@@ -317,14 +344,14 @@ export function movePiece(
     };
   }
 
-  // Check if piece reached home (the goal, position 57)
-  if (newPos === FINISH_POS) {
+  // Check if piece reached home (the goal square)
+  if (newPos === finishOf(state.hexMode)) {
     newState = {
       ...newState,
       messages: [
         ...newState.messages,
         {
-          id: crypto.randomUUID(),
+          id: createId(),
           playerId: currentPlayer.id,
           text: randomPick(HOME_MESSAGES),
           timestamp: Date.now(),
@@ -343,8 +370,8 @@ export function movePiece(
     return newState;
   }
 
-  // Check for captures (only on main board, not in home stretch)
-  if (newPos >= 0 && newPos < 52) {
+  // Check for captures (only on the main ring, not in the home lane)
+  if (newPos >= 0 && newPos < ringLen(state.hexMode)) {
     const captured = checkCapture(newState, movedPiece);
     if (captured.length > 0) {
       newState = executeCapture(newState, captured);
@@ -362,10 +389,10 @@ export function movePiece(
 export function checkWin(state: GameState, color: Color): boolean {
   const player = state.players.find((p) => p.color === color);
   if (!player) return false;
-  if (!allPiecesFinished(player)) return false;
+  if (!allPiecesFinished(player, state.hexMode)) return false;
   if (state.teamsMode) {
-    const mate = state.players.find((p) => p.color === TEAMMATE[color]);
-    if (mate && !allPiecesFinished(mate)) return false;
+    const mate = state.players.find((p) => p.color === teammateOf(color, state.hexMode));
+    if (mate && !allPiecesFinished(mate, state.hexMode)) return false;
   }
   return true;
 }
@@ -397,7 +424,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
       messages: [
         ...state.messages,
         {
-          id: crypto.randomUUID(),
+          id: createId(),
           playerId: state.players[state.currentPlayerIndex].id,
           text: '¡TRES TIRADAS EXTRA SEGUIDAS! Turno perdido por tramposo',
           timestamp: Date.now(),
@@ -424,7 +451,7 @@ export function advanceTurn(state: GameState, bonusRoll = false): GameState {
         ? [
             ...state.messages,
             {
-              id: crypto.randomUUID(),
+              id: createId(),
               playerId: state.players[state.currentPlayerIndex].id,
               text: randomPick(SIX_MESSAGES),
               timestamp: Date.now(),
@@ -457,7 +484,21 @@ export function getNextPlayer(state: GameState): GameState {
 
 /** Create a unique ID for game entities. */
 export function createId(): string {
-  return crypto.randomUUID();
+  // crypto.randomUUID needs iOS 15.4+ AND a secure context — older
+  // iPhones/WebViews throw here, which broke EVERYTHING online (room
+  // create/join died on the first generated id). Fall back to a
+  // getRandomValues-based v4 (supported since iOS 7).
+  const c = globalThis.crypto;
+  if (c?.randomUUID) {
+    try { return c.randomUUID(); } catch { /* insecure context */ }
+  }
+  const bytes = new Uint8Array(16);
+  if (c?.getRandomValues) c.getRandomValues(bytes);
+  else for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const h = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
+  return `${h[0]}${h[1]}${h[2]}${h[3]}-${h[4]}${h[5]}-${h[6]}${h[7]}-${h[8]}${h[9]}-${h[10]}${h[11]}${h[12]}${h[13]}${h[14]}${h[15]}`;
 }
 
 /** Create a new piece for a player. */

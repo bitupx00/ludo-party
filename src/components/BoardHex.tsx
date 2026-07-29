@@ -1,9 +1,18 @@
 import {
   HEX_RING, HEX_COLORS, HEX_COLOR_CSS, HEX_ARM, HEX_CELL, HEX_ENTRY,
   hexLane, hexBase, hexOuterPolygon, hexCenterPolygon, hexIsSafe,
-  hexCellRotation, hexArmOf,
+  hexCellRotation, hexArmOf, hexPiecePosition,
 } from '../game/hex/boardPath6.ts';
+import type { HexColor } from '../game/hex/boardPath6.ts';
+import type { Color, Piece as PieceType } from '../game/types.ts';
+import PawnSVG from './PawnSVG.tsx';
 import { styleOnce } from '../styleOnce.ts';
+
+export interface HexBoardPiece extends PieceType {
+  _color: Color;
+  _playerId: string;
+  _isMovable: boolean;
+}
 
 /**
  * Hexagonal 6-player board — SVG render straight from boardPath6's
@@ -60,10 +69,22 @@ function ArrowMark({ x, y, rot }: { x: number; y: number; rot: number }) {
   );
 }
 
-export default function BoardHex({ showIndexes = false }: { showIndexes?: boolean }) {
+export default function BoardHex({ showIndexes = false, pieces = [], onPieceClick }: {
+  showIndexes?: boolean;
+  pieces?: HexBoardPiece[];
+  onPieceClick?: (pieceId: string) => void;
+}) {
+  // Stacked pieces on a cell fan out slightly so every pawn stays visible
+  const stackIndex = new Map<string, number>();
+  const stackTotals = new Map<string, number>();
+  for (const pc of pieces) {
+    const key = `${pc.position >= 78 ? pc._color : ''}:${pc.position}`;
+    stackIndex.set(pc.id, stackTotals.get(key) ?? 0);
+    stackTotals.set(key, (stackTotals.get(key) ?? 0) + 1);
+  }
   return (
     <div className="hexboard-wrap">
-      <svg className="hexboard" viewBox="0 0 100 100" role="img" aria-label="Tablero hexagonal de 6 jugadores">
+      <svg className="hexboard" viewBox="0 6.6 100 86.8" role="img" aria-label="Tablero hexagonal de 6 jugadores">
         {/* Hexagon body */}
         <polygon
           points={poly(hexOuterPolygon())}
@@ -155,13 +176,42 @@ export default function BoardHex({ showIndexes = false }: { showIndexes?: boolea
           <path d="M 49.2 52 h 1.6 v 1.2 h -1.6 Z M 47.9 53.4 h 4.2" fill="#ffd65a" />
         </g>
       </svg>
+
+      {/* Piece layer — shares the geometry via hexPiecePosition */}
+      {pieces.length > 0 && (
+        <div className="hexboard-pieces">
+          {pieces.map((pc) => {
+            const idx = parseInt(pc.id.slice(-1), 10) % 4;
+            const pos = hexPiecePosition(pc._color as HexColor, pc.position, idx);
+            const key = `${pc.position >= 78 ? pc._color : ''}:${pc.position}`;
+            const n = stackTotals.get(key) ?? 1;
+            const i = stackIndex.get(pc.id) ?? 0;
+            const spread = n > 1 ? (i - (n - 1) / 2) * 1.8 : 0;
+            // viewBox y starts at 6.6 over height 86.8 → remap to wrap %
+            const top = ((pos.y - 6.6) / 86.8) * 100;
+            return (
+              <button
+                key={pc.id}
+                className={`hexboard-piece ${pc._isMovable ? 'hexboard-piece--movable' : ''}`}
+                style={{ left: `${pos.x + spread}%`, top: `${top}%` }}
+                onClick={() => pc._isMovable && onPieceClick?.(pc.id)}
+                aria-label={pc.id}
+              >
+                <PawnSVG color={pc._color} />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 styleOnce('board-hex', `
   .hexboard-wrap {
-    width: min(100vw - 6px, 60svh, 580px);
+    /* The flat-top hexagon is wider than tall (aspect ≈ 100/86.8) — cap
+       by HEIGHT so it maximizes without overflowing, and center it. */
+    width: min(100vw - 4px, 72svh, 640px);
     margin: 0 auto;
   }
   .hexboard {
@@ -169,5 +219,36 @@ styleOnce('board-hex', `
     width: 100%;
     height: auto;
     filter: drop-shadow(0 12px 26px rgba(14, 6, 50, 0.55));
+  }
+  .hexboard-wrap { position: relative; }
+  .hexboard-pieces { position: absolute; inset: 0; pointer-events: none; }
+  .hexboard-piece {
+    position: absolute;
+    width: 5.4%;
+    aspect-ratio: 0.78;
+    border: none;
+    background: transparent;
+    padding: 0;
+    /* translate (NOT transform): centers the pawn on its cell and lifts
+       its feet onto the square */
+    translate: -50% -72%;
+    pointer-events: auto;
+    cursor: default;
+    transition: left 260ms ease, top 260ms ease;
+    z-index: 3;
+  }
+  .hexboard-piece--movable { cursor: pointer; z-index: 4; }
+  .hexboard-piece--movable::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 78%;
+    width: 130%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 50%;
+    border: 3px solid #ffd65a;
+    box-shadow: 0 0 12px rgba(255, 214, 90, 0.8);
+    animation: pulse-glow 1.1s ease-in-out infinite;
+    pointer-events: none;
   }
 `);

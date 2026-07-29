@@ -108,6 +108,8 @@ const HOME_STRETCH_PATHS: Record<Color, { col: number; row: number }[]> = {
     { col: 7, row: 10 },
     { col: 7, row: 9 },
   ],
+  purple: [],
+  cyan: [],
 };
 
 /**
@@ -149,6 +151,8 @@ export function getHomeBasePositions(color: Color): { x: number; y: number }[] {
       { col: 10, row: 2 }, { col: 12, row: 2 },
       { col: 10, row: 4 }, { col: 12, row: 4 },
     ],
+    purple: [],
+    cyan: [],
   };
   return bases[color].map((p) => cell(p.col, p.row));
 }

@@ -1,7 +1,7 @@
-export type Color = 'red' | 'blue' | 'green' | 'yellow';
+export type Color = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'cyan';
 
 /** Game modes selectable from the home dashboard. */
-export type GameMode = 'solo' | 'local' | 'teams' | 'online';
+export type GameMode = 'solo' | 'local' | 'teams' | 'online' | 'hex6';
 
 /** Team pairing for 2v2 mode: opposite corners play together. */
 export const TEAMMATE: Record<Color, Color> = {
@@ -9,7 +9,22 @@ export const TEAMMATE: Record<Color, Color> = {
   yellow: 'red',
   green: 'blue',
   blue: 'green',
+  // purple/cyan only exist on the hex board (see HEX_TEAMMATE)
+  purple: 'cyan',
+  cyan: 'purple',
 };
+
+/** Hex 2v2v2 pairing: OPPOSITE arms play together (arm k ↔ arm k+3). */
+export const HEX_TEAMMATE: Record<Color, Color> = {
+  red: 'green', green: 'red',
+  blue: 'purple', purple: 'blue',
+  yellow: 'cyan', cyan: 'yellow',
+};
+
+/** Teammate of a color under the active board (4p pairs or hex pairs). */
+export function teammateOf(color: Color, hex?: boolean): Color {
+  return hex ? HEX_TEAMMATE[color] : TEAMMATE[color];
+}
 
 /** Team identity (2v2): red+yellow = Equipo Fuego 🔥, green+blue =
  *  Equipo Bosque 🌲 — shown as a badge on each avatar in team games. */
@@ -74,6 +89,8 @@ export interface GameState {
   /** "Piezas Hermanas" mode: your pieces stacked on the SAME square move
    *  TOGETHER as one convoy. */
   siblingMode?: boolean;
+  /** Hexagonal 6-player board: 78-ring / 6-lane geometry + hex teams. */
+  hexMode?: boolean;
 }
 
 export interface GameMessage {
@@ -154,6 +171,26 @@ export const COLOR_CONFIG: Record<Color, {
     cssClass: 'player-blue',
     displayName: 'Azul',
   },
+  // Hex-only colors — entry/lane data for them lives in hex/boardPath6;
+  // these 4p fields are placeholders so the Record stays total.
+  purple: {
+    entryIndex: 0,
+    safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
+    homeStretchStart: 52,
+    homeStretchEnd: 56,
+    emoji: '🟣',
+    cssClass: 'player-purple',
+    displayName: 'Morado',
+  },
+  cyan: {
+    entryIndex: 0,
+    safeSquares: [0, 8, 13, 21, 26, 34, 39, 47],
+    homeStretchStart: 52,
+    homeStretchEnd: 56,
+    emoji: '🔷',
+    cssClass: 'player-cyan',
+    displayName: 'Celeste',
+  },
 };
 
 /** Last board square (0-51) from which rolling 1+ enters the home stretch.
@@ -168,6 +205,8 @@ export const HOME_STRETCH_ENTRY: Record<Color, number> = {
   green: 37,
   yellow: 24,
   blue: 11,
+  purple: 0, // hex-only (see HEX_LANE_ENTRANCE)
+  cyan: 0,   // hex-only
 };
 
 /** Avatar ICON keys (see components/AvatarIcon.tsx) — professional vector
@@ -224,12 +263,29 @@ export const PLAYER_CONFIG: Record<Color, {
     cssLight: '#60a5fa',
     cssClass: COLOR_CONFIG.blue.cssClass,
   },
+  purple: {
+    label: COLOR_CONFIG.purple.displayName,
+    emoji: COLOR_CONFIG.purple.emoji,
+    cssColor: '#a855f7',
+    cssLight: '#c4b5fd',
+    cssClass: COLOR_CONFIG.purple.cssClass,
+  },
+  cyan: {
+    label: COLOR_CONFIG.cyan.displayName,
+    emoji: COLOR_CONFIG.cyan.emoji,
+    cssColor: '#14b8a6',
+    cssLight: '#5eead4',
+    cssClass: COLOR_CONFIG.cyan.cssClass,
+  },
 };
 
 /** Turn order = CLOCKWISE seating around the board (any rotation keeps
  *  the cycle clockwise): red TL → blue TR → yellow BR → green BL. Teams
  *  still alternate (red+yellow vs blue+green). */
 export const PLAYER_COLORS_ORDER: Color[] = ['red', 'blue', 'yellow', 'green'];
+
+/** Clockwise seating for the HEX board (6 arms from the top). */
+export const HEX_COLORS_ORDER: Color[] = ['red', 'blue', 'yellow', 'green', 'purple', 'cyan'];
 
 /** Seat order for ONLINE rooms (Ludo Club style): the first two seats taken
  *  are always diagonally-opposite corners (red ↔ yellow), never adjacent

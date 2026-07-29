@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore.ts';
 import type { Color, Player } from '../game/types.ts';
-import { COLORS, PLAYER_CONFIG } from '../game/types.ts';
+import { COLORS, HEX_COLORS_ORDER, PLAYER_CONFIG } from '../game/types.ts';
 import { BOT_NAMES, BOT_EMOJIS } from '../game/aiPlayer.ts';
 import { getStoredTicket } from '../online/onlineManager.ts';
 import { loadProfile, getCoins } from '../profile.ts';
@@ -12,7 +12,7 @@ import AvatarIcon from './AvatarIcon.tsx';
 import {
   AlertTriangle, Bot, Check, ClipboardCopy, Coins, Crown, Flame, Handshake,
   Hourglass, Home as HomeIcon, LogIn, RefreshCw, Rocket, Share2, Star,
-  TreePine, Users2,
+  TreePine, Users2, Hexagon as HexagonIcon,
 } from 'lucide-react';
 
 export default function Lobby() {
@@ -39,6 +39,7 @@ export default function Lobby() {
   const roomCode = useGameStore((s) => s.roomCode);
   const localPlayerId = useGameStore((s) => s.localPlayerId);
   const onlineError = useGameStore((s) => s.onlineError);
+  const onlineErrorDetail = useGameStore((s) => s.onlineErrorDetail);
   const onlineConnecting = useGameStore((s) => s.onlineConnecting);
   const addPlayer = useGameStore((s) => s.addPlayer);
   const addBotPlayer = useGameStore((s) => s.addBotPlayer);
@@ -56,7 +57,10 @@ export default function Lobby() {
   const playersByColor = new Map<Color, Player>(players.map((p) => [p.color, p]));
 
   const humans = players.filter((p) => !p.isBot);
-  const nextFreeColor = COLORS.find((c) => !playersByColor.has(c));
+  const isHex = gameMode === 'hex6';
+  const SEATS = isHex ? HEX_COLORS_ORDER : COLORS;
+  const maxSeats = isHex ? 6 : 4;
+  const nextFreeColor = SEATS.find((c) => !playersByColor.has(c));
 
   const isOnline = gameMode === 'online';
   const isGuest = onlineRole === 'guest';
@@ -68,10 +72,11 @@ export default function Lobby() {
   // 2v2 team play — local mode or the online toggle — is HUMANS ONLY.
   const isTeamsGame = gameMode === 'teams' || (isOnline && teamsMode === true);
 
-  const canAddHuman = !isOnline && nameInput.trim().length > 0 && players.length < 4
+  const canAddHuman = !isOnline && nameInput.trim().length > 0 && players.length < maxSeats
     && !(gameMode === 'solo' && humans.length >= 1);
   const canStart = !isGuest && (
-    isTeamsGame ? humans.length >= 4
+    isHex ? humans.length >= 1
+      : isTeamsGame ? humans.length >= 4
       : gameMode === 'local' ? players.length >= 2
       : gameMode === 'online' ? humans.length >= 2
       : humans.length >= 1
@@ -119,8 +124,9 @@ export default function Lobby() {
   const modeTitle = gameMode === 'solo' ? t('modeSolo')
     : gameMode === 'teams' ? t('modeTeams')
     : gameMode === 'online' ? t('modeOnline')
+    : gameMode === 'hex6' ? t('modeHex')
     : t('modeLocal');
-  const ModeIcon = gameMode === 'solo' ? Bot : gameMode === 'teams' ? Handshake : gameMode === 'online' ? Rocket : Users2;
+  const ModeIcon = gameMode === 'solo' ? Bot : gameMode === 'teams' ? Handshake : gameMode === 'online' ? Rocket : gameMode === 'hex6' ? HexagonIcon : Users2;
 
   const hint = isGuest
     ? t('waitingHost')
@@ -211,6 +217,7 @@ export default function Lobby() {
                 animate={{ opacity: 1 }}
               >
                 <AlertTriangle size={13} className="lobby-ico" /> {t(onlineError as Parameters<typeof t>[0])}
+                {onlineErrorDetail && <span className="lobby-online-error-detail">{onlineErrorDetail.slice(0, 120)}</span>}
               </motion.p>
             )}
           </motion.div>
@@ -239,14 +246,14 @@ export default function Lobby() {
           </motion.div>
         )}
 
-        {/* Online 2v2 toggle: host flips it, guests see it mirrored */}
-        {isOnline && onlineRole !== 'none' && (
+        {/* Team toggle: online 2v2 · hex 2v2v2 (host flips it) */}
+        {((isOnline && onlineRole !== 'none') || isHex) && (
           <button
             className={`lobby-teams-toggle ${teamsMode ? 'lobby-teams-toggle--on' : ''}`}
             onClick={() => setTeamsMode(!teamsMode)}
             disabled={isGuest}
           >
-            <Handshake size={14} className="lobby-ico" /> {t('modeTeams')} · {teamsMode ? 'ON' : 'OFF'}
+            <Handshake size={14} className="lobby-ico" /> {isHex ? 'Equipos 2v2v2 (brazos opuestos)' : t('modeTeams')} · {teamsMode ? 'ON' : 'OFF'}
           </button>
         )}
 
@@ -291,7 +298,7 @@ export default function Lobby() {
             </div>
           )}
           <div className="lobby-seat-grid">
-            {COLORS.map((color) => {
+            {SEATS.map((color) => {
               const seated = playersByColor.get(color);
               const willBeBot = !seated && !isOnline && gameMode !== 'teams';
               const isNextFree = color === nextFreeColor;
@@ -458,6 +465,7 @@ export default function Lobby() {
           justify-content: center;
         }
         .lobby-ico { vertical-align: -2px; display: inline; }
+        .lobby-online-error-detail { display: block; font-size: 0.62rem; font-weight: 700; opacity: 0.75; margin-top: 2px; }
         .lobby-inner {
           gap: var(--gap-md);
           justify-content: center;

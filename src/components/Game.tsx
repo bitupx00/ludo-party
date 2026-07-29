@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore.ts';
 import Board from './Board.tsx';
+import BoardHex from './BoardHex.tsx';
 import Dice3D from './Dice3D.tsx';
 import AvatarBadge from './AvatarBadge.tsx';
 import GameChat from './GameChat.tsx';
@@ -103,6 +104,7 @@ export default function Game() {
   const onlineRole = useGameStore((s) => s.onlineRole);
   const localPlayerId = useGameStore((s) => s.localPlayerId);
   const onlineReconnecting = useGameStore((s) => s.onlineReconnecting);
+  const hexMode = useGameStore((s) => s.hexMode === true);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [stickersOpen, setStickersOpen] = useState(false);
@@ -343,7 +345,7 @@ export default function Game() {
     const player = playersByColor.get(color);
     if (!player) return <span key={color} />;
     const isCurrent = player.id === currentPlayer?.id;
-    const finished = player.pieces.filter((p) => p.position >= 57).length;
+    const finished = player.pieces.filter((p) => p.position >= (hexMode ? 84 : 57)).length;
     // Turn dice (Ludo Club style): the big HUD dice only shows on the local
     // device's own turn, so opponents' turns get a small dice badge on
     // their avatar instead — undefined means "don't show one at all".
@@ -357,7 +359,7 @@ export default function Game() {
         finishedCount={finished}
         reaction={reactions[player.id]}
         align={align}
-        showTeamBadge={teamsMode === true}
+        showTeamBadge={teamsMode === true && !hexMode}
         diceValue={showTurnDice ? (phase === 'moving' && diceSettled ? diceValue : null) : undefined}
         diceRolling={showTurnDice && (phase === 'rolling' || (phase === 'moving' && !diceSettled))}
         onGift={onlineRole !== 'none' && player.id === localPlayerId ? undefined : setGiftTarget}
@@ -397,24 +399,36 @@ export default function Game() {
 
         {/* Middle: players + board, vertically centered */}
         <div className="game-mid">
-        {/* Top players (corners follow board rotation) */}
+        {/* Top players (hex: first 3 seats · 4p: corners follow rotation) */}
         <div className="game-badges game-badges--top">
-          {cornerPlayers.tl && renderBadge(cornerPlayers.tl, 'left')}
-          {cornerPlayers.tr && renderBadge(cornerPlayers.tr, 'right')}
+          {hexMode
+            ? players.slice(0, 3).map((p, i) => renderBadge(p.color, i === 2 ? 'right' : 'left'))
+            : <>
+                {cornerPlayers.tl && renderBadge(cornerPlayers.tl, 'left')}
+                {cornerPlayers.tr && renderBadge(cornerPlayers.tr, 'right')}
+              </>}
         </div>
 
         {/* Board */}
-        <Board
-          pieces={allPieces}
-          onPieceClick={handlePieceClick}
-          perspective={myColor}
-          memeFx={activeFx}
-        />
+        {hexMode ? (
+          <BoardHex pieces={allPieces} onPieceClick={handlePieceClick} />
+        ) : (
+          <Board
+            pieces={allPieces}
+            onPieceClick={handlePieceClick}
+            perspective={myColor}
+            memeFx={activeFx}
+          />
+        )}
 
         {/* Bottom players */}
         <div className="game-badges game-badges--bottom">
-          {cornerPlayers.bl && renderBadge(cornerPlayers.bl, 'left')}
-          {cornerPlayers.br && renderBadge(cornerPlayers.br, 'right')}
+          {hexMode
+            ? players.slice(3, 6).map((p, i) => renderBadge(p.color, i === 2 ? 'right' : 'left'))
+            : <>
+                {cornerPlayers.bl && renderBadge(cornerPlayers.bl, 'left')}
+                {cornerPlayers.br && renderBadge(cornerPlayers.br, 'right')}
+              </>}
         </div>
 
         {/* Status line: extra turn / tap hint */}

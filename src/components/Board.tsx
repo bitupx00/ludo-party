@@ -30,7 +30,7 @@ interface BoardProps {
 const COLORS_ORDER = ['red', 'green', 'yellow', 'blue'] as const;
 
 /** Entry square index per color (matches boardPath.ts / gameEngine). */
-const ENTRY_SQUARES: Record<Color, number> = { red: 0, blue: 13, yellow: 26, green: 39 };
+const ENTRY_SQUARES: Record<Color, number> = { red: 0, blue: 13, yellow: 26, green: 39, purple: 0, cyan: 0 };
 
 /** Waiting slots inside each base, in UNROTATED grid units. */
 const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {
@@ -38,6 +38,9 @@ const BASE_SLOTS: Record<Color, Array<{ x: number; y: number }>> = {
   blue:   [{ x: 10.5, y: 1.5 }, { x: 12.5, y: 1.5 }, { x: 10.5, y: 3.5 }, { x: 12.5, y: 3.5 }],
   green:  [{ x: 1.5, y: 10.5 }, { x: 3.5, y: 10.5 }, { x: 1.5, y: 12.5 }, { x: 3.5, y: 12.5 }],
   yellow: [{ x: 10.5, y: 10.5 }, { x: 12.5, y: 10.5 }, { x: 10.5, y: 12.5 }, { x: 12.5, y: 12.5 }],
+  // hex-only colors never render on the 4p board
+  purple: [],
+  cyan: [],
 };
 
 /** Ludo Club-style grouping for pieces sharing a square: instead of

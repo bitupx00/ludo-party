@@ -280,9 +280,10 @@ export function startProfileSync() {
             localStorage.getItem('ludo-party-payout') !== state.matchId) {
           const humans = state.players.filter((p) => !p.isBot).length;
           const pot = bet * Math.max(humans, 2);
+          const pairs = state.gameMode === 'hex6' ? HEX_TEAMMATE_LOCAL : TEAMMATE_LOCAL;
           const mateWin = state.teamsMode &&
             state.players.find((p) => p.id === ownId)?.color &&
-            state.winner === TEAMMATE_LOCAL[state.players.find((p) => p.id === ownId)!.color];
+            state.winner === pairs[state.players.find((p) => p.id === ownId)!.color];
           const iWon = me.color === state.winner || !!mateWin;
           if (iWon) {
             localStorage.setItem('ludo-party-payout', state.matchId);
@@ -296,3 +297,5 @@ export function startProfileSync() {
 
 /** Local copy of the teammate map (avoids importing game types here). */
 const TEAMMATE_LOCAL: Record<string, string> = { red: 'yellow', yellow: 'red', green: 'blue', blue: 'green' };
+/** Hex 2v2v2 pairs (opposite arms). */
+const HEX_TEAMMATE_LOCAL: Record<string, string> = { red: 'green', green: 'red', blue: 'purple', purple: 'blue', yellow: 'cyan', cyan: 'yellow' };

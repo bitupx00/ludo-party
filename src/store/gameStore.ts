@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Color, Player, CaptureEffect, GameMessage, GameMode } from '../game/types';
-import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER, ONLINE_SEAT_ORDER, HOME_STRETCH_ENTRY } from '../game/types';
+import { COLORS, COLOR_CONFIG, AVATAR_EMOJIS, PLAYER_COLORS_ORDER, HEX_COLORS_ORDER, ONLINE_SEAT_ORDER, HOME_STRETCH_ENTRY } from '../game/types';
 import {
   rollDice,
   rollLuckyDice,
@@ -108,6 +108,8 @@ interface GameStore {
   pendingExtraRolls?: number;
   teamsMode?: boolean;
   siblingMode?: boolean;
+  /** Hexagonal 6-player board active (derived from gameMode === 'hex6'). */
+  hexMode?: boolean;
 
   // Navigation / mode
   screen: Screen;
@@ -134,6 +136,10 @@ interface GameStore {
   localPlayerId: string | null;
   /** i18n key of the last online error (shown in the lobby/home). */
   onlineError: string | null;
+  /** Raw technical detail of the last connection error (small print under
+   *  the error — indispensable for diagnosing device-specific failures
+   *  like iPhone/Safari quirks). */
+  onlineErrorDetail: string | null;
   onlineConnecting: boolean;
   /** Guest: the link to the host dropped and is being rebuilt in the background. */
   onlineReconnecting: boolean;
@@ -237,6 +243,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   roomCode: null,
   localPlayerId: null,
   onlineError: null,
+  onlineErrorDetail: null,
   onlineConnecting: false,
   onlineReconnecting: false,
 
@@ -331,7 +338,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   createOnlineRoom: async (hostName: string) => {
     const name = hostName.trim();
     if (!name) return;
-    set({ onlineConnecting: true, onlineError: null });
+    set({ onlineConnecting: true, onlineError: null, onlineErrorDetail: null });
 
     // Retry a few times on room-code collisions
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -354,7 +361,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return;
       } catch (err) {
         if ((err as Error).message === 'code-taken') continue;
-        set({ onlineConnecting: false, onlineError: 'errConnection' });
+        set({ onlineConnecting: false, onlineError: 'errConnection', onlineErrorDetail: String((err as Error)?.message ?? err) });
         return;
       }
     }
@@ -366,7 +373,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const trimmedName = name.trim();
     if (!trimmedCode || !trimmedName) return;
     ensureProfile(trimmedName); // guests carry their wallet into the room
-    set({ onlineConnecting: true, onlineError: null });
+    set({ onlineConnecting: true, onlineError: null, onlineErrorDetail: null });
     try {
       await joinRoom(trimmedCode, trimmedName);
       set({ onlineConnecting: false });
@@ -377,13 +384,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : reason === 'room-full' ? 'errRoomFull'
         : reason === 'in-game' ? 'errInGame'
         : 'errConnection';
-      set({ onlineConnecting: false, onlineError: key });
+      set({
+        onlineConnecting: false,
+        onlineError: key,
+        onlineErrorDetail: key === 'errConnection' ? String(reason ?? err) : null,
+      });
     }
   },
 
   addRemotePlayer: (name: string, points?: number, skin?: string) => {
-    const { players } = get();
-    if (players.length >= 4) return null;
+    const { players, gameMode } = get();
+    if (players.length >= (gameMode === 'hex6' ? 6 : 4)) return null;
     get().addPlayer(name.trim().slice(0, 24) || 'Jugador', points ?? 0);
     const added = get().players[get().players.length - 1];
     if (added) {
@@ -555,11 +566,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ─── Lobby ─────────────────────────────────────────────────────────
   addPlayer: (name: string, initialPoints?: number) => {
     const { players, gameMode } = get();
-    if (players.length >= 4) return;
+    if (players.length >= (gameMode === 'hex6' ? 6 : 4)) return;
 
     // Online seating always fills diagonally-opposite corners first (Ludo
     // Club style) so a 2-player game never sits its players side by side.
-    const seatOrder = gameMode === 'online' ? ONLINE_SEAT_ORDER : COLORS;
+    const seatOrder = gameMode === 'hex6' ? HEX_COLORS_ORDER : gameMode === 'online' ? ONLINE_SEAT_ORDER : COLORS;
     const usedColors = new Set(players.map((p) => p.color));
     const nextColor = seatOrder.find((c) => !usedColors.has(c));
     if (!nextColor) return;
@@ -594,11 +605,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   addBotPlayer: () => {
-    const { players } = get();
-    if (players.length >= 4) return;
+    const { players, gameMode } = get();
+    if (players.length >= (gameMode === 'hex6' ? 6 : 4)) return;
 
     const usedColors = new Set(players.map((p) => p.color));
-    const nextColor = COLORS.find((c) => !usedColors.has(c));
+    const nextColor = (gameMode === 'hex6' ? HEX_COLORS_ORDER : COLORS).find((c) => !usedColors.has(c));
     if (!nextColor) return;
 
     const botPlayer = createPlayer(
@@ -707,22 +718,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Solo: 1 human is enough (bots fill the rest). Local: need 2+ players.
     // Online: always human-only — needs 2+ real players, remaining seats stay empty.
     // Teams 2v2 (local mode or online toggle): HUMANS ONLY, all 4 seats.
-    const isTeamsGame = gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true);
-    if (isTeamsGame && humans.length < 4) return;
+    const hexGame = gameMode === 'hex6';
+    const isTeamsGame = gameMode === 'teams' || ((gameMode === 'online' || hexGame) && get().teamsMode === true);
+    if (isTeamsGame && !hexGame && humans.length < 4) return;
     if (gameMode === 'local' && players.length < 2) return;
     if (gameMode === 'online' && humans.length < 2) return;
     if (gameMode !== 'local' && gameMode !== 'online' && humans.length < 1) return;
 
     const allPlayers = [...players];
-    if (gameMode !== 'online' && gameMode !== 'teams' && allPlayers.length < 4) {
+    if (hexGame) {
+      // Hex board: bots fill up to the full 6 seats
+      if (allPlayers.length < 6) allPlayers.push(...createBotPlayers(allPlayers, true));
+    } else if (gameMode !== 'online' && gameMode !== 'teams' && allPlayers.length < 4) {
       allPlayers.push(...createBotPlayers(allPlayers));
     }
 
     // Fixed turn order by color (red → green → yellow → blue) so teams alternate.
     // Shop points are a persistent wallet — they carry across matches; the
     // per-match fields (kills, price escalation, armed dice) reset here.
+    const turnOrder = hexGame ? HEX_COLORS_ORDER : PLAYER_COLORS_ORDER;
     const ordered = [...allPlayers]
-      .sort((a, b) => PLAYER_COLORS_ORDER.indexOf(a.color) - PLAYER_COLORS_ORDER.indexOf(b.color))
+      .sort((a, b) => turnOrder.indexOf(a.color) - turnOrder.indexOf(b.color))
       .map((p) => ({ ...p, kills: 0, luckyBuys: 0, pendingLucky: null }));
 
     set({
@@ -735,8 +751,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       turnCount: 1,
       consecutiveSixes: 0,
       pendingExtraRolls: 0,
-      teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
+      teamsMode: isTeamsGame,
       siblingMode: get().siblingMode === true,
+      hexMode: hexGame,
       reactions: {},
       memeFx: null,
       memeThrow: null,
@@ -928,7 +945,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       turnCount: 1,
       consecutiveSixes: 0,
       pendingExtraRolls: 0,
-      teamsMode: gameMode === 'teams' || (gameMode === 'online' && get().teamsMode === true),
+      teamsMode: gameMode === 'teams' || ((gameMode === 'online' || gameMode === 'hex6') && get().teamsMode === true),
+      hexMode: gameMode === 'hex6',
       captureEffects: [],
       reactions: {},
       memeFx: null,
@@ -1153,7 +1171,7 @@ function detectMemeOccasion(args: {
 
 /** Teams pairing (duplicated tiny map to avoid importing TEAMMATE here
  *  twice — red+yellow vs green+blue). */
-const TEAMMATE_SAFE: Record<Color, Color> = { red: 'yellow', yellow: 'red', green: 'blue', blue: 'green' };
+const TEAMMATE_SAFE: Record<Color, Color> = { red: 'yellow', yellow: 'red', green: 'blue', blue: 'green', purple: 'cyan', cyan: 'purple' };
 
 /** Ludo Club rule: the THIRD consecutive six cancels the play entirely —
  *  no piece moves, the turn passes to the next player. */

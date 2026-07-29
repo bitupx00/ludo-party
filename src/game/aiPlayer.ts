@@ -1,5 +1,5 @@
 import type { Color, GameState, Piece, Player } from './types';
-import { COLORS, TEAMMATE } from './types';
+import { COLORS, HEX_COLORS_ORDER, teammateOf } from './types';
 import {
   canPieceMove,
   calculateNewPosition,
@@ -14,6 +14,8 @@ export const BOT_NAMES: Record<Color, string> = {
   green: 'Kiwi',
   yellow: 'Sol',
   blue: 'Nube',
+  purple: 'Uva',
+  cyan: 'Coral',
 };
 
 export const BOT_EMOJIS: Record<Color, string> = {
@@ -21,12 +23,15 @@ export const BOT_EMOJIS: Record<Color, string> = {
   green: 'turtle',
   yellow: 'sun',
   blue: 'cloud',
+  purple: 'ghost',
+  cyan: 'fish',
 };
 
 /** Create bot players to fill missing slots (up to 4 total). */
-export function createBotPlayers(existingPlayers: Player[]): Player[] {
+export function createBotPlayers(existingPlayers: Player[], hex?: boolean): Player[] {
   const usedColors = new Set(existingPlayers.map((p) => p.color));
-  const availableColors = COLORS.filter((c) => !usedColors.has(c));
+  const pool = hex ? HEX_COLORS_ORDER : COLORS;
+  const availableColors = pool.filter((c) => !usedColors.has(c));
   const bots: Player[] = [];
 
   for (const color of availableColors) {
@@ -60,8 +65,9 @@ export function chooseBotMove(
   const currentPlayer = state.players[state.currentPlayerIndex];
   if (!currentPlayer) return null;
 
+  const hex = state.hexMode;
   const movable = currentPlayer.pieces.filter((piece) =>
-    canPieceMove(piece, diceValue, currentPlayer.color),
+    canPieceMove(piece, diceValue, currentPlayer.color, hex),
   );
 
   if (movable.length === 0) {
@@ -84,26 +90,32 @@ export function chooseBotMove(
   if (entryPiece) return entryPiece.id;
 
   // Priority 3: Reach home (the goal square)
+  const goal = hex ? 84 : 57;
   const homePiece = movable.find((p) => {
     if (p.position === -1) return false;
-    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
-    return newPos === 57;
+    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color, hex);
+    return newPos === goal;
   });
   if (homePiece) return homePiece.id;
 
   // Priority 4: Enter the home stretch lane (positions 52-56)
+  const laneStart = hex ? 78 : 52;
   const hsPiece = movable.find((p) => {
     if (p.position === -1) return false;
-    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
-    return newPos >= 52 && newPos <= 56;
+    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color, hex);
+    return newPos >= laneStart && newPos < goal;
   });
   if (hsPiece) return hsPiece.id;
 
   // Priority 5: Land on safe square
+  const SAFE = hex
+    ? [1, 8, 14, 21, 27, 34, 40, 47, 53, 60, 66, 73]
+    : [0, 8, 13, 21, 26, 34, 39, 47];
+  const ring = hex ? 78 : 52;
   const safePiece = movable.find((p) => {
     if (p.position === -1) return false;
-    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color);
-    return newPos >= 0 && newPos < 52 && [0, 8, 13, 21, 26, 34, 39, 47].includes(newPos);
+    const newPos = calculateNewPosition(p.position, diceValue, currentPlayer.color, hex);
+    return newPos >= 0 && newPos < ring && SAFE.includes(newPos);
   });
   if (safePiece) return safePiece.id;
 
@@ -125,22 +137,28 @@ function findCaptureMove(
   movable: Piece[],
   diceValue: number,
 ): Piece | null {
-  const GLOBAL_SAFE = [0, 8, 13, 21, 26, 34, 39, 47];
+  const hex = state.hexMode;
+  const GLOBAL_SAFE = hex
+    ? [1, 8, 14, 21, 27, 34, 40, 47, 53, 60, 66, 73]
+    : [0, 8, 13, 21, 26, 34, 39, 47];
+  const ring = hex ? 78 : 52;
 
   for (const piece of movable) {
     if (piece.position === -1) continue;
 
-    const newPos = calculateNewPosition(piece.position, diceValue, currentPlayer.color);
-    if (newPos < 0 || newPos >= 52) continue;
+    const newPos = calculateNewPosition(piece.position, diceValue, currentPlayer.color, hex);
+    if (newPos < 0 || newPos >= ring) continue;
     if (GLOBAL_SAFE.includes(newPos)) continue;
 
     // Group opponents at the target square: blocks (2+ per group) can't be captured
     const groups = new Map<string, number>();
     for (const player of state.players) {
       if (player.color === currentPlayer.color) continue;
-      if (state.teamsMode && TEAMMATE[currentPlayer.color] === player.color) continue;
+      if (state.teamsMode && teammateOf(currentPlayer.color, hex) === player.color) continue;
       const key = state.teamsMode
-        ? (player.color === 'red' || player.color === 'yellow' ? 'team-a' : 'team-b')
+        ? (hex
+          ? (player.color === 'red' || player.color === 'green' ? 'team-a' : player.color === 'blue' || player.color === 'purple' ? 'team-b' : 'team-c')
+          : (player.color === 'red' || player.color === 'yellow' ? 'team-a' : 'team-b'))
         : player.color;
       for (const opponentPiece of player.pieces) {
         if (opponentPiece.position === newPos) {

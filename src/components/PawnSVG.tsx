@@ -11,6 +11,8 @@ const PAWN_PALETTE: Record<Color, { base: string; light: string; dark: string; d
   green:  { base: '#26c165', light: '#7dedaa', dark: '#178a49', deep: '#0b532c' },
   yellow: { base: '#f5a415', light: '#ffd873', dark: '#c07c08', deep: '#7c4f05' },
   blue:   { base: '#3d7bfa', light: '#8fb8ff', dark: '#2453c4', deep: '#143077' },
+  purple: { base: '#a855f7', light: '#d8b4fe', dark: '#7e22ce', deep: '#581c87' },
+  cyan:   { base: '#14b8a6', light: '#7dd3c8', dark: '#0f766e', deep: '#134e4a' },
 };
 
 interface PawnSVGProps {

@@ -10,11 +10,12 @@ import { ensureProfile, getCoins, claimStatus, claimDaily, loadProfile, DAILY_RE
 import type { LucideIcon } from 'lucide-react';
 import {
   Backpack, Bot, CircleHelp, Coins, Gamepad2, Gift, Globe, Handshake,
-  Lightbulb, Star, Trophy, Users,
+  Hexagon, Lightbulb, Star, Trophy, Users,
 } from 'lucide-react';
 
-const MODES: Array<{ mode: GameMode; Icon: LucideIcon; titleKey: 'modeSolo' | 'modeLocal' | 'modeTeams' | 'modeOnline'; descKey: 'modeSoloDesc' | 'modeLocalDesc' | 'modeTeamsDesc' | 'modeOnlineDesc'; accent: string }> = [
+const MODES: Array<{ mode: GameMode; Icon: LucideIcon; titleKey: 'modeSolo' | 'modeLocal' | 'modeTeams' | 'modeOnline' | 'modeHex'; descKey: 'modeSoloDesc' | 'modeLocalDesc' | 'modeTeamsDesc' | 'modeOnlineDesc' | 'modeHexDesc'; accent: string }> = [
   { mode: 'online', Icon: Globe, titleKey: 'modeOnline', descKey: 'modeOnlineDesc', accent: '#9333ea' },
+  { mode: 'hex6', Icon: Hexagon, titleKey: 'modeHex', descKey: 'modeHexDesc', accent: '#14b8a6' },
   { mode: 'solo', Icon: Bot, titleKey: 'modeSolo', descKey: 'modeSoloDesc', accent: 'var(--color-blue)' },
   { mode: 'local', Icon: Users, titleKey: 'modeLocal', descKey: 'modeLocalDesc', accent: 'var(--color-green)' },
   { mode: 'teams', Icon: Handshake, titleKey: 'modeTeams', descKey: 'modeTeamsDesc', accent: 'var(--color-red)' },

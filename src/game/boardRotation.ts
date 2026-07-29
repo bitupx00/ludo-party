@@ -15,6 +15,8 @@ export const ROTATION_FOR_COLOR: Record<Color, number> = {
   yellow: 1,
   blue: 2,
   red: 3,
+  purple: 0, // hex board doesn't rotate (fixed orientation)
+  cyan: 0,
 };
 
 /** Rotate a (possibly fractional) 15×15 cell coordinate k quarter-turns clockwise. */
@@ -38,6 +40,8 @@ const BASE_REP: Record<Color, { x: number; y: number }> = {
   blue: { x: 12, y: 2 },
   green: { x: 2, y: 12 },
   yellow: { x: 12, y: 12 },
+  purple: { x: 2, y: 2 }, // hex-only
+  cyan: { x: 12, y: 2 },  // hex-only
 };
 
 /** Which screen corner a color's base occupies after k quarter-turns. */

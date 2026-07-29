@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import type { Color } from '../game/types.ts';
-import { PLAYER_CONFIG, TEAMMATE } from '../game/types.ts';
+import { PLAYER_CONFIG, teammateOf } from '../game/types.ts';
 import { useGameStore } from '../store/gameStore.ts';
 import { useRankStore } from '../ranking.ts';
 import { playSfx, vibrate } from '../sound.ts';
@@ -28,7 +28,7 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
   const isTeams = useGameStore.getState().teamsMode === true;
   // Pot = entry × humans (min 2: solo-vs-bots doubles your entry)
   const potWon = betAmount * Math.max(players.filter((p) => !p.isBot).length, 2);
-  const teammateColor = TEAMMATE[winnerColor];
+  const teammateColor = teammateOf(winnerColor, useGameStore.getState().hexMode);
   const winnerPlayer = players.find((p) => p.color === winnerColor);
   const teammatePlayer = players.find((p) => p.color === teammateColor);
 
@@ -61,7 +61,7 @@ export default function WinScreen({ winnerColor }: WinScreenProps) {
       name: p.name,
       won: p.color === winnerColor || (isTeams && p.color === teammateColor),
       kills: p.kills ?? 0,
-      goals: p.pieces.filter((pc) => pc.position >= 57).length,
+      goals: p.pieces.filter((pc) => pc.position >= (s.hexMode ? 84 : 57)).length,
     })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

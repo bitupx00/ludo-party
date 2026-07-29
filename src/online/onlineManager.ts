@@ -3,6 +3,7 @@ import type { Color } from '../game/types';
 import { useGameStore, SNAPSHOT_KEYS, type GameSnapshot } from '../store/gameStore';
 import { loadProfile } from '../profile';
 import { loadSkinPref } from '../game/diceSkins';
+import { createId } from '../game/gameEngine';
 
 /**
  * Online multiplayer over PeerJS (WebRTC data channels), host-authoritative:
@@ -423,7 +424,7 @@ export async function hostRoom(code: string): Promise<void> {
             conn.close();
             return;
           }
-          const token = crypto.randomUUID();
+          const token = createId();
           seatTokens.set(playerId, token);
           entry.playerId = playerId;
           conn.send({ t: 'welcome', playerId, token } satisfies HostMessage);
