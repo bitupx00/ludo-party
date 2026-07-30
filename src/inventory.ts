@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { loadProfile, saveProfile, coinsToStars } from './profile';
 import { EVENT_POOLS, MEME_SOUNDS, THROW_SOUNDS } from './game/memeSounds';
+import { tenorSearch, type TenorGif } from './game/tenor';
 
 /**
  * Player inventory (device-local, like the wallet): purchased memes with
@@ -162,4 +163,48 @@ export function recommendSounds(memeIdOrName: string): string[] {
 /** Every sound in the catalog, for the "más sonidos" browse-all view. */
 export function allSoundIds(): string[] {
   return MEME_SOUNDS.map((s) => s.id);
+}
+
+/* ─── Default meme pack ─────────────────────────────────────────────────
+ * Every account gets up to 30 FREE memes (each with a linked sound) so
+ * players can try throwing/reacting from day one. The pack is RANDOM per
+ * device: 3 random search themes are drawn from the pool below and the
+ * results shuffled, so different players own different memes. Fails soft
+ * offline (no flag set → retried on the next launch). */
+
+const SEED_FLAG = 'ludo-party-default-memes';
+const SEED_QUERIES = [
+  'risa meme', 'gato divertido', 'perro gracioso', 'baile divertido',
+  'fail caida', 'celebracion gol', 'enojado meme', 'llorando meme',
+  'sorpresa meme', 'wow increible', 'burla jaja', 'victoria winner',
+];
+
+export async function seedDefaultMemes(): Promise<void> {
+  try { if (localStorage.getItem(SEED_FLAG)) return; } catch { return; }
+  const themes = [...SEED_QUERIES].sort(() => Math.random() - 0.5).slice(0, 3);
+  let results: TenorGif[] = [];
+  try {
+    const batches = await Promise.all(themes.map((q) => tenorSearch(q, 20).catch(() => [] as TenorGif[])));
+    results = batches.flat();
+  } catch { /* offline — retry next launch */ }
+  if (results.length === 0) return;
+  const shuffled = [...results].sort(() => Math.random() - 0.5);
+  const st = useInvStore.getState();
+  const have = new Set(st.memes.map((m) => m.id));
+  const add: OwnedMeme[] = [];
+  for (const g of shuffled) {
+    if (add.length >= 30) break;
+    if (!g.id || !g.url || have.has(g.id)) continue;
+    have.add(g.id);
+    // Default sound: the closest thematic match, varied per meme by hash.
+    let h = 0;
+    for (let i = 0; i < g.id.length; i++) h = (h * 31 + g.id.charCodeAt(i)) >>> 0;
+    const rec = recommendSounds(g.id);
+    add.push({ id: g.id, url: g.url, preview: g.preview, sound: rec[h % rec.length] });
+  }
+  if (add.length === 0) return;
+  const memes = [...st.memes, ...add];
+  saveInv(memes);
+  useInvStore.setState({ memes });
+  try { localStorage.setItem(SEED_FLAG, String(add.length)); } catch { /* noop */ }
 }

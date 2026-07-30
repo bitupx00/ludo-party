@@ -27,6 +27,7 @@ import {
   sendActionToHost,
   generateRoomCode,
   setMyPlayerId,
+  clearStoredTicket,
 } from '../online/onlineManager';
 import { startAvSession, stopAvSession } from '../online/avManager';
 import { ensureProfile } from '../profile';
@@ -395,6 +396,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : reason === 'room-full' ? 'errRoomFull'
         : reason === 'in-game' ? 'errInGame'
         : 'errConnection';
+      // The room is gone — drop the old seat ticket so the "rejoin"
+      // shortcut for that dead room stops being offered.
+      if (reason === 'room-not-found') clearStoredTicket();
       set({
         onlineConnecting: false,
         onlineError: key,

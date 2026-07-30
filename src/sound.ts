@@ -214,3 +214,74 @@ export function vibrate(pattern: number | number[]) {
   if (useSoundStore.getState().muted) return;
   try { navigator.vibrate?.(pattern); } catch { /* noop */ }
 }
+
+/* ─── Background music (generative — 100% synthesized, copyright-free) ──
+ * A soft marimba-style loop in C-major pentatonic over a walking bass,
+ * Ludo Club vibes: enough life that silence isn't tedious, quiet enough
+ * to never fight the meme sounds. Patterns vary deterministically by bar
+ * index so it doesn't feel like a 4-second loop. Respects the mute toggle
+ * live (bars simply stop being scheduled). */
+
+const MUSIC_BPM = 96;
+const MUSIC_BEAT = 60 / MUSIC_BPM;
+const MUSIC_SCALE = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25]; // C pent.
+const MUSIC_BASS = [130.81, 98.0, 110.0, 146.83]; // C G A D walking
+
+let musicWanted = false;
+let musicTimer: ReturnType<typeof setInterval> | null = null;
+let musicBar = 0;
+let nextBarTime = 0;
+
+function scheduleMusicBar(c: AudioContext, t0: number, bar: number) {
+  const note = (freq: number, at: number, dur: number, type: OscillatorType, gain: number) => {
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(gain, at + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    osc.connect(g).connect(c.destination);
+    osc.start(at);
+    osc.stop(at + dur + 0.05);
+  };
+  const bass = MUSIC_BASS[bar % MUSIC_BASS.length];
+  note(bass, t0, MUSIC_BEAT * 1.6, 'sine', 0.05);
+  note(bass * 1.5, t0 + MUSIC_BEAT * 2, MUSIC_BEAT * 1.4, 'sine', 0.034);
+  let idx = (bar * 3) % MUSIC_SCALE.length;
+  for (let b = 0; b < 4; b++) {
+    if ((bar + b) % 4 === 3 && b === 3) continue; // breathing space
+    const step = [1, -1, 2, -2, 0][(bar * 7 + b * 5) % 5];
+    idx = Math.max(0, Math.min(MUSIC_SCALE.length - 1, idx + step));
+    note(MUSIC_SCALE[idx], t0 + MUSIC_BEAT * b, MUSIC_BEAT * 0.34, 'triangle', 0.03);
+    if ((bar + b) % 3 === 0) {
+      note(MUSIC_SCALE[idx] * 2, t0 + MUSIC_BEAT * (b + 0.5), MUSIC_BEAT * 0.22, 'triangle', 0.016);
+    }
+  }
+}
+
+/** Start the ambient loop (no-op if already running; silent while muted). */
+export function startMusic() {
+  musicWanted = true;
+  if (musicTimer) return;
+  const c = audioCtx();
+  if (!c) return;
+  musicBar = 0;
+  nextBarTime = c.currentTime + 0.1;
+  musicTimer = setInterval(() => {
+    if (!musicWanted) return;
+    if (useSoundStore.getState().muted) return; // paused — resumes on unmute
+    const cc = audioCtx();
+    if (!cc) return;
+    if (nextBarTime < cc.currentTime) nextBarTime = cc.currentTime + 0.05;
+    while (nextBarTime < cc.currentTime + 1.5) {
+      try { scheduleMusicBar(cc, nextBarTime, musicBar++); } catch { /* noop */ }
+      nextBarTime += MUSIC_BEAT * 4;
+    }
+  }, 400);
+}
+
+export function stopMusic() {
+  musicWanted = false;
+  if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+}

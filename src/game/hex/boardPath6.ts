@@ -160,7 +160,13 @@ export function hexBase(color: HexColor): { center: { x: number; y: number }; r:
 /** Any 6p piece position → board % coords (mirrors getPiecePosition). */
 export function hexPiecePosition(color: HexColor, position: number, pieceIndex: number): { x: number; y: number } {
   if (position === -1) return hexBase(color).slots[pieceIndex % 4];
-  if (position >= HEX_GOAL) return hexCenter();
+  if (position >= HEX_GOAL) {
+    // Goal: rest inside this color's own slice of the central hexagon
+    // (toward its lane), never mixed into other colors' slices.
+    const last = hexLane(color)[HEX_LANE_LEN - 1];
+    const c = hexCenter();
+    return { x: c.x + (last.x - c.x) * 0.6, y: c.y + (last.y - c.y) * 0.6 };
+  }
   if (position >= HEX_RING_LEN) return hexLane(color)[position - HEX_RING_LEN];
   return HEX_RING[((position % HEX_RING_LEN) + HEX_RING_LEN) % HEX_RING_LEN];
 }

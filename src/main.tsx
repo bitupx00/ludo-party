@@ -3,10 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { startProfileSync } from './profile.ts'
+import { seedDefaultMemes } from './inventory.ts'
 import BoardHex from './components/BoardHex.tsx'
 
 // Persist the local player's shop points to their device profile
 startProfileSync()
+// Give every device its random 30-meme starter pack (fails soft offline)
+void seedDefaultMemes()
 
 // Design preview: /?hexpreview renders the 6-player hexagonal board
 // prototype standalone (geometry validation before wiring the engine).

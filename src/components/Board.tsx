@@ -107,7 +107,12 @@ function Board({ pieces, onPieceClick, perspective, memeFx }: BoardProps) {
       const idx = parseInt(pieceId.slice(-1), 10) % 4;
       g = BASE_SLOTS[color][idx];
     } else if (position >= 57) {
-      g = { x: 7, y: 7 };
+      // Goal: anchor INSIDE this color's own center triangle (wedge), not
+      // the shared center — pieces of different colors must never mix
+      // across each other's goal triangles. The wedge lies between the
+      // center and the last home-stretch cell, so nudge toward that cell.
+      const hs4 = getHomeStretchGridCoord(color, 4);
+      g = { x: 7 + (hs4.col - 7) * 0.58, y: 7 + (hs4.row - 7) * 0.58 };
     } else if (position >= 52) {
       const hs = getHomeStretchGridCoord(color, position - 52);
       g = { x: hs.col, y: hs.row };

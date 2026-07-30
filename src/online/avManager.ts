@@ -251,6 +251,9 @@ function dropAndRedial(peerId: string) {
 }
 
 function healthCheck() {
+  // Our own camera/mic may have been killed by the OS (screen lock,
+  // app switch) — recover it before worrying about remote links.
+  void recoverLocalStream();
   ticksSinceBudgetRefill++;
   if (ticksSinceBudgetRefill >= TICKS_PER_BUDGET_REFILL) {
     ticksSinceBudgetRefill = 0;
@@ -292,6 +295,41 @@ function onVisibilityChange() {
 }
 
 /* ─── Local media ────────────────────────────────────────────────────── */
+
+/** Mobile OSes kill the camera/mic track when the app is backgrounded or
+ *  the screen locks — the track ends and the local feed (and what everyone
+ *  else receives) stays black FOREVER unless re-acquired. This detects a
+ *  dead local track, re-acquires the media, restores the user's on/off
+ *  toggles, and rebuilds the mesh with the fresh stream. */
+let recoveringLocal = false;
+async function recoverLocalStream() {
+  if (!localStream || recoveringLocal) return;
+  const dead = localStream.getTracks().some((t) => t.readyState === 'ended');
+  if (!dead) return;
+  recoveringLocal = true;
+  try {
+    const wasCamOn = useVideoStore.getState().cameraOn;
+    const wasMicOn = useVideoStore.getState().micOn;
+    localStream.getTracks().forEach((t) => { try { t.stop(); } catch { /* noop */ } });
+    localStream = null;
+    const stream = await ensureLocalStream();
+    if (!stream) return;
+    stream.getVideoTracks().forEach((t) => { t.enabled = wasCamOn; });
+    stream.getAudioTracks().forEach((t) => { t.enabled = wasMicOn; });
+    useVideoStore.getState().setCameraOn(wasCamOn && stream.getVideoTracks().length > 0);
+    useVideoStore.getState().setMicOn(wasMicOn);
+    // Every live call still carries the DEAD stream — rebuild the mesh.
+    for (const call of calls.values()) {
+      try { call.close(); } catch { /* noop */ }
+    }
+    calls.clear();
+    calledPeers.clear();
+    callAttempts.clear();
+    callAllRosterPeers();
+  } finally {
+    recoveringLocal = false;
+  }
+}
 
 async function ensureLocalStream(): Promise<MediaStream | null> {
   if (localStream) return localStream;

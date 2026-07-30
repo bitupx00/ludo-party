@@ -127,6 +127,10 @@ export function getStoredTicket(): { code: string; name: string } | null {
  * stays server-side). Fails soft: no endpoint/no key → default STUN. */
 
 let iceServersCache: RTCIceServer[] | null = null;
+/** Which TURN source the session runs on — surfaced in error diagnostics
+ *  so a field report tells us if the dedicated TURN (Metered key) is
+ *  actually configured in production or we're on the public fallback. */
+let turnSource: 'dedicado' | 'publico' = 'publico';
 
 async function getIceServers(): Promise<RTCIceServer[]> {
   if (iceServersCache) return iceServersCache;
@@ -138,6 +142,7 @@ async function getIceServers(): Promise<RTCIceServer[]> {
     const list = (await res.json()) as RTCIceServer[];
     if (Array.isArray(list) && list.length > 0) {
       iceServersCache = list;
+      turnSource = 'dedicado';
       return list;
     }
   } catch { /* offline/dev — fall through to the public relay */ }
@@ -369,6 +374,9 @@ function dropGuest(peerId: string) {
 }
 
 export async function hostRoom(code: string): Promise<void> {
+  // Creating a room supersedes any lingering previous session (same
+  // reasoning as joinRoom — never let a zombie reconnect share state).
+  leaveRoom();
   leftVoluntarily = false;
   const ice = await getIceServers();
   return new Promise((resolve, reject) => {
@@ -511,6 +519,12 @@ export async function hostRoom(code: string): Promise<void> {
 /* ─── Guest ────────────────────────────────────────────────────────── */
 
 export function joinRoom(code: string, name: string): Promise<void> {
+  // A USER-INITIATED join supersedes whatever session existed before —
+  // including a zombie reconnect loop to a dead room. Without this, the
+  // old loop kept flipping leftVoluntarily/peer state under the new join
+  // and the device could never enter another room until a full reload.
+  leaveRoom();
+  leftVoluntarily = false;
   return joinRoomInternal(code, name);
 }
 
@@ -558,6 +572,9 @@ function attemptReconnect(attempt: number) {
   destroySession(); // drop the dead peer/conn before rebuilding
   joinRoomInternal(info.code, info.name)
     .then(() => {
+      // The player may have exited while this attempt was in flight —
+      // don't resurrect a session they already left.
+      if (leftVoluntarily) { reconnecting = false; destroySession(); return; }
       reconnecting = false;
       useGameStore.setState({ onlineReconnecting: false });
       // Media calls died with the old connection — drop them and let the
@@ -603,7 +620,7 @@ function attemptJoin(
 
     const timeout = setTimeout(() => fail('timeout'), budgetMs);
 
-    const diagnose = () => (!brokerOpened ? 'sin-broker' : `ice=${lastIceState}`);
+    const diagnose = () => (!brokerOpened ? 'sin-broker' : `ice=${lastIceState},turn=${turnSource}`);
 
     const fail = (reason: string) => {
       clearTimeout(timeout);
@@ -742,7 +759,10 @@ function attemptJoin(
  * exactly the devices (iPhone 17 line) this retry exists to save.
  */
 async function joinRoomInternal(code: string, name: string): Promise<void> {
-  leftVoluntarily = false;
+  // NOTE: leftVoluntarily is NOT reset here — only user-initiated entry
+  // points (joinRoom) may do that. Reconnects must stay cancellable: if
+  // the player exits while a reconnect attempt is in flight, that attempt
+  // has to see leftVoluntarily=true and die instead of resurrecting.
   const ice = await getIceServers();
   try {
     await attemptJoin(code, name, ice, JOIN_PHASE1_MS);

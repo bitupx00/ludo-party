@@ -15,7 +15,7 @@ import type { Color, Piece, Player } from '../game/types.ts';
 import { PLAYER_CONFIG } from '../game/types.ts';
 import { ROTATION_FOR_COLOR, cornerForColor } from '../game/boardRotation.ts';
 import { useVideoStore } from '../store/videoStore.ts';
-import { useSoundStore, playSfx } from '../sound.ts';
+import { useSoundStore, playSfx, startMusic, stopMusic } from '../sound.ts';
 import { isMemeReaction, memePartsOf, memePayload } from '../game/gifs.ts';
 import { memeSoundById, playMemeSound } from '../game/memeSounds.ts';
 import type { MemeFx } from '../game/memeFx.ts';
@@ -143,6 +143,12 @@ export default function Game() {
   // In-game manual: auto-opens for FIRST-TIME players (dismiss anytime —
   // tap outside or ✕ — and it hides ITSELF when your turn arrives so it
   // never blocks play).
+  // Ambient background music while a match is on screen (mute-aware).
+  useEffect(() => {
+    startMusic();
+    return stopMusic;
+  }, []);
+
   const [manualOpen, setManualOpen] = useState(() => {
     try { return !localStorage.getItem(TUTORIAL_SEEN_KEY); } catch { return false; }
   });
